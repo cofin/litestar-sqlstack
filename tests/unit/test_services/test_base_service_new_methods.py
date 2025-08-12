@@ -16,87 +16,89 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-class TestSQLSpecServiceTransactions:
-    """Test transaction management methods in SQLSpecService."""
+async def test_begin_transaction_success(driver: "AsyncpgDriver") -> None:
+    """Test successful transaction begin."""
+    service = SQLSpecService(driver)
+    driver.begin = AsyncMock()
+    
+    await service.begin()
+    
+    driver.begin.assert_called_once()
 
-    async def test_begin_transaction_success(self, driver: AsyncpgDriver) -> None:
-        """Test successful transaction begin."""
-        service = SQLSpecService(driver)
-        driver.begin = AsyncMock()
-        
-        await service.begin()
-        
-        driver.begin.assert_called_once()
 
-    async def test_commit_transaction(self, driver: AsyncpgDriver) -> None:
-        """Test transaction commit."""
-        service = SQLSpecService(driver)
-        driver.commit = AsyncMock()
-        
-        await service.commit()
-        
-        driver.commit.assert_called_once()
+async def test_commit_transaction(driver: "AsyncpgDriver") -> None:
+    """Test transaction commit."""
+    service = SQLSpecService(driver)
+    driver.commit = AsyncMock()
+    
+    await service.commit()
+    
+    driver.commit.assert_called_once()
 
-    async def test_rollback_transaction(self, driver: AsyncpgDriver) -> None:
-        """Test transaction rollback."""
-        service = SQLSpecService(driver)
-        driver.rollback = AsyncMock()
-        
-        await service.rollback()
-        
-        driver.rollback.assert_called_once()
 
-    async def test_begin_transaction_context_manager_success(self, driver: AsyncpgDriver) -> None:
-        """Test successful transaction context manager."""
-        service = SQLSpecService(driver)
-        driver.begin = AsyncMock()
-        driver.commit = AsyncMock()
-        driver.rollback = AsyncMock()
-        
+async def test_rollback_transaction(driver: "AsyncpgDriver") -> None:
+    """Test transaction rollback."""
+    service = SQLSpecService(driver)
+    driver.rollback = AsyncMock()
+    
+    await service.rollback()
+    
+    driver.rollback.assert_called_once()
+
+
+async def test_begin_transaction_context_manager_success(driver: "AsyncpgDriver") -> None:
+    """Test successful transaction context manager."""
+    service = SQLSpecService(driver)
+    driver.begin = AsyncMock()
+    driver.commit = AsyncMock()
+    driver.rollback = AsyncMock()
+    
+    async with service.begin_transaction():
+        # Simulate some work
+        pass
+    
+    driver.begin.assert_called_once()
+    driver.commit.assert_called_once()
+    driver.rollback.assert_not_called()
+
+
+async def test_begin_transaction_context_manager_rollback(driver: "AsyncpgDriver") -> None:
+    """Test transaction context manager with exception rollback."""
+    service = SQLSpecService(driver)
+    driver.begin = AsyncMock()
+    driver.commit = AsyncMock()
+    driver.rollback = AsyncMock()
+    
+    with pytest.raises(ValueError, match="Test exception"):
         async with service.begin_transaction():
-            # Simulate some work
-            pass
-        
-        driver.begin.assert_called_once()
-        driver.commit.assert_called_once()
-        driver.rollback.assert_not_called()
+            raise ValueError("Test exception")
+    
+    driver.begin.assert_called_once()
+    driver.commit.assert_not_called()
+    driver.rollback.assert_called_once()
 
-    async def test_begin_transaction_context_manager_rollback(self, driver: AsyncpgDriver) -> None:
-        """Test transaction context manager with exception rollback."""
-        service = SQLSpecService(driver)
-        driver.begin = AsyncMock()
-        driver.commit = AsyncMock()
-        driver.rollback = AsyncMock()
-        
-        with pytest.raises(ValueError, match="Test exception"):
-            async with service.begin_transaction():
-                raise ValueError("Test exception")
-        
-        driver.begin.assert_called_once()
-        driver.commit.assert_not_called()
-        driver.rollback.assert_called_once()
 
-    async def test_nested_transaction_context_usage(self, driver: AsyncpgDriver) -> None:
-        """Test using transaction context for actual database operations."""
-        service = SQLSpecService(driver)
-        driver.begin = AsyncMock()
-        driver.commit = AsyncMock() 
-        driver.rollback = AsyncMock()
-        
-        # Mock some database operations
-        driver.execute = AsyncMock()
-        
-        async with service.begin_transaction():
-            await driver.execute("INSERT INTO test_table (name) VALUES ($1)", "test")
-            await driver.execute("UPDATE test_table SET name = $1 WHERE id = $2", "updated", 1)
-        
-        # Verify transaction methods were called
-        driver.begin.assert_called_once()
-        driver.commit.assert_called_once()
-        driver.rollback.assert_not_called()
-        
-        # Verify operations were called
-        assert driver.execute.call_count == 2
+async def test_nested_transaction_context_usage(driver: "AsyncpgDriver") -> None:
+    """Test using transaction context for actual database operations."""
+    service = SQLSpecService(driver)
+    driver.begin = AsyncMock()
+    driver.commit = AsyncMock() 
+    driver.rollback = AsyncMock()
+    
+    # Mock some database operations
+    driver.execute = AsyncMock()
+    
+    async with service.begin_transaction():
+        await driver.execute("INSERT INTO test_table (name) VALUES ($1)", "test")
+        await driver.execute("UPDATE test_table SET name = $1 WHERE id = $2", "updated", 1)
+    
+    # Verify transaction methods were called
+    driver.begin.assert_called_once()
+    driver.commit.assert_called_once()
+    driver.rollback.assert_not_called()
+    
+    # Verify operations were called
+    assert driver.execute.call_count == 2
 
 
 class TestWithOnlySelectMethod:
