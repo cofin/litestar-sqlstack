@@ -13,7 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from litestar.data_extractors import RequestExtractorField
 from litestar.utils.module_loader import module_to_os_path
@@ -29,45 +29,45 @@ if TYPE_CHECKING:
 
 DEFAULT_MODULE_NAME = "sqlstack"
 BASE_DIR: Final[Path] = module_to_os_path(DEFAULT_MODULE_NAME)
+STATIC_DIR = Path(BASE_DIR / "server" / "public")
+TEMPLATE_DIR = Path(BASE_DIR / "server" / "templates")
 
 
 @dataclass
 class DatabaseSettings:
     ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", False))
-    """Enable SQLAlchemy engine logs."""
+    """Enable SQLSpec query logs."""
+    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", False))
+    """Enable SQLSpec connection pool logs."""
+    POOL_DISABLED: bool = field(default_factory=get_env("DATABASE_POOL_DISABLED", False))
+    """Disable SQLSpec pool configuration."""
     POOL_MIN_SIZE: int = field(default_factory=get_env("DATABASE_POOL_MIN_SIZE", 1))
-    """Min size for SQLAlchemy connection pool"""
+    """Min size for SQLSpec connection pool"""
     POOL_MAX_SIZE: int = field(default_factory=get_env("DATABASE_POOL_MAX_SIZE", 10))
-    """Max size for SQLAlchemy connection pool"""
+    """Max size for SQLSpec connection pool"""
     POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
     """Time in seconds for timing connections out of the connection pool."""
+    POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
+    """Amount of time to wait before recycling connections."""
+    POOL_PRE_PING: bool = field(default_factory=get_env("DATABASE_PRE_POOL_PING", False))
+    """Optionally ping database before fetching a session from the connection pool."""
     URL: str = field(default_factory=get_env("DATABASE_URL", "postgres://app:app@localhost:15432/app"))
-    """SQLAlchemy Database URL."""
+    """SQLSpec Database URL."""
     MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations"))
-    """The path to the `alembic` database migrations."""
+    """The path to database migrations."""
     MIGRATION_DDL_VERSION_TABLE: str = field(
         default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version")
     )
-    """The name to use for the `alembic` versions table name."""
+    """The name to use for the migrations versions table name."""
     FIXTURE_PATH: str = field(default_factory=get_env("DATABASE_FIXTURE_PATH", f"{BASE_DIR}/db/fixtures"))
     """The path to JSON fixture files to load into tables."""
 
 
 @dataclass
-class AppSettings:
-    """Application configuration"""
+class ServerSettings:
+    """Server configurations."""
 
-    NAME: str = field(default_factory=lambda: "Litestar Fullstack Template")
-    """Application name."""
-    VERSION: str = field(default=f"v{current_version}")
-    """Current application"""
-    CONTACT_NAME: str = field(default="Admin")
-    """Application contact name"""
-    CONTACT_EMAIL: str = field(default="admin@localhost")
-    """Application contact email"""
-    URL: str = field(default_factory=get_env("APP_URL", "http://localhost:8000"))
-    """The frontend base URL"""
-    APP_LOC: str = "dma.asgi:create_app"
+    APP_LOC: str = "sqlstack.asgi:create_app"
     """Path to app executable or factory."""
     HOST: str = field(default_factory=get_env("LITESTAR_HOST", "0.0.0.0"))  # noqa: S104
     """Server network host."""
@@ -79,6 +79,66 @@ class AppSettings:
     """Turn on hot reloading."""
     RELOAD_DIRS: list[str] = field(default_factory=get_env("LITESTAR_RELOAD_DIRS", [f"{BASE_DIR}"]))
     """Directories to watch for reloading."""
+
+
+@dataclass
+class StorageSettings:
+    """Storage configurations."""
+
+    PUBLIC_STORAGE_KEY: str = field(default_factory=get_env("PUBLIC_STORAGE_KEY", "public"))
+    """The key to the public storage directory."""
+    PUBLIC_STORAGE_URI: str = field(default_factory=get_env("PUBLIC_STORAGE_PATH_URI", f"{BASE_DIR}/storage/public"))
+    """The path to the public storage directory."""
+    PUBLIC_STORAGE_OPTIONS: dict[str, Any] = field(default_factory=get_env("PUBLIC_STORAGE_OPTIONS", {}))
+    """The options to use for the public storage directory."""
+    PRIVATE_STORAGE_KEY: str = field(default_factory=get_env("PRIVATE_STORAGE_KEY", "private"))
+    """The key to the private storage directory."""
+    PRIVATE_STORAGE_URI: str = field(default_factory=get_env("PRIVATE_STORAGE_PATH_URI", f"{BASE_DIR}/storage/private"))
+    """The path to the private storage directory."""
+    PRIVATE_STORAGE_OPTIONS: dict[str, Any] = field(default_factory=get_env("PRIVATE_STORAGE_OPTIONS", {}))
+    """The options to use for the private storage directory."""
+
+
+@dataclass
+class EmailSettings:
+    """Email configuration"""
+
+    ENABLED: bool = field(default_factory=get_env("EMAIL_ENABLED", False))
+    """Whether email sending is enabled."""
+    SMTP_HOST: str = field(default_factory=get_env("EMAIL_SMTP_HOST", "localhost"))
+    """SMTP server hostname."""
+    SMTP_PORT: int = field(default_factory=get_env("EMAIL_SMTP_PORT", 587, int))
+    """SMTP server port."""
+    SMTP_USER: str = field(default_factory=get_env("EMAIL_SMTP_USER", ""))
+    """SMTP username."""
+    SMTP_PASSWORD: str = field(default_factory=get_env("EMAIL_SMTP_PASSWORD", ""))
+    """SMTP password."""
+    USE_TLS: bool = field(default_factory=get_env("EMAIL_USE_TLS", True))
+    """Use TLS for SMTP connection."""
+    USE_SSL: bool = field(default_factory=get_env("EMAIL_USE_SSL", False))
+    """Use SSL for SMTP connection."""
+    FROM_EMAIL: str = field(default_factory=get_env("EMAIL_FROM_ADDRESS", "noreply@localhost"))
+    """Default from email address."""
+    FROM_NAME: str = field(default_factory=get_env("EMAIL_FROM_NAME", "Litestar App"))
+    """Default from name."""
+    TIMEOUT: int = field(default_factory=get_env("EMAIL_TIMEOUT", 30, int))
+    """SMTP connection timeout in seconds."""
+
+
+@dataclass
+class AppSettings:
+    """Application configuration"""
+
+    NAME: str = field(default_factory=lambda: "Litestar SQLStack Template")
+    """Application name."""
+    VERSION: str = field(default=f"v{current_version}")
+    """Current application"""
+    CONTACT_NAME: str = field(default="Admin")
+    """Application contact name"""
+    CONTACT_EMAIL: str = field(default="admin@localhost")
+    """Application contact email"""
+    URL: str = field(default_factory=get_env("APP_URL", "http://localhost:8000"))
+    """The frontend base URL"""
     DEBUG: bool = field(default_factory=get_env("LITESTAR_DEBUG", False))
     """Run `Litestar` with `debug=True`."""
     SECRET_KEY: str = field(
@@ -95,8 +155,16 @@ class AppSettings:
     """CSRF Header Name"""
     CSRF_COOKIE_SECURE: bool = field(default_factory=get_env("CSRF_COOKIE_SECURE", False))
     """CSRF Secure Cookie"""
+    STATIC_DIR: Path = field(default_factory=get_env("STATIC_DIR", STATIC_DIR))
+    """Default URL where static assets are located."""
+    STATIC_URL: str = field(default_factory=get_env("STATIC_URL", "/web/"))
+    """URL Location for Static assets."""
     BASE_URL: str | None = None
     """Fully qualified path to optional use for URL generation."""
+    DEV_MODE: bool = field(default_factory=get_env("DEV_MODE", False))
+    """Toggle dev mode flag.  This can be used enable extra processes during development."""
+    ENABLE_INSTRUMENTATION: bool = False
+    """Enable OpenTelemetry instrumentation"""
     GOOGLE_OAUTH2_CLIENT_ID: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_ID", ""))
     """Google Client ID"""
     GOOGLE_OAUTH2_CLIENT_SECRET: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_SECRET", ""))
@@ -185,7 +253,10 @@ class LogSettings:
 class Settings:
     app: AppSettings = field(default_factory=AppSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
+    server: ServerSettings = field(default_factory=ServerSettings)
     log: LogSettings = field(default_factory=LogSettings)
+    storage: StorageSettings = field(default_factory=StorageSettings)
+    email: EmailSettings = field(default_factory=EmailSettings)
 
     @classmethod
     @lru_cache(maxsize=1, typed=True)
@@ -203,12 +274,15 @@ class Settings:
             load_dotenv(env_file, override=True)
         try:
             db: DatabaseSettings = DatabaseSettings()
+            server: ServerSettings = ServerSettings()
             app: AppSettings = AppSettings()
             log: LogSettings = LogSettings()
+            storage: StorageSettings = StorageSettings()
+            email: EmailSettings = EmailSettings()
         except Exception as e:  # noqa: BLE001
             logger.fatal("Could not load settings. %s", e)
             sys.exit(1)
-        return Settings(app=app, db=db, log=log)
+        return Settings(app=app, db=db, server=server, log=log, storage=storage, email=email)
 
 
 def get_settings(dotenv_filename: str = ".env") -> Settings:

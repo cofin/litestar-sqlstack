@@ -1,22 +1,42 @@
 from sqlstack.schemas._accounts import (
     AccountLogin,
     AccountRegister,
+    OauthAccount,
     PasswordUpdate,
     PasswordVerify,
     ProfileUpdate,
     User,
     UserCreate,
+    UserRole,
     UserRoleAdd,
     UserRoleRevoke,
+    UserTeam,
     UserUpdate,
 )
-from sqlstack.schemas._base import BaseSchema, BaseStruct, CamelizedBaseSchema, CamelizedBaseStruct, Message
+from sqlstack.schemas._email_verification import (
+    EmailVerificationConfirm,
+    EmailVerificationRequest,
+    EmailVerificationResponse,
+    EmailVerificationStatusResponse,
+    EmailVerificationToken,
+)
+from sqlstack.schemas._password_reset import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    PasswordResetToken,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+    ValidateResetTokenRequest,
+    ValidateResetTokenResponse,
+)
 from sqlstack.schemas._roles import Role, RoleCreate, RoleUpdate
 from sqlstack.schemas._system import SystemHealth
 from sqlstack.schemas._tags import Tag, TagCreate, TagUpdate
 from sqlstack.schemas._teams import (
     Team,
     TeamCreate,
+    TeamFile,
+    TeamFileUpload,
     TeamInvitation,
     TeamInvitationCreate,
     TeamMember,
@@ -24,6 +44,7 @@ from sqlstack.schemas._teams import (
     TeamTag,
     TeamUpdate,
 )
+from sqlstack.schemas.base import BaseSchema, BaseStruct, CamelizedBaseSchema, CamelizedBaseStruct, Message
 
 __all__ = (
     "AccountLogin",
@@ -32,10 +53,21 @@ __all__ = (
     "BaseStruct",
     "CamelizedBaseSchema",
     "CamelizedBaseStruct",
+    "EmailVerificationConfirm",
+    "EmailVerificationRequest",
+    "EmailVerificationResponse",
+    "EmailVerificationStatusResponse",
+    "EmailVerificationToken",
+    "ForgotPasswordRequest",
+    "ForgotPasswordResponse",
     "Message",
+    "OauthAccount",
+    "PasswordResetToken",
     "PasswordUpdate",
     "PasswordVerify",
     "ProfileUpdate",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse",
     "Role",
     "RoleCreate",
     "RoleUpdate",
@@ -45,6 +77,8 @@ __all__ = (
     "TagUpdate",
     "Team",
     "TeamCreate",
+    "TeamFile",
+    "TeamFileUpload",
     "TeamInvitation",
     "TeamInvitationCreate",
     "TeamMember",
@@ -53,7 +87,11 @@ __all__ = (
     "TeamUpdate",
     "User",
     "UserCreate",
+    "UserRole",
     "UserRoleAdd",
     "UserRoleRevoke",
+    "UserTeam",
     "UserUpdate",
+    "ValidateResetTokenRequest",
+    "ValidateResetTokenResponse",
 )

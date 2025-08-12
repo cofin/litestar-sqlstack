@@ -1,4 +1,4 @@
-# ruff: noqa: ARG001, RUF029
+# ruff: noqa: ARG001
 from __future__ import annotations
 
 from typing import Any

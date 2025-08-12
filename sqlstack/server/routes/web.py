@@ -5,7 +5,7 @@ from litestar import Controller, MediaType, Response, get
 from litestar.exceptions import NotFoundException
 from litestar.status_codes import HTTP_200_OK
 
-from app.lib.settings import STATIC_DIR
+from sqlstack.lib.settings import STATIC_DIR
 
 
 class WebController(Controller):

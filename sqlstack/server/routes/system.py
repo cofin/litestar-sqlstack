@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Literal, TypeVar
 
 import structlog
 from litestar import Controller, MediaType, get
+from litestar.di import Provide
 from litestar.response import Response
-from sqlalchemy import text
 
-from app import schemas as s
+from sqlstack import schemas as s
+from sqlstack.server import deps
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlstack.services._base import BaseService
 
 logger = structlog.get_logger()
 OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
@@ -18,6 +19,9 @@ OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
 
 class SystemController(Controller):
     tags = ["System"]
+    dependencies = {
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
+    }
 
     @get(
         operation_id="SystemHealth",
@@ -25,20 +29,21 @@ class SystemController(Controller):
         path="/health",
         summary="Health Check",
     )
-    async def check_system_health(self, db_session: AsyncSession) -> Response[s.SystemHealth]:
+    async def check_system_health(self, users_service: BaseService) -> Response[s.SystemHealth]:
         """Check database available and returns app config info.
 
         Args:
-            db_session: The database session.
+            users_service: The users service.
 
         Returns:
             The response object.
         """
         db_status: Literal["online", "offline"]
         try:
-            await db_session.execute(text("select 1"))
+            # Test database connectivity via service driver
+            await users_service.driver.select_one_or_none("SELECT 1 as test", schema_type=dict)
             db_status = "online"
-        except ConnectionRefusedError:
+        except (ConnectionError, OSError):
             db_status = "offline"
 
         healthy = db_status == "online"

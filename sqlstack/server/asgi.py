@@ -15,6 +15,6 @@ def create_app() -> Litestar:
 
     from litestar import Litestar
 
-    from app.server.core import ApplicationCore
+    from sqlstack.server.core import ApplicationCore
 
     return Litestar(plugins=[ApplicationCore()])

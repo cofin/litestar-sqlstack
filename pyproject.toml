@@ -3,9 +3,9 @@ authors = [{ name = "Cody Fincher", email = "cody@litestar.dev" }]
 dependencies = [
     "httpx-oauth>=0.16.1",
     "litestar-granian[uvloop]>=0.12.2",
-    "litestar[structlog,jwt]>=2.15.2",
+    "litestar[structlog,jwt,jinja]>=2.15.2",
     "pwdlib[argon2]>=0.2.1",
-    "sqlspec[asyncpg,duckdb,performance,polars] @ file:///home/cody/code/litestar/sqlspec",
+    "sqlspec[asyncpg,duckdb,performance,polars,mypyc]",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
 name = "sqlstack"
@@ -191,6 +191,7 @@ ignore = [
     "PLC2701",
     "PLW3201",
     "PLR6301",
+    "DOC201",
 ]
 select = ["ALL"]
 # Allow unused variables when underscore-prefixed.
@@ -276,3 +277,6 @@ reportUnusedFunction = false
 strict = ["sqlstack/**/*"]
 venv = ".venv"
 venvPath = "."
+
+# [tool.uv.sources]
+# sqlspec = { path = ".sqlspec", editable = true }

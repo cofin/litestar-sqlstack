@@ -55,7 +55,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from sqlstack import schemas as s
         from sqlstack.__metadata__ import __version__
         from sqlstack.lib.settings import get_settings
-        from sqlstack.server import plugins, security
+        from sqlstack.server import plugins, routes, security
         from sqlstack.services import (
             RoleService,
         )
@@ -86,7 +86,21 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         )
 
         # routes
-        app_config.route_handlers.extend()
+        app_config.route_handlers.extend(
+            [
+                routes.AccessController,
+                routes.ProfileController,
+                routes.RoleController,
+                routes.SystemController,
+                routes.TagController,
+                routes.TeamController,
+                routes.TeamInvitationController,
+                routes.TeamMemberController,
+                routes.UserController,
+                routes.UserRoleController,
+                routes.WebController,
+            ]
+        )
         # signatures
         app_config.signature_namespace.update(
             {

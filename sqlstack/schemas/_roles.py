@@ -3,7 +3,7 @@ from uuid import UUID
 
 import msgspec
 
-from sqlstack.schemas._base import CamelizedBaseStruct
+from sqlstack.schemas.base import CamelizedBaseStruct
 
 __all__ = (
     "Role",

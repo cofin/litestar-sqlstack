@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
-from uuid import UUID
 
 from litestar import Controller, delete, get, patch, post
+from litestar.di import Provide
 from litestar.exceptions import HTTPException
 
-from app import schemas as s
-from app.db import models as m
-from app.lib.constants import DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE
-from app.lib.deps import create_service_dependencies
-from app.server.security import requires_active_user, requires_superuser
-from app.services import RoleService
+from sqlstack.server import deps
+from sqlstack.server.security import requires_active_user, requires_superuser
 
 if TYPE_CHECKING:
-    from advanced_alchemy.filters import FilterTypes
-    from advanced_alchemy.service import OffsetPagination
-    from litestar.params import Dependency, Parameter
+    from uuid import UUID
+
+    from litestar.params import Parameter
+
+    from sqlstack import schemas as s
+    from sqlstack.services import RoleService
+    from sqlstack.services._base import OffsetPagination
 
 
 class RoleController(Controller):
@@ -24,35 +24,25 @@ class RoleController(Controller):
 
     path = "/api/roles"
     guards = [requires_active_user, requires_superuser]
-    dependencies = create_service_dependencies(
-        RoleService,
-        key="roles_service",
-        load=[m.Role.users],
-        filters={
-            "id_filter": UUID,
-            "sort_field": "name",
-            "search": "name,slug",
-        },
-    )
+    dependencies = {
+        "roles_service": Provide(deps.provide_roles_service, sync_to_thread=False),
+    }
     tags = ["Roles"]
 
     @get(operation_id="ListRoles")
     async def list_roles(
         self,
         roles_service: RoleService,
-        filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)],
     ) -> OffsetPagination[s.Role]:
         """List roles.
 
         Args:
-            filters: The filters to apply to the list of roles.
             roles_service: The role service.
 
         Returns:
             The list of roles.
         """
-        results, total = await roles_service.list_and_count(*filters)
-        return roles_service.to_schema(data=results, total=total, filters=filters, schema_type=s.Role)
+        return await roles_service.list_with_count()
 
     @get(operation_id="GetRole", path="/{role_id:uuid}")
     async def get_role(
@@ -69,8 +59,7 @@ class RoleController(Controller):
         Returns:
             The role.
         """
-        db_obj = await roles_service.get(role_id)
-        return roles_service.to_schema(db_obj, schema_type=s.Role)
+        return await roles_service.get_one(role_id)
 
     @post(operation_id="CreateRole", path="/{role_id:uuid}")
     async def create_role(self, roles_service: RoleService, data: s.RoleCreate) -> s.Role:
@@ -83,8 +72,7 @@ class RoleController(Controller):
         Returns:
             The created role.
         """
-        db_obj = await roles_service.create(data)
-        return roles_service.to_schema(db_obj, schema_type=s.Role)
+        return await roles_service.create(data)
 
     @patch(operation_id="UpdateRole", path="/{role_id:uuid}")
     async def update_role(
@@ -106,10 +94,9 @@ class RoleController(Controller):
         Returns:
             The updated role.
         """
-        if data.name in {DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE}:
+        if hasattr(data, "name") and data.name in {"User", "Superuser"}:
             raise HTTPException(status_code=400, detail="Cannot update default roles")
-        db_obj = await roles_service.update(item_id=role_id, data=data)
-        return roles_service.to_schema(db_obj, schema_type=s.Role)
+        return await roles_service.update(role_id, data)
 
     @delete(operation_id="DeleteRole", path="/{role_id:uuid}")
     async def delete_role(
@@ -126,7 +113,7 @@ class RoleController(Controller):
         Raises:
             HTTPException: If the role is a default role.
         """
-        db_obj = await roles_service.get(role_id)
-        if db_obj.name in {DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE}:
+        role = await roles_service.get_one(role_id)
+        if role.name in {"User", "Superuser"}:
             raise HTTPException(status_code=400, detail="Cannot delete default roles")
-        _ = await roles_service.delete(role_id)
+        await roles_service.delete(role_id)

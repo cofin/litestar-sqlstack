@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-from advanced_alchemy.exceptions import IntegrityError
 from litestar import Controller, delete, post
 from litestar.di import Provide
+from litestar.exceptions import HTTPException
 from litestar.params import Parameter
 from litestar.status_codes import HTTP_202_ACCEPTED
 
-from app import schemas as s
-from app.lib.deps import create_service_provider
-from app.server import deps, security
-from app.services import RoleService, UserRoleService, UserService
+from sqlstack import schemas as s
+from sqlstack.server import deps, security
+
+if TYPE_CHECKING:
+    from sqlstack.services import RoleService, UserRoleService, UserService
 
 
 class UserRoleController(Controller):
@@ -22,9 +23,9 @@ class UserRoleController(Controller):
     tags = ["User Account Roles"]
     guards = [security.requires_superuser]
     dependencies = {
-        "user_roles_service": Provide(create_service_provider(UserRoleService)),
-        "roles_service": Provide(create_service_provider(RoleService)),
-        "users_service": Provide(deps.provide_users_service),
+        "user_roles_service": Provide(deps.provide_user_role_service, sync_to_thread=False),
+        "roles_service": Provide(deps.provide_role_service, sync_to_thread=False),
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
     }
 
     @post(operation_id="AssignUserRole", path="/api/users/roles")
@@ -85,5 +86,5 @@ class UserRoleController(Controller):
                 removed_role = True
         if not removed_role:
             msg = "User did not have role assigned."
-            raise IntegrityError(msg)
+            raise HTTPException(status_code=400, detail=msg)
         return s.Message(message=f"Removed the '{role_slug}' role from User {user_obj.email}.")

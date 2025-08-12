@@ -4,20 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from advanced_alchemy.exceptions import IntegrityError
 from litestar import Controller, delete, post
 from litestar.di import Provide
+from litestar.exceptions import HTTPException
 from litestar.params import Parameter
 from litestar.status_codes import HTTP_202_ACCEPTED
-from sqlalchemy.orm import contains_eager, selectinload
 
-from app import schemas as s
-from app.db import models as m
-from app.lib.deps import create_service_provider
-from app.services import TeamMemberService, TeamService, UserService
+from sqlstack.server import deps
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    from sqlstack import schemas as s
+    from sqlstack.services import TeamMemberService, TeamService, UserService
 
 
 class TeamMemberController(Controller):
@@ -25,15 +24,9 @@ class TeamMemberController(Controller):
 
     tags = ["Team Members"]
     dependencies = {
-        "teams_service": create_service_provider(TeamService, load=[m.Team.tags, m.Team.members]),
-        "team_members_service": create_service_provider(
-            TeamMemberService,
-            load=[
-                selectinload(m.TeamMember.team).options(contains_eager(m.Team.tags)),
-                selectinload(m.TeamMember.user),
-            ],
-        ),
-        "users_service": Provide(create_service_provider(UserService)),
+        "teams_service": Provide(deps.provide_team_service, sync_to_thread=False),
+        "team_members_service": Provide(deps.provide_team_member_service, sync_to_thread=False),
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
     }
 
     @post(operation_id="AddMemberToTeam", path="/api/teams/{team_id:uuid}/members")
@@ -58,15 +51,15 @@ class TeamMemberController(Controller):
         Returns:
             Team
         """
-        team_obj = await teams_service.get(team_id)
-        user_obj = await users_service.get_one(email=data.user_name)
-        is_member = any(membership.team.id == team_id for membership in user_obj.teams)
-        if is_member:
-            msg = "User is already a member of the team."
-            raise IntegrityError(msg)
-        team_obj.members.append(m.TeamMember(user_id=user_obj.id, role=m.TeamRoles.MEMBER))
-        team_obj = await teams_service.update(item_id=team_id, data=team_obj)
-        return teams_service.to_schema(team_obj, schema_type=s.Team)
+        # Validate team exists
+        await teams_service.get_one(team_id)
+        user = await users_service.get_by_email(data.user_name)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Add member to team using team service
+        await teams_service.add_member(team_id, user.id, "MEMBER")
+        return await teams_service.get_one(team_id)
 
     @delete(
         operation_id="RemoveMemberFromTeam", path="/api/teams/{team_id:uuid}/members", status_code=HTTP_202_ACCEPTED
@@ -94,14 +87,10 @@ class TeamMemberController(Controller):
         Returns:
             Team
         """
-        user_obj = await users_service.get_one(email=data.user_name)
-        removed_member = False
-        for membership in user_obj.teams:
-            if membership.user_id == user_obj.id:
-                removed_member = True
-                _ = await team_members_service.delete(membership.id)
-        if not removed_member:
-            msg = "User is not a member of this team."
-            raise IntegrityError(msg)
-        team_obj = await teams_service.get(team_id)
-        return teams_service.to_schema(team_obj, schema_type=s.Team)
+        user = await users_service.get_by_email(data.user_name)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Remove member from team using team service
+        await teams_service.remove_member(team_id, user.id)
+        return await teams_service.get_one(team_id)

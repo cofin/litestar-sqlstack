@@ -3,33 +3,29 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
-from uuid import UUID
 
-from advanced_alchemy.service import FilterTypeT  # noqa: TC002
 from litestar import Controller, delete, get, patch, post
-from sqlalchemy import select
+from litestar.di import Provide
 
-from app import schemas as s
-from app.db import models as m
-from app.lib.deps import create_service_dependencies
-from app.server import security
-from app.services._teams import TeamService
+from sqlstack import schemas as s
+from sqlstack.server import deps, security
 
 if TYPE_CHECKING:
-    from advanced_alchemy.service.pagination import OffsetPagination
-    from litestar.params import Dependency, Parameter
+    from uuid import UUID
+
+    from litestar.params import Parameter
+
+    from sqlstack.services import TeamService
+    from sqlstack.services._base import OffsetPagination
 
 
 class TeamController(Controller):
     """Teams."""
 
     tags = ["Teams"]
-    dependencies = create_service_dependencies(
-        TeamService,
-        key="teams_service",
-        load=[m.Team.tags, m.Team.members],
-        filters={"id_filter": UUID},
-    )
+    dependencies = {
+        "teams_service": Provide(deps.provide_teams_service, sync_to_thread=False),
+    }
 
     guards = [security.requires_active_user]
 
@@ -37,28 +33,21 @@ class TeamController(Controller):
     async def list_teams(
         self,
         teams_service: TeamService,
-        current_user: m.User,
-        filters: Annotated[list[FilterTypeT], Dependency(skip_validation=True)],
+        current_user: s.User,
     ) -> OffsetPagination[s.Team]:
-        """List teams that your account can access..
+        """List teams that your account can access.
 
         Args:
             teams_service: Team Service
             current_user: Current User
-            filters: Filters
 
         Returns:
             OffsetPagination[s.Team]
         """
-        if not teams_service.can_view_all(current_user):
-            filters.append(
-                m.Team.id.in_(select(m.TeamMember.team_id).where(m.TeamMember.user_id == current_user.id)),  # type: ignore[arg-type]
-            )
-        results, total = await teams_service.list_and_count(*filters)
-        return teams_service.to_schema(results, total, filters, schema_type=s.Team)
+        return await teams_service.list_with_count(user=current_user)
 
     @post(operation_id="CreateTeam", path="/api/teams")
-    async def create_team(self, teams_service: TeamService, current_user: m.User, data: s.TeamCreate) -> s.Team:
+    async def create_team(self, teams_service: TeamService, current_user: s.User, data: s.TeamCreate) -> s.Team:
         """Create a new team.
 
         Args:
@@ -69,10 +58,15 @@ class TeamController(Controller):
         Returns:
             s.Team
         """
-        obj = data.to_dict()
-        obj.update({"owner_id": current_user.id, "owner": current_user})
-        db_obj = await teams_service.create(obj)
-        return teams_service.to_schema(db_obj, schema_type=s.Team)
+        # Add owner_id to the team creation data
+        team_data = s.TeamCreate(
+            name=data.name,
+            description=data.description,
+            slug=data.slug,
+            owner_id=current_user.id,
+            tags=data.tags if hasattr(data, "tags") else [],
+        )
+        return await teams_service.create(team_data)
 
     @get(operation_id="GetTeam", guards=[security.requires_team_membership], path="/api/teams/{team_id:uuid}")
     async def get_team(
@@ -89,8 +83,7 @@ class TeamController(Controller):
         Returns:
             s.Team
         """
-        db_obj = await teams_service.get(team_id)
-        return teams_service.to_schema(db_obj, schema_type=s.Team)
+        return await teams_service.get_one(team_id)
 
     @patch(operation_id="UpdateTeam", guards=[security.requires_team_admin], path="/api/teams/{team_id:uuid}")
     async def update_team(
@@ -109,11 +102,7 @@ class TeamController(Controller):
         Returns:
             s.Team
         """
-        db_obj = await teams_service.update(
-            item_id=team_id,
-            data=data.to_dict(),
-        )
-        return teams_service.to_schema(db_obj, schema_type=s.Team)
+        return await teams_service.update(team_id, data)
 
     @delete(operation_id="DeleteTeam", guards=[security.requires_team_admin], path="/api/teams/{team_id:uuid}")
     async def delete_team(
@@ -127,4 +116,4 @@ class TeamController(Controller):
             teams_service: Team Service
             team_id: Team ID
         """
-        _ = await teams_service.delete(team_id)
+        await teams_service.delete(team_id)

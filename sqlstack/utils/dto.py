@@ -4,14 +4,13 @@ from typing import TYPE_CHECKING, Any
 
 from litestar.dto import DataclassDTO, dto_field
 from litestar.dto.config import DTOConfig
-from litestar.plugins.sqlalchemy import SQLAlchemyDTO
 
 if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
 
     from litestar.dto import RenameStrategy
 
-__all__ = ("DTOConfig", "DataclassDTO", "SQLAlchemyDTO", "config", "dto_field")
+__all__ = ("DTOConfig", "DataclassDTO", "config", "dto_field")
 
 
 def config(

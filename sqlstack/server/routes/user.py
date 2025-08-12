@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
-from uuid import UUID
 
 from litestar import Controller, delete, get, patch, post
 from litestar.di import Provide
-from litestar.params import Dependency, Parameter
+from litestar.params import Parameter
 
-from app import schemas as s
-from app.lib.deps import create_filter_dependencies
-from app.server import deps, security
+from sqlstack.server import deps, security
 
 if TYPE_CHECKING:
-    from advanced_alchemy.filters import FilterTypes
-    from advanced_alchemy.service import OffsetPagination
+    from uuid import UUID
 
-    from app.services import UserService
+    from sqlstack import schemas as s
+    from sqlstack.services import UserService
+    from sqlstack.services._base import OffsetPagination
 
 
 class UserController(Controller):
@@ -27,35 +25,20 @@ class UserController(Controller):
     tags = ["User Accounts"]
     guards = [security.requires_superuser]
     dependencies = {
-        "users_service": Provide(deps.provide_users_service),
-    } | create_filter_dependencies(
-        {
-            "id_filter": UUID,
-            "search": "name,email",
-            "pagination_type": "limit_offset",
-            "pagination_size": 20,
-            "created_at": True,
-            "updated_at": True,
-            "sort_field": "name",
-            "sort_order": "asc",
-        },
-    )
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
+    }
 
     @get(operation_id="ListUsers")
-    async def list_users(
-        self, users_service: UserService, filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)]
-    ) -> OffsetPagination[s.User]:
+    async def list_users(self, users_service: UserService) -> OffsetPagination[s.User]:
         """List users.
 
         Args:
-            filters: The filters to apply to the list of users.
             users_service: The user service.
 
         Returns:
             The list of users.
         """
-        results, total = await users_service.list_and_count(*filters)
-        return users_service.to_schema(results, total, filters, schema_type=s.User)
+        return await users_service.list_with_count()
 
     @get(operation_id="GetUser", path="/{user_id:uuid}")
     async def get_user(
@@ -72,8 +55,7 @@ class UserController(Controller):
         Returns:
             The user.
         """
-        db_obj = await users_service.get(user_id)
-        return users_service.to_schema(db_obj, schema_type=s.User)
+        return await users_service.get_one(user_id)
 
     @post(operation_id="CreateUser")
     async def create_user(self, users_service: UserService, data: s.UserCreate) -> s.User:
@@ -86,8 +68,7 @@ class UserController(Controller):
         Returns:
             The created user.
         """
-        db_obj = await users_service.create(data)
-        return users_service.to_schema(db_obj, schema_type=s.User)
+        return await users_service.create(data)
 
     @patch(operation_id="UpdateUser", path="/{user_id:uuid}")
     async def update_user(
@@ -106,8 +87,7 @@ class UserController(Controller):
         Returns:
             The updated user.
         """
-        db_obj = await users_service.update(item_id=user_id, data=data)
-        return users_service.to_schema(db_obj, schema_type=s.User)
+        return await users_service.update(user_id, data)
 
     @delete(operation_id="DeleteUser", path="/{user_id:uuid}")
     async def delete_user(
@@ -121,4 +101,4 @@ class UserController(Controller):
             user_id: The ID of the user to delete.
             users_service: The user service.
         """
-        _ = await users_service.delete(user_id)
+        await users_service.delete(user_id)

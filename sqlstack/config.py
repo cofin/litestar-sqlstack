@@ -43,7 +43,15 @@ cors = CORSConfig(allow_origins=cast("list[str]", settings.app.ALLOWED_CORS_ORIG
 
 problem_details = ProblemDetailsConfig(enable_for_all_http_exceptions=True)
 
-db = AsyncpgConfig(dsn=settings.db.URL, min_size=settings.db.POOL_MIN_SIZE, max_size=settings.db.POOL_MAX_SIZE)
+db = AsyncpgConfig(
+    pool_config={
+        "dsn": settings.db.URL,
+        "min_size": settings.db.POOL_MIN_SIZE,
+        "max_size": settings.db.POOL_MAX_SIZE,
+        "timeout": settings.db.POOL_TIMEOUT,
+        "command_timeout": settings.db.POOL_RECYCLE,
+    }
+)
 sqlspec = SQLSpec(config=DatabaseConfig(commit_mode="autocommit", config=db))
 
 log = StructlogConfig(

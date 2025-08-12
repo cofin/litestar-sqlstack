@@ -1,132 +1,151 @@
 from __future__ import annotations
 
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from sqlspec import sql
-from sqlspec.typing import schema_dump
+from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas
-from sqlstack.services._base import AsyncpgService, OffsetPagination, StatementFilter
+from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 
-class RoleService(AsyncpgService):
-    """Handles database operations for roles using SQLSpec's sql builder API.
-
-    This service demonstrates best practices:
-    - Using where_eq() instead of tuple syntax for clearer queries
-    - Using built-in schema_type parameter instead of to_schema()
-    - Using service helper methods instead of driver.execute()
-    - Using paginate() helper for consistent pagination
-    """
+class RoleService(SQLSpecService):
+    """Handles database operations for roles using SQLSpec's sql builder API."""
 
     async def create(self, data: schemas.RoleCreate) -> schemas.Role:
         """Create a new role."""
-        stmt = sql.insert("role").values(**schema_dump(data, exclude_unset=True)).returning("*")
-        # Use select_one with schema_type for automatic conversion
-        return await self.select_one(stmt, schema_type=schemas.Role)
+        role_data = schema_dump(data, exclude_unset=True)
+        # Auto-generate slug from name if not provided
+        if "slug" not in role_data:
+            role_data["slug"] = role_data["name"].lower().replace(" ", "-")
+
+        return await self.driver.select_one(
+            sql.insert("role").values_from_dict(role_data).returning("id", "slug", "name", "created_at", "updated_at"),
+            schema_type=schemas.Role,
+        )
 
     async def update(self, role_id: UUID, data: schemas.RoleUpdate) -> schemas.Role:
         """Update an existing role."""
-        return await self.execute(
-            sql.update("role").set(**schema_dump(data, exclude_unset=True)).where_eq("id", role_id).returning("*"),
+        update_data = schema_dump(data, exclude_unset=True)
+        return await self.driver.select_one(
+            sql.update("role")
+            .set(update_data)
+            .where_eq("id", role_id)
+            .returning("id", "slug", "name", "created_at", "updated_at"),
             schema_type=schemas.Role,
         )
 
     async def delete(self, role_id: UUID) -> schemas.Role:
         """Delete a role."""
-        stmt = (
-            sql.delete("role")
-            .where_eq("id", role_id)  # Cleaner syntax
-            .returning("*")
+        return await self.driver.select_one(
+            sql.delete("role").where_eq("id", role_id).returning("id", "slug", "name", "created_at", "updated_at"),
+            schema_type=schemas.Role,
         )
-        return await self.select_one(stmt, schema_type=schemas.Role)
 
     async def get_one(self, role_id: UUID) -> schemas.Role:
         """Get a single role by ID."""
-        return await self.get_or_404(
-            sql.select("*").from_("role").where_eq("id", role_id),
+        return await self.driver.select_one(
+            sql.select("id", "slug", "name", "created_at", "updated_at").from_("role").where_eq("id", role_id),
             schema_type=schemas.Role,
-            error_message=f"Role {role_id} not found",
         )
 
     async def get_by_name(self, name: str) -> schemas.Role | None:
         """Get a role by name."""
-        stmt = sql.select("*").from_("role").where_eq("name", name)
-        # Built-in schema conversion!
-        return await self.select_one_or_none(stmt, schema_type=schemas.Role)
+        return await self.driver.select_one_or_none(
+            sql.select("id", "slug", "name", "created_at", "updated_at").from_("role").where_eq("name", name),
+            schema_type=schemas.Role,
+        )
 
     async def fetch_with_count(self, *filters: StatementFilter) -> OffsetPagination[schemas.Role]:
         """List roles with pagination and filtering."""
-        stmt = sql.select("*").from_("role").order_by(sql.column("name").asc())
-
-        # Use the paginate helper method from base class
-        return await self.paginate(stmt, *filters, schema_type=schemas.Role)
+        return await self.paginate(
+            sql.select("id", "slug", "name", "created_at", "updated_at")
+            .from_("role")
+            .order_by(sql.column("name").asc()),
+            *filters,
+            schema_type=schemas.Role,
+        )
 
     async def exists_by_name(self, name: str) -> bool:
         """Check if a role exists by name."""
-        # Use the exists helper method
-        stmt = sql.select("1").from_("role").where_eq("name", name)
-        return await self.exists(stmt)
+        row_exists = await self.driver.select_value_or_none(sql.select("1").from_("role").where_eq("name", name))
+        return row_exists is not None
 
     async def get_default_role(self) -> schemas.Role:
         """Get the default user role."""
-        stmt = sql.select("*").from_("role").where_eq("name", "User").limit(1)
-        return await self.select_one(stmt, schema_type=schemas.Role)
+        return await self.driver.select_one(
+            sql.select("id", "slug", "name", "created_at", "updated_at")
+            .from_("role")
+            .where_eq("name", "User")
+            .limit(1),
+            schema_type=schemas.Role,
+        )
 
     async def assign_role_to_user(self, user_id: UUID, role_id: UUID) -> None:
         """Assign a role to a user."""
-        stmt = (
+        await self.driver.execute(
             sql.insert("user_role")
-            .values(user_id=user_id, role_id=role_id, assigned_by_id=user_id)
+            .values_from_dict({"user_id": user_id, "role_id": role_id, "assigned_by_id": user_id})
             .on_conflict_do_nothing()
         )
-        # For non-SELECT queries, we can use execute directly
-        await self.execute(stmt)
 
     async def remove_role_from_user(self, user_id: UUID, role_id: UUID) -> None:
         """Remove a role from a user."""
-        stmt = (
-            sql.delete("user_role")
-            .where_eq("user_id", user_id)
-            .where_eq("role_id", role_id)  # Can chain multiple where_eq calls!
-        )
-        await self.execute(stmt)
+        await self.driver.execute(sql.delete("user_role").where_eq("user_id", user_id).where_eq("role_id", role_id))
 
     async def get_user_roles(self, user_id: UUID) -> list[schemas.Role]:
         """Get all roles for a user."""
-        stmt = (
-            sql.select("r.*")
+        return await self.driver.select(
+            sql.select("r.id", "r.slug", "r.name", "r.created_at", "r.updated_at")
             .from_("role r")
-            .join("user_role ur", sql.raw("ur.role_id = r.id"))  # Use sql.raw() for join conditions
+            .join("user_role ur", on="ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
-            .order_by(sql.column("r.name").asc())
+            .order_by(sql.column("r.name").asc()),
+            schema_type=schemas.Role,
         )
-        return await self.select(stmt, schema_type=schemas.Role)
 
     async def get_roles_by_permission(self, permission: str) -> list[schemas.Role]:
-        """Get all roles that have a specific permission.
-
-        Demonstrates using where_like for pattern matching.
-        """
-        stmt = (
-            sql.select("*")
+        """Get all roles that have a specific permission."""
+        return await self.driver.select(
+            sql.select("id", "slug", "name", "created_at", "updated_at")
             .from_("role")
-            .where_like("permissions", f"%{permission}%")  # Pattern matching
-            .order_by(sql.column("name").asc())
+            .where_like("permissions", f"%{permission}%")
+            .order_by(sql.column("name").asc()),
+            schema_type=schemas.Role,
         )
-        return await self.select(stmt, schema_type=schemas.Role)
 
     async def get_active_roles(self, limit: int = 10) -> list[schemas.Role]:
-        """Get most recently active roles.
-
-        Demonstrates using multiple WHERE conditions and NOT NULL checks.
-        """
-        stmt = (
-            sql.select("*")
+        """Get most recently active roles."""
+        return await self.driver.select(
+            sql.select("id", "slug", "name", "created_at", "updated_at")
             .from_("role")
             .where_eq("is_active", True)
             .where_is_not_null("last_used_at")
             .order_by(sql.column("last_used_at").desc())
-            .limit(limit)
+            .limit(limit),
+            schema_type=schemas.Role,
         )
-        return await self.select(stmt, schema_type=schemas.Role)
+
+    async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[schemas.Role]:
+        """List roles with pagination and filtering (alias for fetch_with_count)."""
+        return await self.fetch_with_count(*filters)
+
+    async def get_by_slug(self, slug: str) -> schemas.Role | None:
+        """Get a role by slug."""
+        return await self.driver.select_one_or_none(
+            sql.select("id", "slug", "name", "created_at", "updated_at").from_("role").where_eq("slug", slug),
+            schema_type=schemas.Role,
+        )
+
+    async def ensure_default_roles(self) -> None:
+        """Ensure default roles exist."""
+        # Check if User role exists
+        if not await self.exists_by_name("User"):
+            await self.create(schemas.RoleCreate(name="User"))
+
+        # Check if Superuser role exists
+        if not await self.exists_by_name("Superuser"):
+            await self.create(schemas.RoleCreate(name="Superuser"))

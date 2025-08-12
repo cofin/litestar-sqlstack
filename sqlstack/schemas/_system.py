@@ -2,7 +2,7 @@ from typing import Literal
 
 from sqlstack.__metadata__ import __version__
 from sqlstack.lib.settings import get_settings
-from sqlstack.schemas._base import CamelizedBaseStruct
+from sqlstack.schemas.base import CamelizedBaseStruct
 
 __all__ = ("SystemHealth",)
 

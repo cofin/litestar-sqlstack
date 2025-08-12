@@ -6,13 +6,12 @@ import structlog
 from litestar import Controller, delete, get, patch
 from litestar.di import Provide
 
-from app import schemas as s
-from app import services
-from app.server.deps import provide_users_service
-from app.server.security import requires_active_user
+from sqlstack import schemas as s
+from sqlstack.server import deps
+from sqlstack.server.security import requires_active_user
 
 if TYPE_CHECKING:
-    from app.db import models as m
+    from sqlstack.services import UserService
 
 logger = structlog.get_logger()
 
@@ -21,7 +20,7 @@ class ProfileController(Controller):
     """Handles the login and registration of the application."""
 
     tags = ["Access"]
-    dependencies = {"users_service": Provide(provide_users_service)}
+    dependencies = {"users_service": Provide(deps.provide_users_service, sync_to_thread=False)}
 
     @get(
         operation_id="AccountProfile",
@@ -30,20 +29,20 @@ class ProfileController(Controller):
         summary="User Profile",
         description="User profile information.",
     )
-    async def get_profile(self, users_service: services.UserService, current_user: m.User) -> s.User:
+    async def get_profile(self, users_service: UserService, current_user: s.User) -> s.User:
         """User profile.
 
         Returns:
             s.User: The current user's profile.
         """
-        return users_service.to_schema(current_user, schema_type=s.User)
+        return current_user
 
     @patch(operation_id="AccountProfileUpdate", path="/api/me")
     async def update_profile(
         self,
-        current_user: m.User,
+        current_user: s.User,
         data: s.ProfileUpdate,
-        users_service: services.UserService,
+        users_service: UserService,
     ) -> s.User:
         """User Profile.
 
@@ -55,15 +54,14 @@ class ProfileController(Controller):
         Returns:
             The response object.
         """
-        db_obj = await users_service.update(data, item_id=current_user.id)
-        return users_service.to_schema(db_obj, schema_type=s.User)
+        return await users_service.update(current_user.id, data)
 
     @patch(operation_id="AccountPasswordUpdate", path="/api/me/password")
     async def update_password(
         self,
-        current_user: m.User,
+        current_user: s.User,
         data: s.PasswordUpdate,
-        users_service: services.UserService,
+        users_service: UserService,
     ) -> s.Message:
         """Update user password.
 
@@ -75,14 +73,14 @@ class ProfileController(Controller):
         Returns:
             The response object.
         """
-        await users_service.update_password(data.to_dict(), db_obj=current_user)
+        await users_service.update_password(current_user.id, data.new_password)
         return s.Message(message="Your password was successfully modified.")
 
     @delete(operation_id="AccountDelete", path="/profile/")
     async def remove_account(
         self,
-        current_user: m.User,
-        users_service: services.UserService,
+        current_user: s.User,
+        users_service: UserService,
     ) -> None:
         """Remove your account.
 
@@ -91,4 +89,4 @@ class ProfileController(Controller):
             users_service: The users service.
 
         """
-        _ = await users_service.delete(current_user.id)
+        await users_service.delete(current_user.id)

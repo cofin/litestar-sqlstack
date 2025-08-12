@@ -4,21 +4,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
-from advanced_alchemy.utils.text import slugify
 from litestar import Controller, Request, Response, post
 from litestar.di import Provide
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
 
-from app import schemas as s
-from app.lib.deps import create_service_provider
-from app.server import deps, security
-from app.services import RoleService, UserService
+from sqlstack import schemas as s
+from sqlstack.server import deps, security
 
 if TYPE_CHECKING:
     from litestar.security.jwt import OAuth2Login, Token
 
-    from app.db import models as m
+    from sqlstack.services import RoleService, UserService
 
 
 class AccessController(Controller):
@@ -26,8 +23,8 @@ class AccessController(Controller):
 
     tags = ["Access"]
     dependencies = {
-        "users_service": Provide(deps.provide_users_service),
-        "roles_service": Provide(create_service_provider(RoleService)),
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
+        "roles_service": Provide(deps.provide_role_service, sync_to_thread=False),
     }
 
     @post(operation_id="AccountLogin", path="/api/access/login", exclude_from_auth=True)
@@ -49,7 +46,7 @@ class AccessController(Controller):
         return security.auth.login(user.email)
 
     @post(operation_id="AccountLogout", path="/api/access/logout", exclude_from_auth=True)
-    async def logout(self, request: Request[m.User, Token, Any]) -> Response[s.Message]:
+    async def logout(self, request: Request[s.User, Token, Any]) -> Response[s.Message]:
         """Account Logout
 
         Args:
@@ -67,7 +64,7 @@ class AccessController(Controller):
     @post(operation_id="AccountRegister", path="/api/access/signup")
     async def signup(
         self,
-        request: Request[m.User, Token, Any],
+        request: Request[s.User, Token, Any],
         users_service: UserService,
         roles_service: RoleService,
         data: s.AccountRegister,
@@ -83,10 +80,6 @@ class AccessController(Controller):
         Returns:
             User
         """
-        user_data = data.to_dict()
-        role_obj = await roles_service.get_one_or_none(slug=slugify(users_service.default_role))
-        if role_obj is not None:
-            user_data.update({"role_id": role_obj.id})
-        user = await users_service.create(user_data)
+        user = await users_service.create(data)
         request.app.emit(event_id="user_created", user_id=user.id)
-        return users_service.to_schema(user, schema_type=s.User)
+        return user

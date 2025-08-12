@@ -4,8 +4,8 @@ from uuid import UUID
 import msgspec
 from litestar.datastructures import UploadFile
 
-from sqlstack.schemas._base import CamelizedBaseStruct
 from sqlstack.schemas._enums import TeamRoles
+from sqlstack.schemas.base import CamelizedBaseStruct
 
 
 class TeamTag(CamelizedBaseStruct):
