@@ -182,3 +182,9 @@ local.duckdb
 requirements.txt
 dist-ssr
 *.local
+CLAUDE.md
+CLAUDE.*.md
+.claude
+.gemini
+GEMINI.md
+CRUSH.md
