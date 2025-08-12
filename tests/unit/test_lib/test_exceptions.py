@@ -21,114 +21,101 @@ from sqlstack.lib.exceptions import (
 )
 
 
-class TestApplicationError:
-    """Test ApplicationError class."""
-
-    def test_basic_initialization(self) -> None:
-        """Test basic error initialization."""
-        error = ApplicationError("Test message")
-        
-        assert str(error) == "Test message"
-        assert error.detail == "Test message"
-        assert repr(error) == "ApplicationError - Test message"
-
-    def test_initialization_with_detail(self) -> None:
-        """Test error initialization with explicit detail."""
-        error = ApplicationError("Arg message", detail="Detail message")
-        
-        assert str(error) == "Arg message Detail message"
-        assert error.detail == "Detail message"
-        assert repr(error) == "ApplicationError - Detail message"
-
-    def test_initialization_multiple_args(self) -> None:
-        """Test error with multiple arguments."""
-        error = ApplicationError("First", "Second", "Third")
-        
-        assert error.detail == "First"
-        assert str(error) == "Second Third First"
-
-    def test_initialization_empty_args(self) -> None:
-        """Test error with empty arguments."""
-        error = ApplicationError()
-        
-        assert error.detail == ""
-        assert str(error) == ""
-        assert repr(error) == "ApplicationError"
-
-    def test_initialization_with_none_args(self) -> None:
-        """Test error filtering out None arguments."""
-        error = ApplicationError("Valid", None, "Also valid", "")
-        
-        assert error.detail == "Valid"
-        assert "None" not in str(error)
-
-    def test_predefined_detail_attribute(self) -> None:
-        """Test error with predefined detail attribute."""
-        
-        class CustomError(ApplicationError):
-            detail = "Custom detail"
-        
-        error = CustomError()
-        assert error.detail == "Custom detail"
-        assert repr(error) == "CustomError - Custom detail"
+def test_basic_initialization() -> None:
+    """Test basic error initialization."""
+    error = ApplicationError("Test message")
+    
+    assert str(error) == "Test message"
+    assert error.detail == "Test message"
+    assert repr(error) == "ApplicationError - Test message"
 
 
-class TestApplicationClientError:
-    """Test ApplicationClientError class."""
-
-    def test_inheritance(self) -> None:
-        """Test that ApplicationClientError inherits from ApplicationError."""
-        error = ApplicationClientError("Client error")
-        
-        assert isinstance(error, ApplicationError)
-        assert str(error) == "Client error"
-        assert error.detail == "Client error"
+def test_initialization_with_detail() -> None:
+    """Test error initialization with explicit detail."""
+    error = ApplicationError("Arg message", detail="Detail message")
+    
+    assert str(error) == "Arg message Detail message"
+    assert error.detail == "Detail message"
+    assert repr(error) == "ApplicationError - Detail message"
 
 
-class TestAuthorizationError:
-    """Test AuthorizationError class."""
-
-    def test_inheritance(self) -> None:
-        """Test that AuthorizationError inherits from ApplicationClientError."""
-        error = AuthorizationError("Access denied")
-        
-        assert isinstance(error, ApplicationClientError)
-        assert isinstance(error, ApplicationError)
-        assert str(error) == "Access denied"
+def test_initialization_multiple_args() -> None:
+    """Test error with multiple arguments."""
+    error = ApplicationError("First", "Second", "Third")
+    
+    assert error.detail == "First"
+    assert str(error) == "Second Third First"
 
 
-class TestHealthCheckConfigurationError:
-    """Test HealthCheckConfigurationError class."""
-
-    def test_inheritance(self) -> None:
-        """Test that HealthCheckConfigurationError inherits from ApplicationError."""
-        error = HealthCheckConfigurationError("Health check config error")
-        
-        assert isinstance(error, ApplicationError)
-        assert str(error) == "Health check config error"
+def test_initialization_empty_args() -> None:
+    """Test error with empty arguments."""
+    error = ApplicationError()
+    
+    assert error.detail == ""
+    assert str(error) == ""
+    assert repr(error) == "ApplicationError"
 
 
-class TestMissingDependencyError:
-    """Test MissingDependencyError class."""
-
-    def test_inheritance(self) -> None:
-        """Test that MissingDependencyError inherits from both ApplicationError and ImportError."""
-        error = MissingDependencyError("Missing dependency")
-        
-        assert isinstance(error, ApplicationError)
-        assert isinstance(error, ImportError)
-        assert str(error) == "Missing dependency"
+def test_initialization_with_none_args() -> None:
+    """Test error filtering out None arguments."""
+    error = ApplicationError("Valid", None, "Also valid", "")
+    
+    assert error.detail == "Valid"
+    assert "None" not in str(error)
 
 
-class TestHTTPConflictException:
-    """Test _HTTPConflictException class."""
+def test_predefined_detail_attribute() -> None:
+    """Test error with predefined detail attribute."""
+    
+    class CustomError(ApplicationError):
+        detail = "Custom detail"
+    
+    error = CustomError()
+    assert error.detail == "Custom detail"
+    assert repr(error) == "CustomError - Custom detail"
 
-    def test_status_code(self) -> None:
-        """Test that _HTTPConflictException has correct status code."""
-        error = _HTTPConflictException()
-        
-        assert isinstance(error, HTTPException)
-        assert error.status_code == HTTP_409_CONFLICT
+
+def test_application_client_error_inheritance() -> None:
+    """Test that ApplicationClientError inherits from ApplicationError."""
+    error = ApplicationClientError("Client error")
+    
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Client error"
+    assert error.detail == "Client error"
+
+
+def test_authorization_error_inheritance() -> None:
+    """Test that AuthorizationError inherits from ApplicationClientError."""
+    error = AuthorizationError("Access denied")
+    
+    assert isinstance(error, ApplicationClientError)
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Access denied"
+
+
+def test_health_check_configuration_error_inheritance() -> None:
+    """Test that HealthCheckConfigurationError inherits from ApplicationError."""
+    error = HealthCheckConfigurationError("Health check config error")
+    
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Health check config error"
+
+
+def test_missing_dependency_error_inheritance() -> None:
+    """Test that MissingDependencyError inherits from both ApplicationError and ImportError."""
+    error = MissingDependencyError("Missing dependency")
+    
+    assert isinstance(error, ApplicationError)
+    assert isinstance(error, ImportError)
+    assert str(error) == "Missing dependency"
+
+
+def test_http_conflict_exception_status_code() -> None:
+    """Test that _HTTPConflictException has correct status code."""
+    error = _HTTPConflictException()
+    
+    assert isinstance(error, HTTPException)
+    assert error.status_code == HTTP_409_CONFLICT
 
 
 class TestAfterExceptionHookHandler:
