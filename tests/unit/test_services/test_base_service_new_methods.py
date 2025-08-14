@@ -70,7 +70,8 @@ async def test_begin_transaction_context_manager_rollback(driver: AsyncpgDriver)
 
     with pytest.raises(ValueError, match="Test exception"):
         async with service.begin_transaction():
-            raise ValueError("Test exception")
+            test_exception = "Test exception"
+            raise ValueError(test_exception)
 
     driver.begin.assert_called_once()
     driver.commit.assert_not_called()
@@ -138,7 +139,6 @@ def test_with_only_select_querybuilder_with_group_by(driver: AsyncpgDriver) -> N
     assert "products" in count_sql
     assert "GROUP BY" in count_sql
     # Should not have original ORDER BY in final query
-    count_sql_upper = count_sql.upper()
     # The original ORDER BY should not be in the outer query
     outer_parts = count_sql.split("GROUP BY")[0] if "GROUP BY" in count_sql else count_sql
     assert "ORDER BY" not in outer_parts.upper()

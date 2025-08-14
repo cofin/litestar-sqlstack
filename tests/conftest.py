@@ -27,7 +27,11 @@ from sqlstack.services import (
     PasswordResetService,
     RoleService,
     TagService,
+    TeamInvitationService,
+    TeamMemberService,
     TeamService,
+    UserOAuthAccountService,
+    UserRoleService,
     UserService,
 )
 
@@ -62,18 +66,19 @@ def _patch_settings(monkeypatch: MonkeyPatch) -> None:
 @pytest.fixture(name="database_url")
 async def fx_database_url(postgres_service: PostgresService) -> str:
     """PostgreSQL URL for testing."""
-    return f"postgresql+psycopg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
+    return f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
 
 @pytest.fixture(name="db_connection")
-async def fx_db_connection(database_url: str) -> AsyncGenerator[AsyncpgConnection, None]:
-    """Database connection for tests."""
+async def fx_db_connection(postgres_service: PostgresService) -> AsyncGenerator[AsyncpgConnection, None]:
+    """Database connection for tests following reference app pattern."""
     import asyncpg
 
-    # Create connection
-    conn = await asyncpg.connect(database_url.replace("postgresql+psycopg://", "postgresql://"))
+    # Create connection using postgres_service directly (like reference app)
+    database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
+    conn = await asyncpg.connect(database_url)
 
-    # Create tables if needed - this would normally be handled by migrations
+    # Create tables using the same pattern as reference app
     await conn.execute("""
         CREATE TABLE IF NOT EXISTS user_account (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,7 +155,7 @@ async def fx_db_connection(database_url: str) -> AsyncGenerator[AsyncpgConnectio
 
     yield conn
 
-    # Cleanup
+    # Cleanup following reference app pattern
     await conn.execute("DROP TABLE IF EXISTS password_reset_token CASCADE")
     await conn.execute("DROP TABLE IF EXISTS email_verification_token CASCADE")
     await conn.execute("DROP TABLE IF EXISTS team CASCADE")
@@ -218,6 +223,30 @@ async def role_service(driver: AsyncpgDriver) -> RoleService:
 async def tag_service(driver: AsyncpgDriver) -> TagService:
     """Create TagService instance."""
     return TagService(driver)
+
+
+@pytest.fixture
+async def team_member_service(driver: AsyncpgDriver) -> TeamMemberService:
+    """Create TeamMemberService instance."""
+    return TeamMemberService(driver)
+
+
+@pytest.fixture
+async def team_invitation_service(driver: AsyncpgDriver) -> TeamInvitationService:
+    """Create TeamInvitationService instance."""
+    return TeamInvitationService(driver)
+
+
+@pytest.fixture
+async def user_oauth_account_service(driver: AsyncpgDriver) -> UserOAuthAccountService:
+    """Create UserOAuthAccountService instance."""
+    return UserOAuthAccountService(driver)
+
+
+@pytest.fixture
+async def user_role_service(driver: AsyncpgDriver) -> UserRoleService:
+    """Create UserRoleService instance."""
+    return UserRoleService(driver)
 
 
 # Test data fixtures

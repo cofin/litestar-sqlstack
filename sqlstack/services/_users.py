@@ -88,7 +88,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -126,7 +126,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -147,7 +147,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -265,7 +265,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end(),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end(),
                 sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
@@ -412,7 +412,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -430,6 +430,9 @@ class UserService(SQLSpecService):
             oauth_data: OAuth user data from provider
             provider_name: Name of the OAuth provider
             account_id: OAuth account ID from provider
+
+        Raises:
+            ValueError: If the OAuth provider did not provide an email address
 
         Returns:
             Tuple of (user, was_created)
@@ -509,7 +512,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -531,7 +534,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -552,8 +555,8 @@ class UserService(SQLSpecService):
                 "name",
                 "is_superuser",
                 "is_active",
-                "is_verified",
-                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                sql.is_verified,
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -567,9 +570,9 @@ class UserService(SQLSpecService):
         return await self.driver.select_one(
             sql.select(
                 "COUNT(*) as total_users",
-                sql.count(sql.case().when("is_active = true", 1).end()).as_("active_users"),
-                sql.count(sql.case().when("is_verified = true", 1).end()).as_("verified_users"),
-                sql.count(sql.case().when("is_superuser = true", 1).end()).as_("superusers"),
-                sql.count(sql.case().when("last_login > NOW() - INTERVAL '30 days'", 1).end()).as_("recent_logins"),
+                sql.count(sql.case_.when("is_active = true", 1).end()).as_("active_users"),
+                sql.count(sql.case_.when("is_verified = true", 1).end()).as_("verified_users"),
+                sql.count(sql.case_.when("is_superuser = true", 1).end()).as_("superusers"),
+                sql.count(sql.case_.when("last_login > NOW() - INTERVAL '30 days'", 1).end()).as_("recent_logins"),
             ).from_("user_account"),
         )

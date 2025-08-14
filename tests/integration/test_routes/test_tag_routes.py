@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class TestTagRoutes:
     """Test Tag HTTP endpoints."""
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_list_tags(
         self,
         client: AsyncTestClient,
@@ -32,7 +32,7 @@ class TestTagRoutes:
         assert "limit" in data
         assert "offset" in data
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_create_tag(
         self,
         client: AsyncTestClient,
@@ -51,7 +51,7 @@ class TestTagRoutes:
         assert "id" in data
         assert "createdAt" in data
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_get_tag(
         self,
         client: AsyncTestClient,
@@ -67,7 +67,7 @@ class TestTagRoutes:
         assert data["name"] == test_tag.name
         assert data["slug"] == test_tag.slug
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_update_tag(
         self,
         client: AsyncTestClient,
@@ -85,7 +85,7 @@ class TestTagRoutes:
         assert data["description"] == update_data["description"]
         assert data["slug"] == test_tag.slug  # Slug unchanged
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_delete_tag(
         self,
         client: AsyncTestClient,
@@ -112,7 +112,7 @@ class TestTagRoutes:
 
         assert response.status_code == 404
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_create_tag_requires_superuser(
         self,
         client: AsyncTestClient,
@@ -125,7 +125,7 @@ class TestTagRoutes:
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_update_tag_requires_superuser(
         self,
         client: AsyncTestClient,
@@ -139,7 +139,7 @@ class TestTagRoutes:
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_delete_tag_requires_superuser(
         self,
         client: AsyncTestClient,

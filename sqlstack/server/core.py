@@ -48,7 +48,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from uuid import UUID
 
         from litestar.enums import RequestEncodingType
-        from litestar.params import Body
+        from litestar.params import Body, Parameter
         from litestar.security.jwt import Token
 
         from sqlstack import config
@@ -57,8 +57,18 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from sqlstack.lib.settings import get_settings
         from sqlstack.server import plugins, routes, security
         from sqlstack.services import (
+            EmailVerificationService,
+            PasswordResetService,
             RoleService,
+            TagService,
+            TeamInvitationService,
+            TeamMemberService,
+            TeamService,
+            UserOAuthAccountService,
+            UserRoleService,
+            UserService,
         )
+        from sqlstack.services._base import OffsetPagination
 
         settings = get_settings()
         self.app_slug = settings.app.slug
@@ -108,9 +118,20 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 "OAuth2Login": OAuth2Login,
                 "RequestEncodingType": RequestEncodingType,
                 "Body": Body,
+                "Parameter": Parameter,
                 "s": s,
                 "UUID": UUID,
+                "EmailVerificationService": EmailVerificationService,
+                "PasswordResetService": PasswordResetService,
                 "RoleService": RoleService,
+                "TagService": TagService,
+                "TeamInvitationService": TeamInvitationService,
+                "TeamMemberService": TeamMemberService,
+                "TeamService": TeamService,
+                "UserOAuthAccountService": UserOAuthAccountService,
+                "UserRoleService": UserRoleService,
+                "UserService": UserService,
+                "OffsetPagination": OffsetPagination,
             },
         )
         # dependencies

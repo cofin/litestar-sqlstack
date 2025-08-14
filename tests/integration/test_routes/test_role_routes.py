@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class TestRoleRoutes:
     """Test Role HTTP endpoints."""
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_list_roles(
         self,
         client: AsyncTestClient,
@@ -34,7 +34,7 @@ class TestRoleRoutes:
         # Should include default roles
         assert data["total"] >= 2
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_create_role(
         self,
         client: AsyncTestClient,
@@ -53,7 +53,7 @@ class TestRoleRoutes:
         assert "id" in data
         assert "createdAt" in data
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_get_role(
         self,
         client: AsyncTestClient,
@@ -69,7 +69,7 @@ class TestRoleRoutes:
         assert data["name"] == test_role.name
         assert data["slug"] == test_role.slug
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_update_role(
         self,
         client: AsyncTestClient,
@@ -87,7 +87,7 @@ class TestRoleRoutes:
         assert data["description"] == update_data["description"]
         assert data["slug"] == test_role.slug  # Slug unchanged
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_update_default_role_denied(
         self,
         client: AsyncTestClient,
@@ -105,7 +105,7 @@ class TestRoleRoutes:
         assert response.status_code == 400
         assert "Cannot update default roles" in response.json()["detail"]
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_delete_role(
         self,
         client: AsyncTestClient,
@@ -121,7 +121,7 @@ class TestRoleRoutes:
         get_response = await client.get(f"/api/roles/{test_role.id}", headers=authenticated_headers)
         assert get_response.status_code == 404
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_delete_default_role_denied(
         self,
         client: AsyncTestClient,
@@ -145,7 +145,7 @@ class TestRoleRoutes:
 
         assert response.status_code == 404
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_user_access_denied(
         self,
         client: AsyncTestClient,

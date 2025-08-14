@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class TestTeamRoutes:
     """Test Team HTTP endpoints."""
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_list_teams(
         self,
         client: AsyncTestClient,
@@ -32,7 +32,7 @@ class TestTeamRoutes:
         assert "limit" in data
         assert "offset" in data
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_create_team(
         self,
         client: AsyncTestClient,
@@ -54,7 +54,7 @@ class TestTeamRoutes:
         assert data["members"][0]["role"] == "ADMIN"
         assert data["members"][0]["isOwner"] is True
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_create_team_with_tags(
         self,
         client: AsyncTestClient,
@@ -78,7 +78,7 @@ class TestTeamRoutes:
         assert "react" in tag_names
         assert "javascript" in tag_names
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_get_team(
         self,
         client: AsyncTestClient,
@@ -94,7 +94,7 @@ class TestTeamRoutes:
         assert data["name"] == test_team.name
         assert data["slug"] == test_team.slug
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_update_team(
         self,
         client: AsyncTestClient,
@@ -111,7 +111,7 @@ class TestTeamRoutes:
         assert data["name"] == update_data["name"]
         assert data["description"] == update_data["description"]
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_update_team_with_tags(
         self,
         client: AsyncTestClient,
@@ -132,7 +132,7 @@ class TestTeamRoutes:
         assert "python" in tag_names
         assert "fastapi" in tag_names
 
-    @pytest.mark.parametrize("user_type", ["user"])
+    @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
     async def test_delete_team(
         self,
         client: AsyncTestClient,
@@ -222,7 +222,7 @@ class TestTeamRoutes:
         response = await client.post("/api/teams", json={"name": "test"})
         assert response.status_code == 401
 
-    @pytest.mark.parametrize("user_type", ["superuser"])
+    @pytest.mark.parametrize("authenticated_headers", ["superuser"], indirect=True)
     async def test_superuser_can_see_all_teams(
         self,
         client: AsyncTestClient,
