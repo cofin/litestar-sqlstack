@@ -19,5 +19,6 @@ async def team_created_event_handler(team_id: UUID) -> None:
         team_id: The primary key of the team that was created.
     """
     await logger.ainfo("Running post team creation flow.")
-    # TODO: Implement with proper SQLSpec session management
+    # FIXME: Add team creation side effects (notifications, permissions, etc.)
+    # when SQLSpec session management is fully implemented
     await logger.ainfo("Team created", team_id=team_id)

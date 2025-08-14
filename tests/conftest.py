@@ -1,4 +1,3 @@
-# ruff: noqa: S106
 """Test configuration and fixtures for SQLStack."""
 
 from __future__ import annotations
@@ -11,14 +10,16 @@ import pytest
 from litestar.testing import AsyncTestClient
 
 # Set test environment before any other imports
-os.environ.update({
-    "SECRET_KEY": "test-secret-key-for-testing-only",
-    "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5432/test_sqlstack",
-    "DATABASE_ECHO": "false",
-    "DATABASE_ECHO_POOL": "false",
-    "LOG_LEVEL": "40",  # WARNING level as integer
-    "EMAIL_ENABLED": "false",
-})
+os.environ.update(
+    {
+        "SECRET_KEY": "test-secret-key-for-testing-only",
+        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5432/test_sqlstack",
+        "DATABASE_ECHO": "false",
+        "DATABASE_ECHO_POOL": "false",
+        "LOG_LEVEL": "40",  # WARNING level as integer
+        "EMAIL_ENABLED": "false",
+    }
+)
 
 from sqlstack import schemas as s
 from sqlstack.services import (

@@ -158,11 +158,13 @@ class EmailService:
             recipients = to_email if isinstance(to_email, list) else [to_email]
             smtp.send_message(msg, to_addrs=recipients)
             logger.info("Email sent successfully to %s with subject: %s", to_email, subject)
-            return True
 
         except Exception:
             logger.exception("Failed to send email to %s", to_email)
             return False
+
+        else:
+            return True
 
         finally:
             if smtp:
@@ -200,7 +202,7 @@ class EmailService:
             try:
                 text_template = self.jinja_env.get_template(f"emails/{template_name}.txt.j2")
                 text_content = text_template.render(**context)
-            except Exception:
+            except FileNotFoundError:
                 logger.debug("Text template not found for %s", template_name)
 
             # Render HTML content
@@ -247,7 +249,8 @@ class EmailService:
                 subject=f"Verify your email address for {self.app_name}",
                 context=context,
             )
-        except Exception:
+        except FileNotFoundError:
+            logger.debug("Email verification template not found, using fallback")
             # Fallback to simple email
             html_content = f"""
             <html>
@@ -293,7 +296,8 @@ class EmailService:
                 subject=f"Welcome to {self.app_name}!",
                 context=context,
             )
-        except Exception:
+        except FileNotFoundError:
+            logger.debug("Welcome email template not found, using fallback")
             # Fallback to simple email
             html_content = f"""
             <html>
@@ -403,7 +407,8 @@ class EmailService:
                 subject=f"{inviter_name} invited you to join {team_name} on {self.app_name}",
                 context=context,
             )
-        except Exception:
+        except FileNotFoundError:
+            logger.debug("Team invitation template not found, using fallback")
             # Fallback to simple email
             html_content = f"""
             <html>
@@ -428,4 +433,3 @@ class EmailService:
 
 # Global email service instance
 email_service = EmailService()
-

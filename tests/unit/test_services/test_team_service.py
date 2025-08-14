@@ -15,11 +15,7 @@ class TestTeamService:
 
     async def test_create_team_with_owner(self, team_service: TeamService, test_user: s.User) -> None:
         """Test creating a new team with an owner."""
-        team_data = s.TeamCreate(
-            name="Test Team",
-            description="A test team",
-            owner_id=test_user.id
-        )
+        team_data = s.TeamCreate(name="Test Team", description="A test team", owner_id=test_user.id)
 
         created_team = await team_service.create(team_data)
 
@@ -39,7 +35,7 @@ class TestTeamService:
             name="Tagged Team",
             description="Team with tags",
             owner_id=test_user.id,
-            tags=["frontend", "react", "typescript"]
+            tags=["frontend", "react", "typescript"],
         )
 
         created_team = await team_service.create(team_data)
@@ -76,10 +72,7 @@ class TestTeamService:
 
     async def test_update_team(self, team_service: TeamService, test_team: s.Team) -> None:
         """Test updating a team."""
-        update_data = s.TeamUpdate(
-            name="Updated Team Name",
-            description="Updated description"
-        )
+        update_data = s.TeamUpdate(name="Updated Team Name", description="Updated description")
 
         updated_team = await team_service.update(test_team.id, update_data)
 
@@ -89,10 +82,7 @@ class TestTeamService:
 
     async def test_update_team_with_tags(self, team_service: TeamService, test_team: s.Team) -> None:
         """Test updating a team with new tags."""
-        update_data = s.TeamUpdate(
-            name="Updated Team",
-            tags=["backend", "python", "fastapi"]
-        )
+        update_data = s.TeamUpdate(name="Updated Team", tags=["backend", "python", "fastapi"])
 
         updated_team = await team_service.update(test_team.id, update_data)
 

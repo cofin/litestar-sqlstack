@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from sqlspec.adapters.asyncpg import AsyncpgConnection
 
 pytestmark = pytest.mark.anyio
 
@@ -14,7 +19,7 @@ async def setup_integration_environment() -> None:
 
 
 @pytest.fixture
-async def clean_database(db_connection) -> None:
+async def clean_database(db_connection: AsyncpgConnection) -> None:
     """Clean database between integration tests."""
     # Clean up test data
     tables = [
@@ -26,8 +31,10 @@ async def clean_database(db_connection) -> None:
         "user_account",
     ]
 
+    # Clean tables in reverse dependency order
+    # NOTE: These are safe from SQL injection since table names are hardcoded constants
     for table in tables:
-        await db_connection.execute(f"DELETE FROM {table}")
+        await db_connection.execute(f"DELETE FROM {table}")  # noqa: S608
 
     # Reset sequences if needed
     for table in tables:

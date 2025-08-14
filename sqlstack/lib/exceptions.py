@@ -125,4 +125,3 @@ def exception_to_http_response(
     if request.app.debug and http_exc not in {PermissionDeniedException, AuthorizationError}:
         return create_debug_response(request, exc)
     return create_exception_response(request, http_exc(detail=str(exc.__cause__)))
-

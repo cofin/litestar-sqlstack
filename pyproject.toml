@@ -202,7 +202,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 "docs/**/*.*" = ["S", "B", "DTZ", "A", "TC", "ERA", "D", "RET", "E731", "RUF012", "FA100", "ARG001"]
 "docs/conf.py" = ["FIX002", "ARG001", "INP001"]
 "sqlstack/db/migrations/*.py" = ['D104', 'D103', 'D205', 'D212']
-"tests/*.py" = ['D103', 'S101', 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
+"tests/*.py" = ['D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
 "tools/*.py" = ["INP001", "ERA001", "N999"]
 "tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT", "INP001", "S603", "S404", "PLR0915"]
 
@@ -278,5 +278,5 @@ strict = ["sqlstack/**/*"]
 venv = ".venv"
 venvPath = "."
 
-# [tool.uv.sources]
-# sqlspec = { path = ".sqlspec", editable = true }
+[tool.uv.sources]
+sqlspec = { path = ".sqlspec", editable = true }

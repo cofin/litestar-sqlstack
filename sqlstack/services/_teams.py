@@ -76,16 +76,13 @@ class TeamService(SQLSpecService):
         stmt = sql.select("t.id").from_("team t")
         if user and not self.can_view_all(user):
             stmt = stmt.where_in("t.id", sql.select("team_id").from_("team_member").where_eq("user_id", user.id))
-        stmt = stmt.order_by(sql.column("t.name").asc())
-        total = await self.driver.select_value(stmt.with_only_select(sql.count()))
-        limit_offset = next(
-            (f for f in filters if isinstance(f, LimitOffsetFilter)), LimitOffsetFilter(limit=20, offset=0)
-        )
-        team_rows = await self.driver.select(stmt.limit(limit_offset.limit).offset(limit_offset.offset))
-        teams = [await self._get_team_with_relationships(row["id"]) for row in team_rows]
+
+        data, total = await self.driver.select_with_total(stmt.order_by(sql.column("t.name").asc()), *filters)
+        limit_offset = self.driver.find_filter(LimitOffsetFilter, filters)
+        teams = [await self._get_team_with_relationships(row["id"]) for row in data]
         return OffsetPagination(
             items=teams,
-            limit=limit_offset.limit,
+            limit=limit_offset.limit if limit_offset else len(teams),
             offset=limit_offset.offset,
             total=total,
         )
@@ -95,8 +92,8 @@ class TeamService(SQLSpecService):
         return await self.driver.select_one(
             sql.insert("team_member")
             .values(team_id=team_id, user_id=user_id, role=role, is_owner=False)
-            .on_conflict(["team_id", "user_id"])
-            .do_update(set_={"role": role})
+            .on_conflict("team_id", "user_id")
+            .do_update(role=role)
             .returning("team_id", "user_id", "role", "is_owner", "created_at", "updated_at"),
             schema_type=s.TeamMember,
         )
@@ -152,11 +149,10 @@ class TeamService(SQLSpecService):
         """Update tags for a team."""
         await self.driver.execute(sql.delete("team_tag").where_eq("team_id", team_id))
         for tag_name in tag_names:
-            tag_slug = slugify(tag_name)
             tag_row = await self.driver.select_one_or_none(
                 sql.insert("tag")
-                .values(name=tag_name, slug=tag_slug)
-                .on_conflict(["name"])
+                .values(name=tag_name, slug=slugify(tag_name))
+                .on_conflict("name")
                 .do_nothing()
                 .returning("id")
             )
@@ -198,11 +194,12 @@ class TeamService(SQLSpecService):
         )
         team.members = [
             s.TeamMember(
-                team_id=m["team_id"],
+                id=m["id"],
+                name=m["user_name"],
+                email=m["user_email"],
                 user_id=m["user_id"],
                 role=m["role"],
                 is_owner=m["is_owner"],
-                user=s.User(id=m["user_id"], email=m["user_email"], name=m["user_name"]),
             )
             for m in members_data
         ]

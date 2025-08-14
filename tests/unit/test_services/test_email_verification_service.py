@@ -17,14 +17,10 @@ class TestEmailVerificationService:
     """Test EmailVerificationService functionality."""
 
     async def test_create_verification_token(
-        self,
-        email_verification_service: EmailVerificationService,
-        unverified_user: s.User
+        self, email_verification_service: EmailVerificationService, unverified_user: s.User
     ) -> None:
         """Test creating a verification token."""
-        token = await email_verification_service.create_verification_token(
-            unverified_user.id, unverified_user.email
-        )
+        token = await email_verification_service.create_verification_token(unverified_user.id, unverified_user.email)
 
         assert token.user_id == unverified_user.id
         assert token.email == unverified_user.email
@@ -69,12 +65,8 @@ class TestEmailVerificationService:
     ) -> None:
         """Test invalidating all user tokens."""
         # Create multiple tokens for the user
-        token1 = await email_verification_service.create_verification_token(
-            unverified_user.id, unverified_user.email
-        )
-        token2 = await email_verification_service.create_verification_token(
-            unverified_user.id, unverified_user.email
-        )
+        token1 = await email_verification_service.create_verification_token(unverified_user.id, unverified_user.email)
+        token2 = await email_verification_service.create_verification_token(unverified_user.id, unverified_user.email)
 
         # Invalidate all tokens
         await email_verification_service.invalidate_user_tokens(unverified_user.id)
@@ -123,12 +115,8 @@ class TestEmailVerificationService:
     ) -> None:
         """Test getting pending tokens for a user."""
         # Create tokens for user
-        await email_verification_service.create_verification_token(
-            unverified_user.id, unverified_user.email
-        )
-        await email_verification_service.create_verification_token(
-            unverified_user.id, unverified_user.email
-        )
+        await email_verification_service.create_verification_token(unverified_user.id, unverified_user.email)
+        await email_verification_service.create_verification_token(unverified_user.id, unverified_user.email)
 
         pending_tokens = await email_verification_service.get_pending_tokens_for_user(unverified_user.id)
 
@@ -137,9 +125,7 @@ class TestEmailVerificationService:
         assert all(token.user_id == unverified_user.id for token in pending_tokens)
         assert all(not token.used for token in pending_tokens)
 
-    async def test_cleanup_expired_tokens(
-        self, email_verification_service: EmailVerificationService
-    ) -> None:
+    async def test_cleanup_expired_tokens(self, email_verification_service: EmailVerificationService) -> None:
         """Test cleanup of expired tokens."""
         # This would require manipulating token expiration dates
         # For now, just test that the method runs without error
@@ -153,17 +139,13 @@ class TestEmailVerificationService:
         test_verification_token: s.EmailVerificationToken,
     ) -> None:
         """Test getting token by its value."""
-        retrieved_token = await email_verification_service.get_token_by_value(
-            test_verification_token.token
-        )
+        retrieved_token = await email_verification_service.get_token_by_value(test_verification_token.token)
 
         assert retrieved_token is not None
         assert retrieved_token.id == test_verification_token.id
         assert retrieved_token.token == test_verification_token.token
 
-    async def test_get_nonexistent_token_by_value(
-        self, email_verification_service: EmailVerificationService
-    ) -> None:
+    async def test_get_nonexistent_token_by_value(self, email_verification_service: EmailVerificationService) -> None:
         """Test getting nonexistent token returns None."""
         token = await email_verification_service.get_token_by_value("nonexistent-token")
         assert token is None

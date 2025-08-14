@@ -97,8 +97,8 @@ class TagService(SQLSpecService):
 
     async def get_popular_tags(self, min_usage: int = 5, limit: int = 20) -> list[s.Tag]:
         """Get tags with high usage count."""
-        # For now, return all tags ordered by name
-        # TODO: Implement proper usage counting when team_tag relationships are available
+        # FIXME: Usage counting not implemented yet - requires team_tag relationship table
+        # Currently returns all tags ordered by name
         return await self.driver.select(
             sql.select("id", "slug", "name").from_("tag").order_by(sql.column("name").asc()).limit(limit),
             schema_type=s.Tag,

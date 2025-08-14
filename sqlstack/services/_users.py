@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlspec import sql
-from sqlspec.utils.type_guards import schema_dump
+from sqlspec.utils.type_guards import is_dict_with_field, is_dict_without_field, schema_dump
 
 from sqlstack import schemas as s
+from sqlstack.lib.crypt import get_password_hash, verify_password
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:
@@ -17,9 +18,15 @@ class UserService(SQLSpecService):
 
     async def create(self, data: s.UserCreate) -> s.User:
         """Create a new user account."""
-        return await self.driver.select_one(
+        # Prepare data for insertion, hashing the password
+        user_data = schema_dump(data, exclude_unset=True)
+        # Replace plain text password with hash
+        password_hash = await get_password_hash(user_data.pop("password"))
+        user_data["password_hash"] = password_hash
+
+        user_record = await self.driver.select_one(
             sql.insert("user_account")
-            .values(**schema_dump(data, exclude_unset=True))
+            .values(**user_data)
             .returning(
                 "id",
                 "email",
@@ -33,7 +40,18 @@ class UserService(SQLSpecService):
                 "updated_at",
                 "last_login",
             ),
-            schema_type=s.User,
+        )
+
+        # Convert to User schema (without password_hash field)
+        return s.User(
+            id=user_record["id"],
+            email=user_record["email"],
+            name=user_record["name"],
+            is_superuser=user_record["is_superuser"],
+            is_active=user_record["is_active"],
+            is_verified=user_record["is_verified"],
+            has_password=user_record["password_hash"] is not None,
+            avatar_url=user_record["avatar_url"],
         )
 
     async def update(self, item_id: UUID, data: s.UserUpdate) -> s.User:
@@ -49,7 +67,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -70,7 +88,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -108,7 +126,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -121,7 +139,7 @@ class UserService(SQLSpecService):
 
     async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.User]:
         """List users with pagination and filtering."""
-        return await self.driver.paginate(
+        return await self.paginate(
             sql.select(
                 "id",
                 "email",
@@ -129,7 +147,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -154,7 +172,7 @@ class UserService(SQLSpecService):
         Raises:
             ValueError: If user is inactive or account is locked
         """
-        user = await self.driver.select_one_or_none(
+        user_record = await self.driver.select_one_or_none(
             sql.select(
                 "id",
                 "email",
@@ -170,19 +188,34 @@ class UserService(SQLSpecService):
             )
             .from_("user_account")
             .where_eq("email", email),
-            schema_type=s.User,
         )
 
-        if not user:
+        if not user_record:
             return None
 
-        if not user.is_active:
+        if not user_record["is_active"]:
             msg = "User account is inactive"
             raise ValueError(msg)
 
-        # TODO: Implement proper password verification
-        # For now, we'll accept any password for demonstration
-        # In production, use: verify_password(password, user.password_hash)
+        # Check if user has a password (OAuth users may not have one)
+        if user_record["password_hash"] is None:
+            return None
+
+        # Verify password
+        if not await verify_password(password, user_record["password_hash"]):
+            return None
+
+        # Create User schema object (without password_hash field)
+        user = s.User(
+            id=user_record["id"],
+            email=user_record["email"],
+            name=user_record["name"],
+            is_superuser=user_record["is_superuser"],
+            is_active=user_record["is_active"],
+            is_verified=user_record["is_verified"],
+            has_password=user_record["password_hash"] is not None,
+            avatar_url=user_record["avatar_url"],
+        )
 
         # Update last login timestamp
         await self.update_last_login(user.id)
@@ -207,7 +240,9 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.user,
+                sql.raw("user u"),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -230,7 +265,8 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end(),
+                sql.case_.when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -259,7 +295,7 @@ class UserService(SQLSpecService):
             ValueError: If current password is incorrect or user is inactive
         """
         # Get user to verify current password
-        user = await self.driver.select_one_or_none(
+        user = await self.driver.select_one(
             sql.select("id", "email", "password_hash", "is_active", "is_verified")
             .from_("user_account")
             .where_eq("id", user_id),
@@ -269,20 +305,22 @@ class UserService(SQLSpecService):
             msg = "User not found"
             raise ValueError(msg)
 
-        if not user["is_active"]:
+        if is_dict_without_field(user, "is_active") or (
+            is_dict_with_field(user, "is_active") and not user["is_active"]
+        ):
             msg = "User account is inactive"
             raise ValueError(msg)
 
-        # TODO: Verify current password
-        # In production: if not verify_password(current_password, user["password_hash"]):
-        #     raise ValueError("Current password is incorrect")
+        # Verify current password
+        if not await verify_password(current_password, user["password_hash"]):
+            msg = "Current password is incorrect"
+            raise ValueError(msg)
 
-        # TODO: Hash new password
-        # In production: new_password_hash = hash_password(new_password)
-        new_password_hash = new_password  # Placeholder
+        # Hash new password
+        new_password_hash = await get_password_hash(new_password)
 
         # Update password
-        return await self.driver.select_one(
+        user_record = await self.driver.select_one(
             sql.update("user_account")
             .set(password_hash=new_password_hash, updated_at=sql.raw("NOW()"))
             .where_eq("id", user_id)
@@ -295,11 +333,19 @@ class UserService(SQLSpecService):
                 "is_verified",
                 "password_hash",
                 "avatar_url",
-                "created_at",
-                "updated_at",
-                "last_login",
             ),
-            schema_type=s.User,
+        )
+
+        # Convert to User schema (without password_hash field)
+        return s.User(
+            id=user_record["id"],
+            email=user_record["email"],
+            name=user_record["name"],
+            is_superuser=user_record["is_superuser"],
+            is_active=user_record["is_active"],
+            is_verified=user_record["is_verified"],
+            has_password=user_record["password_hash"] is not None,
+            avatar_url=user_record["avatar_url"],
         )
 
     async def reset_password_with_token(self, user_id: UUID, new_password: str) -> s.User:
@@ -314,35 +360,29 @@ class UserService(SQLSpecService):
         Returns:
             Updated user object
         """
-        # TODO: Hash the new password
-        # In production: password_hash = hash_password(new_password)
-        password_hash = new_password  # Placeholder
-
-        return await self.driver.select_one(
+        password_hash = await get_password_hash(new_password)
+        user_record = await self.driver.select_one(
             sql.update("user_account")
-            .set(
-                password_hash=password_hash,
-                is_verified=True,  # Reset often requires email verification
-                updated_at=sql.raw("NOW()"),
-            )
+            .set(password_hash=password_hash, is_verified=True, updated_at=sql.raw("NOW()"))
             .where_eq("id", user_id)
             .returning(
-                "id",
-                "email",
-                "name",
-                "is_superuser",
-                "is_active",
-                "is_verified",
-                "password_hash",
-                "avatar_url",
-                "created_at",
-                "updated_at",
-                "last_login",
+                "id", "email", "name", "is_superuser", "is_active", "is_verified", "password_hash", "avatar_url"
             ),
-            schema_type=s.User,
         )
 
-    async def create_user_from_oauth(self, oauth_data: dict, provider_name: str) -> s.User:
+        # Convert to User schema (without password_hash field)
+        return s.User(
+            id=user_record["id"],
+            email=user_record["email"],
+            name=user_record["name"],
+            is_superuser=user_record["is_superuser"],
+            is_active=user_record["is_active"],
+            is_verified=user_record["is_verified"],
+            has_password=user_record["password_hash"] is not None,
+            avatar_url=user_record["avatar_url"],
+        )
+
+    async def create_user_from_oauth(self, oauth_data: dict[str, Any], provider_name: str) -> s.User:
         """Create a new user from OAuth provider data.
 
         Args:
@@ -361,10 +401,28 @@ class UserService(SQLSpecService):
             "password_hash": None,  # OAuth users don't have passwords
         }
 
-        return await self.create(s.UserCreate(**user_data))
+        # Insert directly since OAuth users don't have passwords and can't use UserCreate schema
+        return await self.driver.select_one(
+            sql.insert("user_account")
+            .values(**user_data)
+            .returning(
+                "id",
+                "email",
+                "name",
+                "is_superuser",
+                "is_active",
+                "is_verified",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
+                "avatar_url",
+                "created_at",
+                "updated_at",
+                "last_login",
+            ),
+            schema_type=s.User,
+        )
 
     async def authenticate_or_create_oauth_user(
-        self, oauth_data: dict, provider_name: str, account_id: str
+        self, oauth_data: dict[str, Any], provider_name: str, account_id: str
     ) -> tuple[s.User, bool]:
         """Authenticate or create a user from OAuth provider data.
 
@@ -451,7 +509,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -473,7 +531,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -495,7 +553,7 @@ class UserService(SQLSpecService):
                 "is_superuser",
                 "is_active",
                 "is_verified",
-                "password_hash",
+                sql.case().when("password_hash IS NOT NULL", True).else_(False).end().as_("has_password"),
                 "avatar_url",
                 "created_at",
                 "updated_at",
@@ -504,14 +562,14 @@ class UserService(SQLSpecService):
             schema_type=s.User,
         )
 
-    async def get_user_statistics(self) -> dict:
+    async def get_user_statistics(self) -> dict[str, Any]:
         """Get user statistics."""
         return await self.driver.select_one(
             sql.select(
                 "COUNT(*) as total_users",
-                "COUNT(CASE WHEN is_active = true THEN 1 END) as active_users",
-                "COUNT(CASE WHEN is_verified = true THEN 1 END) as verified_users",
-                "COUNT(CASE WHEN is_superuser = true THEN 1 END) as superusers",
-                "COUNT(CASE WHEN last_login > NOW() - INTERVAL '30 days' THEN 1 END) as recent_logins",
+                sql.count(sql.case().when("is_active = true", 1).end()).as_("active_users"),
+                sql.count(sql.case().when("is_verified = true", 1).end()).as_("verified_users"),
+                sql.count(sql.case().when("is_superuser = true", 1).end()).as_("superusers"),
+                sql.count(sql.case().when("last_login > NOW() - INTERVAL '30 days'", 1).end()).as_("recent_logins"),
             ).from_("user_account"),
         )

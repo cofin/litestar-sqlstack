@@ -39,10 +39,7 @@ class TestTeamRoutes:
         authenticated_headers: dict[str, str],
     ) -> None:
         """Test creating a team."""
-        team_data = {
-            "name": "Test API Team",
-            "description": "Team created via API test"
-        }
+        team_data = {"name": "Test API Team", "description": "Team created via API test"}
 
         response = await client.post("/api/teams", json=team_data, headers=authenticated_headers)
 
@@ -67,7 +64,7 @@ class TestTeamRoutes:
         team_data = {
             "name": "Tagged API Team",
             "description": "Team with tags",
-            "tags": ["frontend", "react", "javascript"]
+            "tags": ["frontend", "react", "javascript"],
         }
 
         response = await client.post("/api/teams", json=team_data, headers=authenticated_headers)
@@ -105,10 +102,7 @@ class TestTeamRoutes:
         test_team: s.Team,
     ) -> None:
         """Test updating a team."""
-        update_data = {
-            "name": "Updated API Team",
-            "description": "Updated via API test"
-        }
+        update_data = {"name": "Updated API Team", "description": "Updated via API test"}
 
         response = await client.patch(f"/api/teams/{test_team.id}", json=update_data, headers=authenticated_headers)
 
@@ -125,10 +119,7 @@ class TestTeamRoutes:
         test_team: s.Team,
     ) -> None:
         """Test updating a team with new tags."""
-        update_data = {
-            "name": "Tagged Update Team",
-            "tags": ["backend", "python", "fastapi"]
-        }
+        update_data = {"name": "Tagged Update Team", "tags": ["backend", "python", "fastapi"]}
 
         response = await client.patch(f"/api/teams/{test_team.id}", json=update_data, headers=authenticated_headers)
 

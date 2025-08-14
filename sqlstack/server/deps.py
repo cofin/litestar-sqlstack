@@ -11,7 +11,6 @@ from sqlstack.services import (
     PasswordResetService,
     RoleService,
     TagService,
-    TeamFileService,
     TeamInvitationService,
     TeamMemberService,
     TeamService,
@@ -120,20 +119,6 @@ def provide_tag_service(request: Request) -> TagService:
     session = _get_db_session(request)
     driver = AsyncpgDriver(session)
     return TagService(driver)
-
-
-def provide_team_file_service(request: Request) -> TeamFileService:
-    """Provide team file service with database driver.
-
-    Args:
-        request: The Litestar request object
-
-    Returns:
-        TeamFileService instance
-    """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return TeamFileService(driver)
 
 
 def provide_team_invitation_service(request: Request) -> TeamInvitationService:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlspec import sql
@@ -17,6 +17,9 @@ __all__ = ["PasswordResetService"]
 
 class PasswordResetService(SQLSpecService):
     """Handles database operations for password reset tokens and processes."""
+
+    # Maximum password reset requests per hour
+    MAX_RESET_REQUESTS_PER_HOUR = 3
 
     async def create_reset_token(self, user_id: UUID) -> s.PasswordResetToken:
         """Create a new password reset token for a user.
@@ -40,7 +43,7 @@ class PasswordResetService(SQLSpecService):
 
         # Generate secure token
         token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiration
+        expires_at = datetime.now(UTC) + timedelta(hours=1)  # 1 hour expiration
 
         token_data = {
             "user_id": user_id,
@@ -80,7 +83,7 @@ class PasswordResetService(SQLSpecService):
             msg = "Invalid or already used reset token"
             raise ValueError(msg)
 
-        if datetime.utcnow() > token_record.expires_at:
+        if datetime.now(UTC) > token_record.expires_at:
             msg = "Reset token has expired"
             raise ValueError(msg)
 
@@ -141,7 +144,7 @@ class PasswordResetService(SQLSpecService):
         Raises:
             ValueError: If rate limit is exceeded
         """
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
 
         # Count tokens created in the last hour
         result = await self.driver.select_one(
@@ -152,13 +155,13 @@ class PasswordResetService(SQLSpecService):
         )
 
         token_count = result["count"]
-        if token_count >= 3:
-            msg = "Rate limit exceeded. Maximum 3 password reset requests per hour."
+        if token_count >= self.MAX_RESET_REQUESTS_PER_HOUR:
+            msg = f"Rate limit exceeded. Maximum {self.MAX_RESET_REQUESTS_PER_HOUR} password reset requests per hour."
             raise ValueError(msg)
 
     async def get_user_token_count(self, user_id: UUID, hours: int = 1) -> int:
         """Get the number of reset tokens created for a user in the specified time period."""
-        time_ago = datetime.utcnow() - timedelta(hours=hours)
+        time_ago = datetime.now(UTC) - timedelta(hours=hours)
 
         result = await self.driver.select_one(
             sql.select("COUNT(*) as count")

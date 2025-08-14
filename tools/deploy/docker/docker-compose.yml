@@ -111,7 +111,7 @@ services:
       context: .
       dockerfile: docker/run/Dockerfile
     restart: "no"
-    command: litestar database upgrade --no-prompt
+    command: litestar db upgrade --no-prompt
     env_file:
       - .env.docker.example
     depends_on:

@@ -43,9 +43,7 @@ class TestAccessEndpoints:
         }
 
         response = await client.post(
-            "/api/access/login",
-            data=login_data,
-            headers={"content-type": "application/x-www-form-urlencoded"}
+            "/api/access/login", data=login_data, headers={"content-type": "application/x-www-form-urlencoded"}
         )
 
         assert response.status_code == 200
@@ -61,9 +59,7 @@ class TestAccessEndpoints:
         }
 
         response = await client.post(
-            "/api/access/login",
-            data=login_data,
-            headers={"content-type": "application/x-www-form-urlencoded"}
+            "/api/access/login", data=login_data, headers={"content-type": "application/x-www-form-urlencoded"}
         )
 
         assert response.status_code in [400, 401]
@@ -76,9 +72,7 @@ class TestAccessEndpoints:
         }
 
         response = await client.post(
-            "/api/access/login",
-            data=login_data,
-            headers={"content-type": "application/x-www-form-urlencoded"}
+            "/api/access/login", data=login_data, headers={"content-type": "application/x-www-form-urlencoded"}
         )
 
         assert response.status_code in [400, 401]

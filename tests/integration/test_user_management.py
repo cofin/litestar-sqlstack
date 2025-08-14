@@ -39,9 +39,7 @@ class TestUserManagementEndpoints:
         # Regular users shouldn't be able to list all users
         assert response.status_code in [403, 401]
 
-    async def test_get_user_by_id_as_admin(
-        self, admin_client: AsyncTestClient, test_user: s.User
-    ) -> None:
+    async def test_get_user_by_id_as_admin(self, admin_client: AsyncTestClient, test_user: s.User) -> None:
         """Test getting specific user by ID as admin."""
         response = await admin_client.get(f"/api/users/{test_user.id}")
 
@@ -80,9 +78,7 @@ class TestUserManagementEndpoints:
         assert created_user["isVerified"] is False
         assert "id" in created_user
 
-    async def test_update_user_as_admin(
-        self, admin_client: AsyncTestClient, test_user: s.User
-    ) -> None:
+    async def test_update_user_as_admin(self, admin_client: AsyncTestClient, test_user: s.User) -> None:
         """Test updating user as admin."""
         update_data = {
             "name": "Updated by Admin",
@@ -133,9 +129,7 @@ class TestUserManagementEndpoints:
         # Regular users shouldn't be able to create users
         assert response.status_code in [403, 401]
 
-    async def test_update_user_as_regular_user(
-        self, authenticated_client: AsyncTestClient, admin_user: s.User
-    ) -> None:
+    async def test_update_user_as_regular_user(self, authenticated_client: AsyncTestClient, admin_user: s.User) -> None:
         """Test updating another user as regular user (should be forbidden)."""
         update_data = {
             "name": "Unauthorized Update",
@@ -146,9 +140,7 @@ class TestUserManagementEndpoints:
         # Regular users shouldn't be able to update other users
         assert response.status_code in [403, 401]
 
-    async def test_delete_user_as_regular_user(
-        self, authenticated_client: AsyncTestClient, admin_user: s.User
-    ) -> None:
+    async def test_delete_user_as_regular_user(self, authenticated_client: AsyncTestClient, admin_user: s.User) -> None:
         """Test deleting user as regular user (should be forbidden)."""
         response = await authenticated_client.delete(f"/api/users/{admin_user.id}")
 

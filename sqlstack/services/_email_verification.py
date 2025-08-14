@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlspec import sql
@@ -28,7 +28,7 @@ class EmailVerificationService(SQLSpecService):
 
         # Generate secure token
         token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=24)
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
 
         token_data = {
             "user_id": user_id,
@@ -65,7 +65,7 @@ class EmailVerificationService(SQLSpecService):
             raise ValueError(msg)
 
         # Check if token is expired
-        if datetime.utcnow() > token_record.expires_at:
+        if datetime.now(UTC) > token_record.expires_at:
             msg = "Verification token has expired"
             raise ValueError(msg)
 
@@ -96,7 +96,6 @@ class EmailVerificationService(SQLSpecService):
             ),
             schema_type=s.User,
         )
-
 
     async def invalidate_user_tokens(self, user_id: UUID) -> None:
         """Mark all existing verification tokens for a user as used."""

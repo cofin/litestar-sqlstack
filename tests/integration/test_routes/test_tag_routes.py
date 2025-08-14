@@ -39,11 +39,7 @@ class TestTagRoutes:
         authenticated_headers: dict[str, str],
     ) -> None:
         """Test creating a tag."""
-        tag_data = {
-            "name": "Test API Tag",
-            "slug": "test-api-tag",
-            "description": "Tag created via API test"
-        }
+        tag_data = {"name": "Test API Tag", "slug": "test-api-tag", "description": "Tag created via API test"}
 
         response = await client.post("/api/tags", json=tag_data, headers=authenticated_headers)
 
@@ -79,10 +75,7 @@ class TestTagRoutes:
         test_tag: s.Tag,
     ) -> None:
         """Test updating a tag."""
-        update_data = {
-            "name": "Updated API Tag",
-            "description": "Updated via API test"
-        }
+        update_data = {"name": "Updated API Tag", "description": "Updated via API test"}
 
         response = await client.patch(f"/api/tags/{test_tag.id}", json=update_data, headers=authenticated_headers)
 
@@ -126,10 +119,7 @@ class TestTagRoutes:
         authenticated_headers: dict[str, str],
     ) -> None:
         """Test that creating tags requires superuser permission."""
-        tag_data = {
-            "name": "Unauthorized Tag",
-            "slug": "unauthorized-tag"
-        }
+        tag_data = {"name": "Unauthorized Tag", "slug": "unauthorized-tag"}
 
         response = await client.post("/api/tags", json=tag_data, headers=authenticated_headers)
 
@@ -143,9 +133,7 @@ class TestTagRoutes:
         test_tag: s.Tag,
     ) -> None:
         """Test that updating tags requires superuser permission."""
-        update_data = {
-            "name": "Unauthorized Update"
-        }
+        update_data = {"name": "Unauthorized Update"}
 
         response = await client.patch(f"/api/tags/{test_tag.id}", json=update_data, headers=authenticated_headers)
 

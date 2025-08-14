@@ -870,8 +870,7 @@ from litestar.params import Parameter
 
 from sqlstack import schemas as s
 from sqlstack.server.deps import provide_role_service
-from sqlstack.services import RoleService
-from sqlstack.services._base import OffsetPagination
+from sqlstack.services import RoleService, OffsetPagination
 
 if TYPE_CHECKING:
     from sqlspec.extensions.litestar.providers import FilterTypes

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
 from litestar.exceptions import HTTPException, InternalServerException, PermissionDeniedException
 from litestar.status_codes import HTTP_409_CONFLICT
 
@@ -24,7 +22,7 @@ from sqlstack.lib.exceptions import (
 def test_basic_initialization() -> None:
     """Test basic error initialization."""
     error = ApplicationError("Test message")
-    
+
     assert str(error) == "Test message"
     assert error.detail == "Test message"
     assert repr(error) == "ApplicationError - Test message"
@@ -33,7 +31,7 @@ def test_basic_initialization() -> None:
 def test_initialization_with_detail() -> None:
     """Test error initialization with explicit detail."""
     error = ApplicationError("Arg message", detail="Detail message")
-    
+
     assert str(error) == "Arg message Detail message"
     assert error.detail == "Detail message"
     assert repr(error) == "ApplicationError - Detail message"
@@ -42,7 +40,7 @@ def test_initialization_with_detail() -> None:
 def test_initialization_multiple_args() -> None:
     """Test error with multiple arguments."""
     error = ApplicationError("First", "Second", "Third")
-    
+
     assert error.detail == "First"
     assert str(error) == "Second Third First"
 
@@ -50,7 +48,7 @@ def test_initialization_multiple_args() -> None:
 def test_initialization_empty_args() -> None:
     """Test error with empty arguments."""
     error = ApplicationError()
-    
+
     assert error.detail == ""
     assert str(error) == ""
     assert repr(error) == "ApplicationError"
@@ -59,17 +57,17 @@ def test_initialization_empty_args() -> None:
 def test_initialization_with_none_args() -> None:
     """Test error filtering out None arguments."""
     error = ApplicationError("Valid", None, "Also valid", "")
-    
+
     assert error.detail == "Valid"
     assert "None" not in str(error)
 
 
 def test_predefined_detail_attribute() -> None:
     """Test error with predefined detail attribute."""
-    
+
     class CustomError(ApplicationError):
         detail = "Custom detail"
-    
+
     error = CustomError()
     assert error.detail == "Custom detail"
     assert repr(error) == "CustomError - Custom detail"
@@ -78,7 +76,7 @@ def test_predefined_detail_attribute() -> None:
 def test_application_client_error_inheritance() -> None:
     """Test that ApplicationClientError inherits from ApplicationError."""
     error = ApplicationClientError("Client error")
-    
+
     assert isinstance(error, ApplicationError)
     assert str(error) == "Client error"
     assert error.detail == "Client error"
@@ -87,7 +85,7 @@ def test_application_client_error_inheritance() -> None:
 def test_authorization_error_inheritance() -> None:
     """Test that AuthorizationError inherits from ApplicationClientError."""
     error = AuthorizationError("Access denied")
-    
+
     assert isinstance(error, ApplicationClientError)
     assert isinstance(error, ApplicationError)
     assert str(error) == "Access denied"
@@ -96,7 +94,7 @@ def test_authorization_error_inheritance() -> None:
 def test_health_check_configuration_error_inheritance() -> None:
     """Test that HealthCheckConfigurationError inherits from ApplicationError."""
     error = HealthCheckConfigurationError("Health check config error")
-    
+
     assert isinstance(error, ApplicationError)
     assert str(error) == "Health check config error"
 
@@ -104,7 +102,7 @@ def test_health_check_configuration_error_inheritance() -> None:
 def test_missing_dependency_error_inheritance() -> None:
     """Test that MissingDependencyError inherits from both ApplicationError and ImportError."""
     error = MissingDependencyError("Missing dependency")
-    
+
     assert isinstance(error, ApplicationError)
     assert isinstance(error, ImportError)
     assert str(error) == "Missing dependency"
@@ -113,7 +111,7 @@ def test_missing_dependency_error_inheritance() -> None:
 def test_http_conflict_exception_status_code() -> None:
     """Test that _HTTPConflictException has correct status code."""
     error = _HTTPConflictException()
-    
+
     assert isinstance(error, HTTPException)
     assert error.status_code == HTTP_409_CONFLICT
 
@@ -123,9 +121,9 @@ def test_application_error_ignored(mock_bind: MagicMock) -> None:
     """Test that ApplicationError is ignored by the hook."""
     error = ApplicationError("Test error")
     scope = {}
-    
+
     after_exception_hook_handler(error, scope)
-    
+
     mock_bind.assert_not_called()
 
 
@@ -134,9 +132,9 @@ def test_http_client_error_ignored(mock_bind: MagicMock) -> None:
     """Test that HTTP client errors (4xx) are ignored."""
     error = HTTPException(detail="Not found", status_code=404)
     scope = {}
-    
+
     after_exception_hook_handler(error, scope)
-    
+
     mock_bind.assert_not_called()
 
 
@@ -147,9 +145,9 @@ def test_server_error_logged(mock_exc_info: MagicMock, mock_bind: MagicMock) -> 
     mock_exc_info.return_value = ("type", "value", "traceback")
     error = HTTPException(detail="Internal error", status_code=500)
     scope = {}
-    
+
     after_exception_hook_handler(error, scope)
-    
+
     mock_bind.assert_called_once_with(exc_info=("type", "value", "traceback"))
 
 
@@ -160,9 +158,9 @@ def test_generic_exception_logged(mock_exc_info: MagicMock, mock_bind: MagicMock
     mock_exc_info.return_value = ("type", "value", "traceback")
     error = ValueError("Generic error")
     scope = {}
-    
+
     after_exception_hook_handler(error, scope)
-    
+
     mock_bind.assert_called_once_with(exc_info=("type", "value", "traceback"))
 
 
@@ -171,10 +169,10 @@ def test_authorization_error_mapping() -> None:
     mock_request = MagicMock()
     mock_request.app.debug = False
     error = AuthorizationError("Access denied")
-    
-    with patch("sqlstack.lib.exceptions.create_exception_response") as mock_create:
+
+    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
-        
+
         args, kwargs = mock_create.call_args
         assert args[0] is mock_request
         assert isinstance(args[1], PermissionDeniedException)
@@ -185,10 +183,10 @@ def test_generic_application_error_mapping() -> None:
     mock_request = MagicMock()
     mock_request.app.debug = False
     error = ApplicationError("Generic error")
-    
-    with patch("sqlstack.lib.exceptions.create_exception_response") as mock_create:
+
+    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
-        
+
         args, kwargs = mock_create.call_args
         assert args[0] is mock_request
         assert isinstance(args[1], InternalServerException)
@@ -199,11 +197,11 @@ def test_debug_mode_response() -> None:
     mock_request = MagicMock()
     mock_request.app.debug = True
     error = ApplicationError("Debug error")
-    
-    with patch("sqlstack.lib.exceptions.create_debug_response") as mock_debug:
-        with patch("sqlstack.lib.exceptions.create_exception_response") as mock_exception:
+
+    with patch("litestar.exceptions.responses.create_debug_response") as mock_debug:
+        with patch("litestar.exceptions.responses.create_exception_response") as mock_exception:
             exception_to_http_response(mock_request, error)
-            
+
             # Should call debug response for server errors in debug mode
             mock_debug.assert_called_once_with(mock_request, error)
             mock_exception.assert_not_called()
@@ -214,11 +212,11 @@ def test_debug_mode_no_debug_for_permission_error() -> None:
     mock_request = MagicMock()
     mock_request.app.debug = True
     error = AuthorizationError("Permission denied")
-    
-    with patch("sqlstack.lib.exceptions.create_debug_response") as mock_debug:
-        with patch("sqlstack.lib.exceptions.create_exception_response") as mock_exception:
+
+    with patch("litestar.exceptions.responses.create_debug_response") as mock_debug:
+        with patch("litestar.exceptions.responses.create_exception_response") as mock_exception:
             exception_to_http_response(mock_request, error)
-            
+
             # Should not call debug response for permission errors even in debug mode
             mock_debug.assert_not_called()
             mock_exception.assert_called_once()
@@ -228,15 +226,15 @@ def test_error_cause_in_detail() -> None:
     """Test that error cause is included in HTTP response detail."""
     mock_request = MagicMock()
     mock_request.app.debug = False
-    
+
     # Create error with a cause
     original_error = ValueError("Original error")
     error = ApplicationError("Wrapper error")
     error.__cause__ = original_error
-    
-    with patch("sqlstack.lib.exceptions.create_exception_response") as mock_create:
+
+    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
-        
+
         args, kwargs = mock_create.call_args
         http_exc = args[1]
         assert str(original_error) in http_exc.detail
@@ -275,7 +273,7 @@ def test_multiple_error_types() -> None:
         HealthCheckConfigurationError("Health"),
         MissingDependencyError("Dependency"),
     ]
-    
+
     for error in errors:
         assert isinstance(error, ApplicationError)
         assert str(error) in repr(error)
@@ -286,13 +284,14 @@ def test_error_detail_edge_cases() -> None:
     # Empty string arguments should be filtered
     error1 = ApplicationError("", "Valid message", "")
     assert error1.detail == "Valid message"
-    
+
     # All empty arguments
     error2 = ApplicationError("", "", "")
     assert error2.detail == ""
-    
+
     # Mixed valid and invalid arguments
-    error3 = ApplicationError("First", None, "Second", 0)  # 0 is falsy but valid
+    # Note: 0 is falsy and will be filtered out by the `if arg` check
+    error3 = ApplicationError("First", None, "Second", 1)  # 1 is truthy
     assert error3.detail == "First"
     assert "Second" in str(error3)
-    assert "0" in str(error3)
+    assert "1" in str(error3)

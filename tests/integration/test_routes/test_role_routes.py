@@ -41,11 +41,7 @@ class TestRoleRoutes:
         authenticated_headers: dict[str, str],
     ) -> None:
         """Test creating a role."""
-        role_data = {
-            "name": "Test API Role",
-            "slug": "test-api-role",
-            "description": "Role created via API test"
-        }
+        role_data = {"name": "Test API Role", "slug": "test-api-role", "description": "Role created via API test"}
 
         response = await client.post("/api/roles", json=role_data, headers=authenticated_headers)
 
@@ -81,10 +77,7 @@ class TestRoleRoutes:
         test_role: s.Role,
     ) -> None:
         """Test updating a role."""
-        update_data = {
-            "name": "Updated API Role",
-            "description": "Updated via API test"
-        }
+        update_data = {"name": "Updated API Role", "description": "Updated via API test"}
 
         response = await client.patch(f"/api/roles/{test_role.id}", json=update_data, headers=authenticated_headers)
 
@@ -104,7 +97,7 @@ class TestRoleRoutes:
         """Test that updating default roles is denied."""
         update_data = {
             "name": "User",  # Default role name
-            "description": "Attempted update"
+            "description": "Attempted update",
         }
 
         response = await client.patch(f"/api/roles/{user_role.id}", json=update_data, headers=authenticated_headers)

@@ -24,6 +24,7 @@ class TestSQLSpecService:
         service = SQLSpecService(driver)
 
         from sqlspec import sql
+
         result = await service.get_or_404(
             sql.select("id", "email", "name", "is_active", "is_verified", "is_superuser")
             .from_("user_account")
@@ -40,6 +41,7 @@ class TestSQLSpecService:
         non_existent_id = uuid4()
 
         from sqlspec import sql
+
         with pytest.raises(ValueError, match="Record not found"):
             await service.get_or_404(
                 sql.select("id", "email", "name", "is_active", "is_verified", "is_superuser")
@@ -54,6 +56,7 @@ class TestSQLSpecService:
         non_existent_id = uuid4()
 
         from sqlspec import sql
+
         with pytest.raises(ValueError, match="Custom error message"):
             await service.get_or_404(
                 sql.select("id", "email", "name", "is_active", "is_verified", "is_superuser")
@@ -68,9 +71,8 @@ class TestSQLSpecService:
         service = SQLSpecService(driver)
 
         from sqlspec import sql
-        exists = await service.exists(
-            sql.select("1").from_("user_account").where_eq("id", test_user.id)
-        )
+
+        exists = await service.exists(sql.select("1").from_("user_account").where_eq("id", test_user.id))
 
         assert exists is True
 
@@ -80,9 +82,8 @@ class TestSQLSpecService:
         non_existent_id = uuid4()
 
         from sqlspec import sql
-        exists = await service.exists(
-            sql.select("1").from_("user_account").where_eq("id", non_existent_id)
-        )
+
+        exists = await service.exists(sql.select("1").from_("user_account").where_eq("id", non_existent_id))
 
         assert exists is False
 
@@ -103,5 +104,6 @@ class TestSQLSpecService:
 
         # Test finding non-existent filter type
         from sqlspec.core.filters import BeforeAfterFilter
+
         not_found = SQLSpecService.find_filter(BeforeAfterFilter, filters)
         assert not_found is None

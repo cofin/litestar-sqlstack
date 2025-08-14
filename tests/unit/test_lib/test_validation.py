@@ -36,7 +36,7 @@ def test_valid_emails() -> None:
         "a@b.co",
         "user123@example.com",
     ]
-    
+
     for email in valid_emails:
         result = validate_email(email)
         assert result == email.lower()
@@ -56,7 +56,7 @@ def test_invalid_email_formats() -> None:
         "a",
         "user@example.c",  # TLD too short
     ]
-    
+
     for email in invalid_emails:
         with pytest.raises(ValidationError, match="Invalid email format"):
             validate_email(email)
@@ -69,7 +69,7 @@ def test_blocked_email_domains() -> None:
         "user@tempmail.org",
         "fake@guerrillamail.com",
     ]
-    
+
     for email in blocked_emails:
         with pytest.raises(ValidationError, match="Email domain not allowed"):
             validate_email(email)
@@ -84,7 +84,7 @@ def test_blocked_email_patterns() -> None:
         "noreply@example.com",  # Starts with "noreply"
         "no-reply@example.com",  # Starts with "no-reply"
     ]
-    
+
     for email in blocked_emails:
         with pytest.raises(ValidationError, match="Email format not allowed"):
             validate_email(email)
@@ -128,7 +128,7 @@ def test_valid_passwords() -> None:
         "ComplexPassw0rd#With$pecialChars",
         "Minimum12CharPass!",
     ]
-    
+
     for password in valid_passwords:
         result = validate_password(password)
         assert result == password
@@ -137,7 +137,9 @@ def test_valid_passwords() -> None:
 def test_password_too_short() -> None:
     """Test password too short."""
     short_password = "Short1!"
-    with pytest.raises(PasswordValidationError, match=f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"):
+    with pytest.raises(
+        PasswordValidationError, match=f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"
+    ):
         validate_password_strength(short_password)
 
 
@@ -179,14 +181,14 @@ def test_common_passwords() -> None:
     for password in basic_common:
         with pytest.raises(PasswordValidationError):  # Will fail on basic requirements first
             validate_password_strength(password)
-            
+
     # Test pattern-based detection with passwords that start with common patterns
     pattern_passwords = [
         "123A!bcdefghijk",  # Starts with "123" which is detected
-        "AbcA!efghijklmn",  # Starts with "abc" which is detected  
+        "AbcA!efghijklmn",  # Starts with "abc" which is detected
         "QweA!rtyuiopqwe",  # Starts with "qwe" which is detected
     ]
-    
+
     for password in pattern_passwords:
         with pytest.raises(PasswordValidationError, match="Password is too common"):
             validate_password_strength(password)
@@ -202,10 +204,10 @@ def test_sequential_patterns() -> None:
     """Test sequential patterns."""
     sequential_passwords = [
         "123456789012A!",  # Sequential but with required chars
-        "Abcdefghijkl1!",  # Sequential but with required chars  
+        "Abcdefghijkl1!",  # Sequential but with required chars
         "Qwertyuiopas1!",  # Sequential but with required chars
     ]
-    
+
     for password in sequential_passwords:
         with pytest.raises(PasswordValidationError, match="Password is too common"):
             validate_password_strength(password)
@@ -221,7 +223,7 @@ def test_non_string_password() -> None:
 def test_weak_password_analysis() -> None:
     """Test weak password analysis."""
     analysis = get_password_strength("weak")
-    
+
     assert analysis["strength"] == "weak"
     assert analysis["score"] < PASSWORD_SCORE_MEDIUM
     assert len(analysis["feedback"]) > 0
@@ -230,7 +232,7 @@ def test_weak_password_analysis() -> None:
 def test_medium_password_analysis() -> None:
     """Test medium strength password."""
     analysis = get_password_strength("MediumPass123!")
-    
+
     assert analysis["strength"] in ["medium", "strong"]
     assert analysis["score"] >= PASSWORD_SCORE_MEDIUM
 
@@ -238,7 +240,7 @@ def test_medium_password_analysis() -> None:
 def test_strong_password_analysis() -> None:
     """Test strong password analysis."""
     analysis = get_password_strength("VeryStrongPassword123!@#$%")
-    
+
     assert analysis["strength"] == "strong"
     assert analysis["score"] >= PASSWORD_SCORE_STRONG
 
@@ -246,7 +248,7 @@ def test_strong_password_analysis() -> None:
 def test_password_requirements_check() -> None:
     """Test password requirements checking."""
     analysis = get_password_strength("TestPassword123!")
-    
+
     assert analysis["requirements"]["length"] is True
     assert analysis["requirements"]["uppercase"] is True
     assert analysis["requirements"]["lowercase"] is True
@@ -257,7 +259,7 @@ def test_password_requirements_check() -> None:
 def test_password_feedback_generation() -> None:
     """Test feedback generation for weak passwords."""
     analysis = get_password_strength("weak")
-    
+
     assert isinstance(analysis["feedback"], list)
     assert len(analysis["feedback"]) > 0
     assert any("characters" in feedback for feedback in analysis["feedback"])
@@ -276,7 +278,7 @@ def test_valid_names() -> None:
         "José María",
         "François",
     ]
-    
+
     for name in valid_names:
         result = validate_name(name)
         assert isinstance(result, str)
@@ -291,7 +293,7 @@ def test_invalid_name_characters() -> None:
         "User<script>",  # HTML
         "Name\x00",  # Control character (null)
     ]
-    
+
     for name in invalid_names:
         with pytest.raises(ValidationError):
             validate_name(name)
@@ -337,7 +339,7 @@ def test_valid_usernames() -> None:
         "user_name_123",
         "a1b2c3",
     ]
-    
+
     for username in valid_usernames:
         result = validate_username(username)
         assert result == username.lower()
@@ -351,11 +353,11 @@ def test_invalid_username_characters() -> None:
         "user.name",  # Dot
         "user!name",  # Special character
     ]
-    
+
     for username in invalid_usernames:
         with pytest.raises(ValidationError, match="Username can only contain"):
             validate_username(username)
-            
+
     # Test that UPPERCASE gets converted
     result = validate_username("UPPERCASE")
     assert result == "uppercase"
@@ -376,7 +378,7 @@ def test_username_length_limits() -> None:
 def test_username_start_character() -> None:
     """Test username must start with letter or number."""
     invalid_starts = ["_username", "-username"]
-    
+
     for username in invalid_starts:
         with pytest.raises(ValidationError, match="Username must start with a letter or number"):
             validate_username(username)
@@ -385,7 +387,7 @@ def test_username_start_character() -> None:
 def test_reserved_usernames() -> None:
     """Test reserved username blocking."""
     reserved_usernames = ["admin", "root", "api", "www", "support"]
-    
+
     for username in reserved_usernames:
         with pytest.raises(ValidationError, match="Username is reserved"):
             validate_username(username)
@@ -418,7 +420,7 @@ def test_valid_urls() -> None:
         "https://subdomain.example.com/path",
         "https://example.com/path?query=value#fragment",
     ]
-    
+
     for url in valid_urls:
         result = validate_url(url)
         assert result == url
@@ -432,7 +434,7 @@ def test_invalid_url_schemes() -> None:
         "javascript:alert('xss')",
         "data:text/html,<script>alert('xss')</script>",
     ]
-    
+
     for url in invalid_urls:
         with pytest.raises(ValidationError):
             validate_url(url)
@@ -457,7 +459,7 @@ def test_blocked_url_domains() -> None:
         "https://127.0.0.1/",
         "http://0.0.0.0/",
     ]
-    
+
     for url in blocked_urls:
         with pytest.raises(ValidationError, match="URL domain not allowed"):
             validate_url(url)
@@ -470,7 +472,7 @@ def test_suspicious_url_content() -> None:
         "https://example.com/data:something",
         "https://example.com/vbscript:code",
     ]
-    
+
     for url in suspicious_urls:
         with pytest.raises(ValidationError, match="URL contains suspicious content"):
             validate_url(url)
@@ -499,7 +501,7 @@ def test_valid_slugs() -> None:
         "slug-with-numbers-123",
         "a",
     ]
-    
+
     for slug in valid_slugs:
         result = validate_slug(slug)
         assert result == slug
@@ -513,11 +515,11 @@ def test_invalid_slug_characters() -> None:
         "slug.with.dots",  # Dots
         "slug@with@symbols",  # Symbols
     ]
-    
+
     for slug in invalid_slugs:
         with pytest.raises(ValidationError, match="Slug can only contain"):
             validate_slug(slug)
-            
+
     # Test that UPPERCASE gets converted
     result = validate_slug("UPPERCASE")
     assert result == "uppercase"
@@ -530,7 +532,7 @@ def test_slug_hyphen_rules() -> None:
         "ends-with-hyphen-",
         "has--double-hyphens",
     ]
-    
+
     for slug in invalid_slugs:
         with pytest.raises(ValidationError):
             validate_slug(slug)
@@ -571,7 +573,7 @@ def test_valid_phone_numbers() -> None:
         "1234567890",
         "+1 (555) 123-4567",
     ]
-    
+
     for phone in valid_phones:
         result = validate_phone(phone)
         assert result == phone
@@ -585,7 +587,7 @@ def test_invalid_phone_characters() -> None:
         "phone-number",  # Text
         "123@456.7890",  # @ symbol
     ]
-    
+
     for phone in invalid_phones:
         with pytest.raises(ValidationError, match="Invalid phone number format"):
             validate_phone(phone)
@@ -620,7 +622,7 @@ def test_validate_not_empty() -> None:
     # Valid case
     result = validate_not_empty("  test  ")
     assert result == "test"
-    
+
     # Invalid case
     with pytest.raises(ValidationError, match="Value cannot be empty"):
         validate_not_empty("   ")
@@ -631,11 +633,11 @@ def test_validate_length() -> None:
     # Valid case
     result = validate_length("test", min_length=2, max_length=10)
     assert result == "test"
-    
+
     # Too short
     with pytest.raises(ValidationError, match="Must be at least"):
         validate_length("a", min_length=2)
-    
+
     # Too long
     with pytest.raises(ValidationError, match="Must not exceed"):
         validate_length("toolong", max_length=5)
@@ -646,7 +648,7 @@ def test_validate_no_control_chars() -> None:
     # Valid case
     result = validate_no_control_chars("normal text\n\r\t")
     assert result == "normal text\n\r\t"
-    
+
     # Invalid case (null character)
     with pytest.raises(ValidationError, match="Contains invalid control characters"):
         validate_no_control_chars("text\x00with\x01control")

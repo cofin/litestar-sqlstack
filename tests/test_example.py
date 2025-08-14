@@ -8,11 +8,7 @@ from sqlstack import schemas as s
 @pytest.mark.unit
 def test_example_schema() -> None:
     """Example test to verify schemas work."""
-    user_create = s.UserCreate(
-        email="test@example.com",
-        password="TestPassword123!",
-        name="Test User"
-    )
+    user_create = s.UserCreate(email="test@example.com", password="TestPassword123!", name="Test User")
 
     assert user_create.email == "test@example.com"
     assert user_create.name == "Test User"

@@ -620,4 +620,3 @@ def validate_phone(v: str) -> str:
 
 # Type annotation
 Phone = Annotated[str, msgspec.Meta(description="Valid international phone number")]
-

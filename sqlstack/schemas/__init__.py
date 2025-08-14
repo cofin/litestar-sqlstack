@@ -35,8 +35,6 @@ from sqlstack.schemas._tags import Tag, TagCreate, TagUpdate
 from sqlstack.schemas._teams import (
     Team,
     TeamCreate,
-    TeamFile,
-    TeamFileUpload,
     TeamInvitation,
     TeamInvitationCreate,
     TeamMember,
@@ -77,8 +75,6 @@ __all__ = (
     "TagUpdate",
     "Team",
     "TeamCreate",
-    "TeamFile",
-    "TeamFileUpload",
     "TeamInvitation",
     "TeamInvitationCreate",
     "TeamMember",

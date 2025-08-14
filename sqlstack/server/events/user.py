@@ -19,5 +19,6 @@ async def user_created_event_handler(user_id: UUID) -> None:
         user_id: The primary key of the user that was created.
     """
     await logger.ainfo("Running post signup flow.")
-    # TODO: Implement with proper SQLSpec session management
+    # FIXME: Add user creation side effects (welcome email, default roles, etc.)
+    # when SQLSpec session management is fully implemented
     await logger.ainfo("User created", user_id=user_id)
