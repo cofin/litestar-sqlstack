@@ -81,9 +81,7 @@ class TestRoleManagement:
 
         # Assign multiple roles using bulk assignment (if available)
         try:
-            assigned_roles = await user_role_service.bulk_assign_roles(
-                user.id, [admin_role.id, moderator_role.id]
-            )
+            assigned_roles = await user_role_service.bulk_assign_roles(user.id, [admin_role.id, moderator_role.id])
 
             assert len(assigned_roles) == 2
             role_ids = [ur.role_id for ur in assigned_roles]

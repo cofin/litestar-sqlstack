@@ -18,10 +18,12 @@ from litestar.middleware.logging import LoggingMiddlewareConfig
 from litestar.plugins.problem_details import ProblemDetailsConfig
 from litestar.plugins.structlog import StructlogConfig
 from sqlspec.adapters.asyncpg import AsyncpgConfig
+from sqlspec.adapters.duckdb import DuckDBConfig
 from sqlspec.extensions.litestar import DatabaseConfig, SQLSpec
 
 from sqlstack.lib import log as log_conf
 from sqlstack.lib.settings import get_settings
+from sqlstack.utils.env import BASE_DIR
 
 DEFAULT_ACCESS_ROLE = "User"
 """The name of the default access role."""
@@ -40,9 +42,7 @@ csrf = CSRFConfig(
     header_name=settings.app.CSRF_HEADER_NAME,
 )
 cors = CORSConfig(allow_origins=cast("list[str]", settings.app.ALLOWED_CORS_ORIGINS))
-
 problem_details = ProblemDetailsConfig(enable_for_all_http_exceptions=True)
-
 db = AsyncpgConfig(
     pool_config={
         "dsn": settings.db.URL,
@@ -50,9 +50,21 @@ db = AsyncpgConfig(
         "max_size": settings.db.POOL_MAX_SIZE,
         "timeout": settings.db.POOL_TIMEOUT,
         "command_timeout": settings.db.POOL_RECYCLE,
-    }
+    },
+    migration_config={
+        "version_table_name": settings.db.MIGRATION_DDL_VERSION_TABLE,
+        "script_location": settings.db.MIGRATION_PATH,
+        "project_root": BASE_DIR,
+    },
 )
-sqlspec = SQLSpec(config=DatabaseConfig(commit_mode="autocommit", config=db))
+etl_db = DuckDBConfig()
+db_manager = SQLSpec(
+    config=[
+        DatabaseConfig(commit_mode="autocommit", config=db),
+        DatabaseConfig(config=etl_db, connection_key="etl_connection", pool_key="etl_pool", session_key="etl_session"),
+    ]
+)
+db_manager.load_sql_files(BASE_DIR / "db" / "sql")
 
 log = StructlogConfig(
     enable_middleware_logging=False,

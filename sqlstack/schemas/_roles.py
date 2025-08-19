@@ -21,13 +21,16 @@ class Role(CamelizedBaseStruct):
     id: UUID
     slug: str
     name: str
+    description: str | None
     created_at: datetime
     updated_at: datetime
 
 
 class RoleCreate(CamelizedBaseStruct):
     name: str
+    description: str | None = None
 
 
-class RoleUpdate(CamelizedBaseStruct):
+class RoleUpdate(CamelizedBaseStruct, omit_defaults=True):
     name: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET

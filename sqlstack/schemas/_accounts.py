@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 import msgspec
@@ -15,8 +15,12 @@ __all__ = (
     "ProfileUpdate",
     "User",
     "UserCreate",
+    "UserOAuthAccount",
+    "UserOAuthAccountCreate",
+    "UserOAuthAccountUpdate",
     "UserRole",
     "UserRoleAdd",
+    "UserRoleCreate",
     "UserRoleRevoke",
     "UserTeam",
     "UserUpdate",
@@ -64,15 +68,20 @@ class User(CamelizedBaseStruct):
 
     id: UUID
     email: str
+    joined_at: date
+    created_at: datetime
+    updated_at: datetime
     name: str | None = None
-    is_superuser: bool = False
+    hashed_password: str | None = None
+    avatar_url: str | None = None
     is_active: bool = False
+    is_superuser: bool = False
     is_verified: bool = False
+    verified_at: date | None = None
     has_password: bool = False
     teams: list[UserTeam] = msgspec.field(default_factory=list)
     roles: list[UserRole] = msgspec.field(default_factory=list)
     oauth_accounts: list[OauthAccount] = msgspec.field(default_factory=list)
-    avatar_url: str | None = None
 
 
 class UserCreate(CamelizedBaseStruct):
@@ -82,6 +91,8 @@ class UserCreate(CamelizedBaseStruct):
     is_superuser: bool = False
     is_active: bool = True
     is_verified: bool = False
+    verified_at: date | None = None
+    joined_at: date | None = None
 
 
 class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
@@ -91,6 +102,8 @@ class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
     is_superuser: bool | msgspec.UnsetType | None = msgspec.UNSET
     is_active: bool | msgspec.UnsetType | None = msgspec.UNSET
     is_verified: bool | msgspec.UnsetType | None = msgspec.UNSET
+    verified_at: date | msgspec.UnsetType | None = msgspec.UNSET
+    joined_at: date | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class AccountLogin(CamelizedBaseStruct):
@@ -128,3 +141,37 @@ class UserRoleRevoke(CamelizedBaseStruct):
     """User role revoke ."""
 
     user_name: str
+
+
+class UserRoleCreate(CamelizedBaseStruct):
+    """Schema for creating a user role assignment."""
+
+    user_id: UUID
+    role_id: UUID
+
+
+class UserOAuthAccount(CamelizedBaseStruct):
+    """User OAuth account details."""
+
+    id: UUID
+    user_id: UUID
+    provider: str
+    oauth_account_id: str
+    created_at: datetime
+    updated_at: datetime
+    oauth_account_email: str | None = None
+
+
+class UserOAuthAccountCreate(CamelizedBaseStruct):
+    """Schema for creating a user OAuth account."""
+
+    user_id: UUID
+    provider: str
+    oauth_account_id: str
+    oauth_account_email: str | None = None
+
+
+class UserOAuthAccountUpdate(CamelizedBaseStruct):
+    """Schema for updating a user OAuth account."""
+
+    oauth_account_email: str | None = None

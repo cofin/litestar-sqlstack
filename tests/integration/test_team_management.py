@@ -252,9 +252,7 @@ class TestTeamManagement:
         invitation = await team_invitation_service.create(invitation_data)
 
         # Accept invitation
-        accepted_invitation = await team_invitation_service.accept_invitation(
-            invitation.token, invitee.id
-        )
+        accepted_invitation = await team_invitation_service.accept_invitation(invitation.token, invitee.id)
 
         assert accepted_invitation is not None
         assert accepted_invitation.status == "ACCEPTED"

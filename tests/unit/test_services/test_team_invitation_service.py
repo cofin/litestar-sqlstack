@@ -67,9 +67,7 @@ class TestTeamInvitationService:
         assert retrieved_invitation.token == created_invitation.token
         assert retrieved_invitation.invited_email == "token-test@example.com"
 
-    async def test_get_nonexistent_invitation_by_token(
-        self, team_invitation_service: TeamInvitationService
-    ) -> None:
+    async def test_get_nonexistent_invitation_by_token(self, team_invitation_service: TeamInvitationService) -> None:
         """Test retrieving a non-existent invitation by token returns None."""
         invitation = await team_invitation_service.get_by_token("non-existent-token")
         assert invitation is None
@@ -131,9 +129,7 @@ class TestTeamInvitationService:
         assert accepted_invitation.accepted_by_user_id == accepted_user_id
         assert accepted_invitation.accepted_at is not None
 
-    async def test_accept_nonexistent_invitation(
-        self, team_invitation_service: TeamInvitationService
-    ) -> None:
+    async def test_accept_nonexistent_invitation(self, team_invitation_service: TeamInvitationService) -> None:
         """Test accepting a non-existent invitation returns None."""
         result = await team_invitation_service.accept_invitation("invalid-token", uuid4())
         assert result is None

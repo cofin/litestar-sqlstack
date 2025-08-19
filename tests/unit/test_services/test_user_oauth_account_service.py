@@ -52,22 +52,16 @@ class TestUserOAuthAccountService:
         )
 
         created_account = await user_oauth_account_service.create(oauth_data)
-        retrieved_account = await user_oauth_account_service.get_by_provider_and_id(
-            "github", "github_789012"
-        )
+        retrieved_account = await user_oauth_account_service.get_by_provider_and_id("github", "github_789012")
 
         assert retrieved_account is not None
         assert retrieved_account.id == created_account.id
         assert retrieved_account.provider == "github"
         assert retrieved_account.oauth_account_id == "github_789012"
 
-    async def test_get_nonexistent_oauth_account(
-        self, user_oauth_account_service: UserOAuthAccountService
-    ) -> None:
+    async def test_get_nonexistent_oauth_account(self, user_oauth_account_service: UserOAuthAccountService) -> None:
         """Test retrieving a non-existent OAuth account returns None."""
-        account = await user_oauth_account_service.get_by_provider_and_id(
-            "nonexistent", "fake_id"
-        )
+        account = await user_oauth_account_service.get_by_provider_and_id("nonexistent", "fake_id")
         assert account is None
 
     async def test_list_user_oauth_accounts(
@@ -118,9 +112,7 @@ class TestUserOAuthAccountService:
         created_account = await user_oauth_account_service.create(oauth_data)
 
         # Update the account
-        update_data = s.UserOAuthAccountUpdate(
-            oauth_account_email="new@discord.com"
-        )
+        update_data = s.UserOAuthAccountUpdate(oauth_account_email="new@discord.com")
 
         updated_account = await user_oauth_account_service.update(created_account.id, update_data)
 
@@ -147,9 +139,7 @@ class TestUserOAuthAccountService:
         await user_oauth_account_service.delete(created_account.id)
 
         # Verify account is deleted
-        retrieved_account = await user_oauth_account_service.get_by_provider_and_id(
-            "twitter", "twitter_delete_test"
-        )
+        retrieved_account = await user_oauth_account_service.get_by_provider_and_id("twitter", "twitter_delete_test")
         assert retrieved_account is None
 
     async def test_get_user_by_oauth_provider(
@@ -168,21 +158,15 @@ class TestUserOAuthAccountService:
         await user_oauth_account_service.create(oauth_data)
 
         # Find user by OAuth provider
-        found_user = await user_oauth_account_service.get_user_by_oauth(
-            "linkedin", "linkedin_user_lookup"
-        )
+        found_user = await user_oauth_account_service.get_user_by_oauth("linkedin", "linkedin_user_lookup")
 
         assert found_user is not None
         assert found_user.id == test_user.id
         assert found_user.email == test_user.email
 
-    async def test_get_user_by_nonexistent_oauth(
-        self, user_oauth_account_service: UserOAuthAccountService
-    ) -> None:
+    async def test_get_user_by_nonexistent_oauth(self, user_oauth_account_service: UserOAuthAccountService) -> None:
         """Test finding a user by non-existent OAuth account returns None."""
-        user = await user_oauth_account_service.get_user_by_oauth(
-            "nonexistent", "fake_oauth_id"
-        )
+        user = await user_oauth_account_service.get_user_by_oauth("nonexistent", "fake_oauth_id")
         assert user is None
 
     async def test_duplicate_oauth_account_prevention(

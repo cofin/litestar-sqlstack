@@ -84,11 +84,13 @@ async def fx_db_connection(postgres_service: PostgresService) -> AsyncGenerator[
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             email VARCHAR(255) UNIQUE NOT NULL,
             name VARCHAR(255),
-            password_hash VARCHAR(255),
+            hashed_password VARCHAR(255),
             is_active BOOLEAN DEFAULT true,
             is_verified BOOLEAN DEFAULT false,
             is_superuser BOOLEAN DEFAULT false,
             avatar_url VARCHAR(500),
+            verified_at DATE,
+            joined_at DATE DEFAULT CURRENT_DATE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             last_login TIMESTAMP WITH TIME ZONE
@@ -123,6 +125,7 @@ async def fx_db_connection(postgres_service: PostgresService) -> AsyncGenerator[
             name VARCHAR(100) NOT NULL,
             slug VARCHAR(100) UNIQUE NOT NULL,
             description TEXT,
+            is_active BOOLEAN DEFAULT true,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         )
@@ -153,9 +156,80 @@ async def fx_db_connection(postgres_service: PostgresService) -> AsyncGenerator[
         )
     """)
 
+    # Add missing critical tables
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_account_role (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+            role_id UUID NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+            assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(user_id, role_id)
+        )
+    """)
+
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS team_member (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+            role VARCHAR(50) DEFAULT 'MEMBER',
+            is_owner BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(team_id, user_id)
+        )
+    """)
+
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS team_tag (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+            tag_id UUID NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(team_id, tag_id)
+        )
+    """)
+
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS team_invitation (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+            invited_by_user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+            email VARCHAR(255) NOT NULL,
+            role VARCHAR(50) DEFAULT 'MEMBER',
+            token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            is_accepted BOOLEAN DEFAULT false,
+            accepted_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_account_oauth (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+            provider VARCHAR(100) NOT NULL,
+            oauth_account_id VARCHAR(255) NOT NULL,
+            oauth_account_email VARCHAR(255),
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(provider, oauth_account_id)
+        )
+    """)
+
     yield conn
 
     # Cleanup following reference app pattern
+    await conn.execute("DROP TABLE IF EXISTS user_account_oauth CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS team_invitation CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS team_tag CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS team_member CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS user_account_role CASCADE")
     await conn.execute("DROP TABLE IF EXISTS password_reset_token CASCADE")
     await conn.execute("DROP TABLE IF EXISTS email_verification_token CASCADE")
     await conn.execute("DROP TABLE IF EXISTS team CASCADE")

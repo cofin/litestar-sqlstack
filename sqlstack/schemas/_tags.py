@@ -1,6 +1,9 @@
 # Standard Library
 
+from datetime import datetime
 from uuid import UUID
+
+import msgspec
 
 from sqlstack.schemas.base import CamelizedBaseStruct
 
@@ -12,15 +15,20 @@ class Tag(CamelizedBaseStruct):
     id: UUID
     slug: str
     name: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class TagCreate(CamelizedBaseStruct):
     """Tag Create Properties."""
 
     name: str
+    description: str | None = None
 
 
-class TagUpdate(CamelizedBaseStruct):
+class TagUpdate(CamelizedBaseStruct, omit_defaults=True):
     """Tag Update Properties."""
 
-    name: str | None = None
+    name: str | msgspec.UnsetType | None = msgspec.UNSET
+    description: str | msgspec.UnsetType | None = msgspec.UNSET

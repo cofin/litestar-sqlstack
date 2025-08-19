@@ -278,5 +278,5 @@ strict = ["sqlstack/**/*"]
 venv = ".venv"
 venvPath = "."
 
-# [tool.uv.sources]
-# sqlspec = { path = ".sqlspec", editable = true }
+[tool.uv.sources]
+sqlspec = { path = ".sqlspec", editable = true }

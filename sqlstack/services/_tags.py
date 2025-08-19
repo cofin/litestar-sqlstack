@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlspec import sql
 from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas as s
+from sqlstack.config import db_manager
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:
@@ -21,30 +21,29 @@ class TagService(SQLSpecService):
         tag_data = schema_dump(data, exclude_unset=True)
         if "slug" not in tag_data or not tag_data["slug"]:
             tag_data["slug"] = await self._get_available_slug(tag_data.get("name", ""))
-        return await self.driver.select_one(
-            sql.insert("tag").values(**tag_data).returning("id", "slug", "name"), schema_type=s.Tag
-        )
+        return await self.driver.select_one(db_manager.get_sql("create-tag"), tag_data, schema_type=s.Tag)
 
     async def update(self, tag_id: UUID, data: s.TagUpdate) -> s.Tag:
         """Update an existing tag."""
         tag_data = schema_dump(data, exclude_unset=True)
         if "name" in tag_data and "slug" not in tag_data:
             tag_data["slug"] = await self._get_available_slug(tag_data["name"])
+        tag_data["tag_id"] = tag_id
         return await self.driver.select_one(
-            sql.update("tag").set(**tag_data).where_eq("id", tag_id).returning("id", "slug", "name"),
+            db_manager.get_sql("update-tag"),
+            tag_data,
             schema_type=s.Tag,
         )
 
     async def delete(self, tag_id: UUID) -> s.Tag:
         """Delete a tag."""
-        return await self.driver.select_one(
-            sql.delete("tag").where_eq("id", tag_id).returning("id", "slug", "name"), schema_type=s.Tag
-        )
+        return await self.driver.select_one(db_manager.get_sql("delete-tag"), {"tag_id": tag_id}, schema_type=s.Tag)
 
     async def get_one(self, tag_id: UUID) -> s.Tag:
         """Get a single tag by ID."""
         return await self.get_or_404(
-            sql.select("id", "slug", "name").from_("tag").where_eq("id", tag_id),
+            db_manager.get_sql("get-tag-by-id"),
+            {"tag_id": tag_id},
             schema_type=s.Tag,
             error_message=f"Tag {tag_id} not found",
         )
@@ -52,19 +51,21 @@ class TagService(SQLSpecService):
     async def get_by_slug(self, slug: str) -> s.Tag | None:
         """Get a tag by slug."""
         return await self.driver.select_one_or_none(
-            sql.select("id", "slug", "name").from_("tag").where_eq("slug", slug), schema_type=s.Tag
+            db_manager.get_sql("get-tag-by-slug"), {"slug": slug}, schema_type=s.Tag
         )
 
     async def get_by_name(self, name: str) -> s.Tag | None:
         """Get a tag by name."""
         return await self.driver.select_one_or_none(
-            sql.select("id", "slug", "name").from_("tag").where_eq("name", name), schema_type=s.Tag
+            db_manager.get_sql("get-tag-by-name"),
+            {"name": name},
+            schema_type=s.Tag,
         )
 
     async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.Tag]:
         """List tags with pagination and filtering."""
         return await self.paginate(
-            sql.select("id", "slug", "name").from_("tag").order_by(sql.column("name").asc()),
+            db_manager.get_sql("list-tags"),
             *filters,
             schema_type=s.Tag,
         )
@@ -87,11 +88,8 @@ class TagService(SQLSpecService):
     async def search(self, query: str, limit: int = 10) -> list[s.Tag]:
         """Search tags by name or description."""
         return await self.driver.select(
-            sql.select("id", "slug", "name")
-            .from_("tag")
-            .where_ilike("name", f"%{query}%")
-            .order_by(sql.column("name").asc())
-            .limit(limit),
+            db_manager.get_sql("search-tags"),
+            {"query": query, "limit": limit},
             schema_type=s.Tag,
         )
 
@@ -100,7 +98,8 @@ class TagService(SQLSpecService):
         # FIXME: Usage counting not implemented yet - requires team_tag relationship table
         # Currently returns all tags ordered by name
         return await self.driver.select(
-            sql.select("id", "slug", "name").from_("tag").order_by(sql.column("name").asc()).limit(limit),
+            db_manager.get_sql("get-popular-tags"),
+            {"min_usage": min_usage, "limit": limit},
             schema_type=s.Tag,
         )
 
@@ -120,4 +119,4 @@ class TagService(SQLSpecService):
 
     async def _slug_exists(self, slug: str) -> bool:
         """Check if a slug already exists."""
-        return await self.exists(sql.select("1").from_("tag").where_eq("slug", slug))
+        return await self.exists(db_manager.get_sql("tag-exists-by-slug"), {"slug": slug})
