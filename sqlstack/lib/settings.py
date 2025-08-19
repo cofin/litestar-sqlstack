@@ -49,8 +49,6 @@ class DatabaseSettings:
     """Time in seconds for timing connections out of the connection pool."""
     POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
     """Amount of time to wait before recycling connections."""
-    POOL_PRE_PING: bool = field(default_factory=get_env("DATABASE_PRE_POOL_PING", False))
-    """Optionally ping database before fetching a session from the connection pool."""
     URL: str = field(default_factory=get_env("DATABASE_URL", "postgres://app:app@localhost:15432/app"))
     """SQLSpec Database URL."""
     MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations"))

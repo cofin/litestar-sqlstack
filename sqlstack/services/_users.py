@@ -58,7 +58,7 @@ class UserService(SQLSpecService):
         """Delete a user account."""
         return await self.driver.select_one(
             db_manager.get_sql("delete-user"),
-            {"user_id": item_id},
+            user_id=item_id,
             schema_type=s.User,
         )
 
@@ -66,7 +66,7 @@ class UserService(SQLSpecService):
         """Get a single user by ID."""
         return await self.get_or_404(
             db_manager.get_sql("get-user-by-id"),
-            {"user_id": user_id},
+            user_id=user_id,
             schema_type=s.User,
             error_message=f"User {user_id} not found",
         )
@@ -75,7 +75,7 @@ class UserService(SQLSpecService):
         """Get a single user by ID with all relationships (teams, roles, oauth accounts)."""
         return await self.get_or_404(
             db_manager.get_sql("get-user-with-relationships"),
-            {"user_id": user_id},
+            user_id=user_id,
             schema_type=s.User,
             error_message=f"User {user_id} not found",
         )
@@ -84,7 +84,7 @@ class UserService(SQLSpecService):
         """Get a user by email address."""
         return await self.driver.select_one_or_none(
             db_manager.get_sql("get-user-by-email"),
-            {"email": email},
+            email=email,
             schema_type=s.User,
         )
 
@@ -111,7 +111,7 @@ class UserService(SQLSpecService):
         """
         user_record = await self.driver.select_one_or_none(
             db_manager.get_sql("authenticate-user"),
-            {"email": email},
+            email=email,
         )
 
         if not user_record:
@@ -151,17 +151,18 @@ class UserService(SQLSpecService):
 
     async def exists_by_email(self, email: str) -> bool:
         """Check if a user exists by email."""
-        return await self.exists(db_manager.get_sql("user-exists-by-email"), {"email": email})
+        return await self.exists(db_manager.get_sql("user-exists-by-email"), email=email)
 
     async def update_last_login(self, user_id: UUID) -> None:
         """Update the last login timestamp for a user."""
-        await self.driver.execute(db_manager.get_sql("update-last-login"), {"user_id": user_id})
+        await self.driver.execute(db_manager.get_sql("update-last-login"), user_id=user_id)
 
     async def search_by_name(self, query: str, limit: int = 10) -> list[s.User]:
         """Search users by name (case-insensitive)."""
         return await self.driver.select(
             db_manager.get_sql("search-users-by-name"),
-            {"query": query, "limit": limit},
+            query=query,
+            limit=limit,
             schema_type=s.User,
         )
 
@@ -169,7 +170,7 @@ class UserService(SQLSpecService):
         """Get users who have been active in the last N days."""
         return await self.driver.select(
             db_manager.get_sql("get-active-users"),
-            {"days": days},
+            days=days,
             schema_type=s.User,
         )
 
@@ -190,7 +191,7 @@ class UserService(SQLSpecService):
         # Get user to verify current password
         user = await self.driver.select_one(
             db_manager.get_sql("get-user-for-password-update"),
-            {"user_id": user_id},
+            user_id=user_id,
         )
 
         if not user:
@@ -214,7 +215,8 @@ class UserService(SQLSpecService):
         # Update password
         user_record = await self.driver.select_one(
             db_manager.get_sql("update-user-password"),
-            {"user_id": user_id, "password_hash": new_password_hash},
+            user_id=user_id,
+            password_hash=new_password_hash,
         )
 
         # Convert to User schema (without password_hash field)
@@ -247,7 +249,8 @@ class UserService(SQLSpecService):
         password_hash = await get_password_hash(new_password)
         user_record = await self.driver.select_one(
             db_manager.get_sql("reset-user-password"),
-            {"user_id": user_id, "password_hash": password_hash},
+            user_id=user_id,
+            password_hash=password_hash,
         )
 
         # Convert to User schema (without password_hash field)
@@ -333,10 +336,7 @@ class UserService(SQLSpecService):
         Returns:
             True if user has the role, False otherwise
         """
-        return await self.exists(
-            db_manager.get_sql("user-has-role"),
-            {"user_id": user_id, "role_name": role_name}
-        )
+        return await self.exists(db_manager.get_sql("user-has-role"), user_id=user_id, role_name=role_name)
 
     async def has_role_id(self, user_id: UUID, role_id: UUID) -> bool:
         """Check if a user has a specific role by ID.
@@ -348,10 +348,7 @@ class UserService(SQLSpecService):
         Returns:
             True if user has the role, False otherwise
         """
-        return await self.exists(
-            db_manager.get_sql("user-has-role-id"),
-            {"user_id": user_id, "role_id": role_id}
-        )
+        return await self.exists(db_manager.get_sql("user-has-role-id"), user_id=user_id, role_id=role_id)
 
     async def is_superuser(self, user_id: UUID) -> bool:
         """Check if a user is a superuser.
@@ -364,7 +361,7 @@ class UserService(SQLSpecService):
         """
         result = await self.driver.select_one_or_none(
             db_manager.get_sql("is-superuser"),
-            {"user_id": user_id},
+            user_id=user_id,
         )
         return result["is_superuser"] if result else False
 
@@ -372,7 +369,7 @@ class UserService(SQLSpecService):
         """Activate a user account."""
         return await self.driver.select_one(
             db_manager.get_sql("activate-user"),
-            {"user_id": user_id},
+            user_id=user_id,
             schema_type=s.User,
         )
 
@@ -380,7 +377,7 @@ class UserService(SQLSpecService):
         """Deactivate a user account."""
         return await self.driver.select_one(
             db_manager.get_sql("deactivate-user"),
-            {"user_id": user_id},
+            user_id=user_id,
             schema_type=s.User,
         )
 
@@ -388,7 +385,7 @@ class UserService(SQLSpecService):
         """Mark a user's email as verified."""
         return await self.driver.select_one(
             db_manager.get_sql("verify-user-email"),
-            {"user_id": user_id},
+            user_id=user_id,
             schema_type=s.User,
         )
 

@@ -68,7 +68,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             UserRoleService,
             UserService,
         )
-        from sqlstack.services._base import OffsetPagination
+        from sqlstack.services._base import OffsetPagination, SQLSpecService
 
         settings = get_settings()
         self.app_slug = settings.app.slug
@@ -132,6 +132,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 "UserRoleService": UserRoleService,
                 "UserService": UserService,
                 "OffsetPagination": OffsetPagination,
+                "SQLSpecService": SQLSpecService,
             },
         )
         # dependencies

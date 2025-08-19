@@ -34,16 +34,16 @@ class TeamMember(CamelizedBaseStruct):
     is_owner: bool | None = False
 
 
-class Team(CamelizedBaseStruct):
+class Team(CamelizedBaseStruct, kw_only=True):
     id: UUID
     slug: str
     name: str
+    created_at: datetime
+    updated_at: datetime
     description: str | None = None
     is_active: bool = True
     members: list[TeamMember] = []
     tags: list[TeamTag] = []
-    created_at: datetime
-    updated_at: datetime
 
 
 class TeamCreate(CamelizedBaseStruct):
@@ -72,16 +72,16 @@ class TeamInvitationCreate(CamelizedBaseStruct):
     role: TeamRoles
 
 
-class TeamInvitation(CamelizedBaseStruct):
+class TeamInvitation(CamelizedBaseStruct, kw_only=True):
     id: UUID
     team_id: UUID
     email: str
     role: TeamRoles
-    is_accepted: bool = False
-    invited_by_id: UUID | None = None
     invited_by_email: str
     created_at: datetime
     updated_at: datetime
+    is_accepted: bool = False
+    invited_by_id: UUID | None = None
 
 
 class TeamMemberCreate(CamelizedBaseStruct):

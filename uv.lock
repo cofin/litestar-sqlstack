@@ -1344,7 +1344,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.32.4"
+version = "2.32.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1352,9 +1352,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/0a/929373653770d8a0d7ea76c37de6e41f11eb07559b103b1c02cafb3f7cf8/requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422", size = 135258, upload-time = "2025-06-09T16:43:07.34Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/74/b3ff8e6c8446842c3f5c837e9c3dfcfe2018ea6ecef224c710c85ef728f4/requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf", size = 134517, upload-time = "2025-08-18T20:46:02.573Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/e4/56027c4a6b4ae70ca9de302488c5ca95ad4a39e190093d6c1a8ace08341b/requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c", size = 64847, upload-time = "2025-06-09T16:43:05.728Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/db/4254e3eabe8020b458f1a747140d32277ec7a271daf1d235b70dc0b4e6e3/requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6", size = 64738, upload-time = "2025-08-18T20:46:00.542Z" },
 ]
 
 [[package]]
@@ -1477,11 +1477,11 @@ wheels = [
 
 [[package]]
 name = "sqlglot"
-version = "27.7.0"
+version = "27.8.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/46/0a/6baff44ba014f250c16a0707deb9ebd14a384ebc7afecb95cc3ef20e1c7b/sqlglot-27.7.0.tar.gz", hash = "sha256:6bedac6c57d1b89c3ca2c392e0235305ea1a35b43fced91b6ef485dc64877ae1", size = 5414964, upload-time = "2025-08-13T16:06:54.562Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/d6/dbe5a442ba5f0badf5d82f97fd4b83a7045bde563430d1bbfb90e7da5b71/sqlglot-27.8.0.tar.gz", hash = "sha256:026ca21be0106d23f67519d583a24131d27131ceb80b595efa2a59a2746f351f", size = 5418660, upload-time = "2025-08-19T11:54:29.292Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/88/536ae39a5abfcdf8b3343bfc309dbafe1b9b72653a62b11e539f34f3d16f/sqlglot-27.7.0-py3-none-any.whl", hash = "sha256:cc4ee8fb780636a6f2d5b5c6624e0466ba38b0a8e6588f560ee229a71e33234d", size = 499485, upload-time = "2025-08-13T16:06:51.738Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/29/ffa987296beffe2ae7fc83c6fd9a62166d0abc4d2d16600605a5864c7d7f/sqlglot-27.8.0-py3-none-any.whl", hash = "sha256:3961277277bc5bae459762294e160b6b7ce998e7d016f5adf8311a1d50b7a1a7", size = 501092, upload-time = "2025-08-19T11:54:27.17Z" },
 ]
 
 [package.optional-dependencies]
@@ -1519,7 +1519,7 @@ wheels = [
 
 [[package]]
 name = "sqlspec"
-version = "0.18.0"
+version = "0.19.0"
 source = { editable = ".sqlspec" }
 dependencies = [
     { name = "mypy-extensions" },

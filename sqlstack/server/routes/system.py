@@ -11,7 +11,7 @@ from sqlstack import schemas as s
 from sqlstack.server import deps
 
 if TYPE_CHECKING:
-    from sqlstack.services._base import BaseService
+    from sqlstack.services._base import SQLSpecService
 
 logger = structlog.get_logger()
 OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
@@ -29,7 +29,7 @@ class SystemController(Controller):
         path="/health",
         summary="Health Check",
     )
-    async def check_system_health(self, users_service: BaseService) -> Response[s.SystemHealth]:
+    async def check_system_health(self, users_service: SQLSpecService) -> Response[s.SystemHealth]:
         """Check database available and returns app config info.
 
         Args:

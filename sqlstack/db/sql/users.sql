@@ -22,9 +22,9 @@ FROM user_account
 WHERE id = :user_id;
 
 -- name: get-user-with-relationships
-SELECT 
-    u.id, u.email, u.name, u.hashed_password, u.avatar_url, 
-    u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at, 
+SELECT
+    u.id, u.email, u.name, u.hashed_password, u.avatar_url,
+    u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
     u.created_at, u.updated_at,
     COALESCE(
         json_agg(
@@ -66,7 +66,7 @@ LEFT JOIN user_account_role ur ON u.id = ur.user_id
 LEFT JOIN role r ON ur.role_id = r.id
 LEFT JOIN user_account_oauth uoa ON u.id = uoa.user_id
 WHERE u.id = :user_id
-GROUP BY u.id, u.email, u.name, u.hashed_password, u.avatar_url, 
+GROUP BY u.id, u.email, u.name, u.hashed_password, u.avatar_url,
          u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
          u.created_at, u.updated_at;
 
@@ -127,7 +127,7 @@ FROM user_account
 WHERE id = :user_id;
 
 -- name: get-user-statistics
-SELECT 
+SELECT
     COUNT(*) as total_users,
     COUNT(CASE WHEN is_active = true THEN 1 END) as active_users,
     COUNT(CASE WHEN is_verified = true THEN 1 END) as verified_users,
@@ -137,17 +137,17 @@ FROM user_account;
 
 -- name: get-user-for-password-update
 SELECT id, email, hashed_password, is_active, is_verified
-FROM user_account 
+FROM user_account
 WHERE id = :user_id;
 
 -- name: update-user-password
-UPDATE user_account 
+UPDATE user_account
 SET hashed_password = :password_hash, updated_at = NOW()
 WHERE id = :user_id
 RETURNING id, email, name, is_superuser, is_active, is_verified, hashed_password, avatar_url, verified_at, joined_at, created_at, updated_at;
 
 -- name: reset-user-password
-UPDATE user_account 
+UPDATE user_account
 SET hashed_password = :password_hash, is_verified = true, updated_at = NOW()
 WHERE id = :user_id
 RETURNING id, email, name, is_superuser, is_active, is_verified, hashed_password, avatar_url, verified_at, joined_at, created_at, updated_at;
@@ -156,7 +156,7 @@ RETURNING id, email, name, is_superuser, is_active, is_verified, hashed_password
 INSERT INTO user_account (id, email, name, avatar_url, is_active, is_verified, hashed_password, created_at, updated_at, joined_at)
 VALUES (
     :id,
-    :email, 
+    :email,
     :name,
     :avatar_url,
     :is_active,
@@ -169,14 +169,14 @@ VALUES (
 RETURNING id, email, name, is_superuser, is_active, is_verified, hashed_password, avatar_url, verified_at, joined_at, created_at, updated_at;
 
 -- name: user-has-role
-SELECT 1 
+SELECT 1
 FROM user_account_role ur
 JOIN role r ON ur.role_id = r.id
 WHERE ur.user_id = :user_id AND r.name = :role_name
 LIMIT 1;
 
 -- name: user-has-role-id
-SELECT 1 
-FROM user_account_role 
+SELECT 1
+FROM user_account_role
 WHERE user_id = :user_id AND role_id = :role_id
 LIMIT 1;

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import sqlglot
-from sqlglot import exp
 from sqlspec.core.filters import (
     AnyCollectionFilter,
     BeforeAfterFilter,
@@ -72,10 +70,11 @@ class SQLSpecService:
         *parameters: StatementParameters | StatementFilter,
         schema_type: type[ModelDTOT],
         statement_config: StatementConfig | None = None,
+        **kwargs: Any,
     ) -> OffsetPagination[ModelDTOT]:
         """Paginate the data."""
         results, total = await self.driver.select_with_total(
-            statement, *parameters, schema_type=schema_type, statement_config=statement_config
+            statement, *parameters, schema_type=schema_type, statement_config=statement_config, **kwargs
         )
         limit_offset = self.find_filter(LimitOffsetFilter, parameters)
         offset = limit_offset.offset if limit_offset else 0
@@ -90,6 +89,7 @@ class SQLSpecService:
         schema_type: type[ModelDTOT],
         error_message: str | None = None,
         statement_config: StatementConfig | None = None,
+        **kwargs: Any,
     ) -> ModelDTOT:
         """Get a single record or raise 404 error if not found.
 
@@ -99,6 +99,7 @@ class SQLSpecService:
             schema_type: The schema type for the result
             error_message: Custom error message (optional)
             statement_config: Optional statement configuration
+            **kwargs: Additional keyword arguments
 
         Returns:
             The found record
@@ -107,7 +108,7 @@ class SQLSpecService:
             ValueError: If no record is found
         """
         result = await self.driver.select_one_or_none(
-            statement, *parameters, schema_type=schema_type, statement_config=statement_config
+            statement, *parameters, schema_type=schema_type, statement_config=statement_config, **kwargs
         )
         if result is None:
             raise ValueError(error_message or "Record not found")
@@ -119,6 +120,7 @@ class SQLSpecService:
         /,
         *parameters: StatementParameters,
         statement_config: StatementConfig | None = None,
+        **kwargs: Any,
     ) -> bool:
         """Check if a record exists.
 
@@ -126,11 +128,14 @@ class SQLSpecService:
             statement: The SQL statement to execute
             *parameters: Statement parameters
             statement_config: Optional statement configuration
+            **kwargs: Additional keyword arguments
 
         Returns:
             True if record exists, False otherwise
         """
-        result = await self.driver.select_one_or_none(statement, *parameters, statement_config=statement_config)
+        result = await self.driver.select_one_or_none(
+            statement, *parameters, statement_config=statement_config, **kwargs
+        )
         return result is not None
 
     @staticmethod
@@ -152,78 +157,12 @@ class SQLSpecService:
             None,
         )
 
-    def with_only_select(self, statement: Statement | QueryBuilder) -> str:
-        """Create a COUNT query string from a SELECT statement using SQLGlot AST parsing.
-
-        This method transforms a SELECT statement into a COUNT(*) query by:
-        1. Parsing the SQL statement using SQLGlot
-        2. Preserving WHERE, HAVING, and GROUP BY clauses
-        3. Removing ORDER BY, LIMIT, and OFFSET clauses
-        4. Replacing SELECT columns with COUNT(*)
-
-        Args:
-            statement: The original SELECT statement or QueryBuilder
-
-        Returns:
-            A COUNT query SQL string
-
-        Raises:
-            TypeError: If the statement is not a SELECT query
-        """
-        # Handle QueryBuilder - build it to get SafeQuery
-        if hasattr(statement, "build"):
-            safe_query = statement.build()  # type: ignore[attr-defined]
-            sql_string = safe_query.sql
-        elif hasattr(statement, "expression") and statement.expression:
-            # This is already an SQL object with expression
-            sql_string = str(statement.expression)
-        else:
-            # This is a string or SQL object without expression
-            sql_string = str(statement)
-
-        # Parse the SQL using SQLGlot directly
-        try:
-            expr = sqlglot.parse_one(sql_string, dialect="postgres")
-        except Exception as e:
-            msg = f"Failed to parse SQL statement: {e}"
-            raise ValueError(msg) from e
-
-        if not isinstance(expr, exp.Select):
-            msg = "with_only_select can only be used with SELECT statements"
-            raise TypeError(msg)
-
-        # Create count query based on whether there's a GROUP BY clause
-        if expr.args.get("group"):
-            # For grouped queries, wrap in subquery and count
-            subquery = expr.subquery(alias="grouped_data")
-            count_expr = exp.select(exp.Count(this=exp.Star())).from_(subquery)
-        else:
-            # For simple queries, create COUNT(*) with same FROM and WHERE
-            count_expr = exp.select(exp.Count(this=exp.Star())).from_(
-                cast("exp.Expression", expr.args.get("from")), copy=False
-            )
-            if expr.args.get("where"):
-                count_expr = count_expr.where(cast("exp.Expression", expr.args.get("where")), copy=False)
-            if expr.args.get("having"):
-                count_expr = count_expr.having(cast("exp.Expression", expr.args.get("having")), copy=False)
-
-        # Remove ordering and pagination clauses from count query
-        count_expr.set("order", None)
-        count_expr.set("limit", None)
-        count_expr.set("offset", None)
-
-        # Return the SQL string
-        return count_expr.sql(dialect="postgres")
-
     async def begin(self) -> None:
         """Begin a database transaction.
 
         This method starts a new database transaction. You must call either
         commit() or rollback() to complete the transaction, or use the
         begin_transaction() context manager for automatic handling.
-
-        Raises:
-            DatabaseError: If the transaction cannot be started
         """
         await self.driver.begin()
 
@@ -232,9 +171,6 @@ class SQLSpecService:
 
         This method commits all changes made during the current transaction.
         The transaction must have been started with begin().
-
-        Raises:
-            DatabaseError: If the transaction cannot be committed
         """
         await self.driver.commit()
 
@@ -243,9 +179,6 @@ class SQLSpecService:
 
         This method rolls back all changes made during the current transaction.
         The transaction must have been started with begin().
-
-        Raises:
-            DatabaseError: If the transaction cannot be rolled back
         """
         await self.driver.rollback()
 

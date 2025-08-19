@@ -4,7 +4,7 @@ VALUES (:id, :name, :description, :slug, COALESCE(:is_active, true), NOW(), NOW(
 RETURNING id, name, description, slug, is_active, created_at, updated_at;
 
 -- name: update-team
-UPDATE team 
+UPDATE team
 SET name = COALESCE(:name, name),
     description = COALESCE(:description, description),
     slug = COALESCE(:slug, slug),
@@ -17,7 +17,7 @@ RETURNING id, name, description, slug, is_active, created_at, updated_at;
 DELETE FROM team WHERE id = :team_id;
 
 -- name: get-team-with-relationships
-SELECT 
+SELECT
     t.id, t.name, t.description, t.slug, t.is_active, t.created_at, t.updated_at,
     COALESCE(
         json_agg(

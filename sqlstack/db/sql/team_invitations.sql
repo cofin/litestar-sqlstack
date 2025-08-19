@@ -1,5 +1,5 @@
 -- name: get-team-invitations
-SELECT ti.id, ti.team_id, ti.email, ti.role, ti.is_accepted, 
+SELECT ti.id, ti.team_id, ti.email, ti.role, ti.is_accepted,
        ti.invited_by_id, ti.invited_by_email, ti.created_at, ti.updated_at
 FROM team_invitation ti
 WHERE ti.team_id = :team_id

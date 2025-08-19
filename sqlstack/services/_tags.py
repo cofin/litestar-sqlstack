@@ -20,14 +20,14 @@ class TagService(SQLSpecService):
         """Create a new tag with auto-generated slug."""
         tag_data = schema_dump(data, exclude_unset=True)
         if "slug" not in tag_data or not tag_data["slug"]:
-            tag_data["slug"] = await self._get_available_slug(tag_data.get("name", ""))
+            tag_data["slug"] = await self.get_available_slug(tag_data.get("name", ""))
         return await self.driver.select_one(db_manager.get_sql("create-tag"), tag_data, schema_type=s.Tag)
 
     async def update(self, tag_id: UUID, data: s.TagUpdate) -> s.Tag:
         """Update an existing tag."""
         tag_data = schema_dump(data, exclude_unset=True)
         if "name" in tag_data and "slug" not in tag_data:
-            tag_data["slug"] = await self._get_available_slug(tag_data["name"])
+            tag_data["slug"] = await self.get_available_slug(tag_data["name"])
         tag_data["tag_id"] = tag_id
         return await self.driver.select_one(
             db_manager.get_sql("update-tag"),
@@ -37,28 +37,26 @@ class TagService(SQLSpecService):
 
     async def delete(self, tag_id: UUID) -> s.Tag:
         """Delete a tag."""
-        return await self.driver.select_one(db_manager.get_sql("delete-tag"), {"tag_id": tag_id}, schema_type=s.Tag)
+        return await self.driver.select_one(db_manager.get_sql("delete-tag"), tag_id=tag_id, schema_type=s.Tag)
 
     async def get_one(self, tag_id: UUID) -> s.Tag:
         """Get a single tag by ID."""
         return await self.get_or_404(
             db_manager.get_sql("get-tag-by-id"),
-            {"tag_id": tag_id},
+            tag_id=tag_id,
             schema_type=s.Tag,
             error_message=f"Tag {tag_id} not found",
         )
 
     async def get_by_slug(self, slug: str) -> s.Tag | None:
         """Get a tag by slug."""
-        return await self.driver.select_one_or_none(
-            db_manager.get_sql("get-tag-by-slug"), {"slug": slug}, schema_type=s.Tag
-        )
+        return await self.driver.select_one_or_none(db_manager.get_sql("get-tag-by-slug"), slug=slug, schema_type=s.Tag)
 
     async def get_by_name(self, name: str) -> s.Tag | None:
         """Get a tag by name."""
         return await self.driver.select_one_or_none(
             db_manager.get_sql("get-tag-by-name"),
-            {"name": name},
+            name=name,
             schema_type=s.Tag,
         )
 
@@ -89,7 +87,8 @@ class TagService(SQLSpecService):
         """Search tags by name or description."""
         return await self.driver.select(
             db_manager.get_sql("search-tags"),
-            {"query": query, "limit": limit},
+            query=query,
+            limit=limit,
             schema_type=s.Tag,
         )
 
@@ -99,11 +98,12 @@ class TagService(SQLSpecService):
         # Currently returns all tags ordered by name
         return await self.driver.select(
             db_manager.get_sql("get-popular-tags"),
-            {"min_usage": min_usage, "limit": limit},
+            min_usage=min_usage,
+            limit=limit,
             schema_type=s.Tag,
         )
 
-    async def _get_available_slug(self, name: str) -> str:
+    async def get_available_slug(self, name: str) -> str:
         """Generate a unique slug for the given name."""
         base_slug = slugify(name)
         slug = base_slug
@@ -119,4 +119,4 @@ class TagService(SQLSpecService):
 
     async def _slug_exists(self, slug: str) -> bool:
         """Check if a slug already exists."""
-        return await self.exists(db_manager.get_sql("tag-exists-by-slug"), {"slug": slug})
+        return await self.exists(db_manager.get_sql("tag-exists-by-slug"), slug=slug)

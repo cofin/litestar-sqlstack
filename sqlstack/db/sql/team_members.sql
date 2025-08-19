@@ -12,7 +12,7 @@ ON CONFLICT (team_id, user_id) DO UPDATE SET
 RETURNING id, team_id, user_id, role, is_owner, created_at, updated_at;
 
 -- name: remove-team-member
-DELETE FROM team_member 
+DELETE FROM team_member
 WHERE team_id = :team_id AND user_id = :user_id;
 
 -- name: get-team-members
@@ -32,11 +32,11 @@ WHERE tm.user_id = :user_id
 ORDER BY t.name ASC;
 
 -- name: is-team-member
-SELECT 1 FROM team_member 
+SELECT 1 FROM team_member
 WHERE team_id = :team_id AND user_id = :user_id
 LIMIT 1;
 
 -- name: is-team-owner
-SELECT 1 FROM team_member 
+SELECT 1 FROM team_member
 WHERE team_id = :team_id AND user_id = :user_id AND is_owner = true
 LIMIT 1;

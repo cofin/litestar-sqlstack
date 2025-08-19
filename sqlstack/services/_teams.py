@@ -22,7 +22,7 @@ class TeamService(SQLSpecService):
         team_id = team_data.get("id", uuid4())
         team_data["id"] = team_id
         if "slug" not in team_data or not team_data["slug"]:
-            team_data["slug"] = await self._get_available_slug(team_data.get("name", ""))
+            team_data["slug"] = await self.get_available_slug(team_data.get("name", ""))
         owner_id = team_data.pop("owner_id", None)
         tags = team_data.pop("tags", [])
         await self.driver.select_one(
@@ -31,10 +31,7 @@ class TeamService(SQLSpecService):
             schema_type=s.Team,
         )
         if owner_id:
-            await self.driver.execute(
-                db_manager.get_sql("add-team-owner"),
-                {"team_id": team_id, "user_id": owner_id}
-            )
+            await self.driver.execute(db_manager.get_sql("add-team-owner"), team_id=team_id, user_id=owner_id)
         await self._update_team_tags(team_id, tags)
         return await self._get_team_with_relationships(team_id)
 
@@ -42,7 +39,7 @@ class TeamService(SQLSpecService):
         """Update an existing team."""
         team_data = schema_dump(data, exclude_unset=True)
         if "name" in team_data and "slug" not in team_data:
-            team_data["slug"] = await self._get_available_slug(team_data["name"])
+            team_data["slug"] = await self.get_available_slug(team_data["name"])
         tags = team_data.pop("tags", None)
         team_data["team_id"] = team_id
         await self.driver.select_one(
@@ -57,7 +54,7 @@ class TeamService(SQLSpecService):
     async def delete(self, team_id: UUID) -> s.Team:
         """Delete a team and all related data."""
         team = await self._get_team_with_relationships(team_id)
-        await self.driver.execute(db_manager.get_sql("delete-team"), {"team_id": team_id})
+        await self.driver.execute(db_manager.get_sql("delete-team"), team_id=team_id)
         return team
 
     async def get_one(self, team_id: UUID) -> s.Team:
@@ -66,7 +63,7 @@ class TeamService(SQLSpecService):
 
     async def get_by_slug(self, slug: str) -> s.Team | None:
         """Get a team by slug."""
-        if row := (await self.driver.select_one_or_none(db_manager.get_sql("get-team-id-by-slug"), {"slug": slug})):
+        if row := (await self.driver.select_one_or_none(db_manager.get_sql("get-team-id-by-slug"), slug=slug)):
             return await self._get_team_with_relationships(row["id"])
         return None
 
@@ -93,19 +90,21 @@ class TeamService(SQLSpecService):
         """Add a user to a team."""
         return await self.driver.select_one(
             db_manager.get_sql("add-team-member"),
-            {"team_id": team_id, "user_id": user_id, "role": role},
+            team_id=team_id,
+            user_id=user_id,
+            role=role,
             schema_type=s.TeamMember,
         )
 
     async def remove_member(self, team_id: UUID, user_id: UUID) -> None:
         """Remove a user from a team."""
-        await self.driver.execute(db_manager.get_sql("remove-team-member"), {"team_id": team_id, "user_id": user_id})
+        await self.driver.execute(db_manager.get_sql("remove-team-member"), team_id=team_id, user_id=user_id)
 
     async def get_user_teams(self, user_id: UUID) -> list[s.Team]:
         """Get all teams for a user."""
         team_rows = await self.driver.select(
             db_manager.get_sql("get-teams-for-user"),
-            {"user_id": user_id},
+            user_id=user_id,
         )
         return [await self._get_team_with_relationships(row["id"]) for row in team_rows]
 
@@ -113,7 +112,8 @@ class TeamService(SQLSpecService):
         """Search teams by name or description."""
         team_rows = await self.driver.select(
             db_manager.get_sql("search-teams"),
-            {"query": query, "limit": limit},
+            query=query,
+            limit=limit,
         )
         return [await self._get_team_with_relationships(row["id"]) for row in team_rows]
 
@@ -124,7 +124,7 @@ class TeamService(SQLSpecService):
             return True
         return any(role.name == SUPERUSER_ACCESS_ROLE for role in user.roles)
 
-    async def _get_available_slug(self, name: str) -> str:
+    async def get_available_slug(self, name: str) -> str:
         """Generate a unique slug for the given name."""
         base_slug = slugify(name)
         slug = base_slug
@@ -136,25 +136,24 @@ class TeamService(SQLSpecService):
 
     async def _slug_exists(self, slug: str) -> bool:
         """Check if a slug already exists."""
-        return await self.exists(db_manager.get_sql("team-slug-exists"), {"slug": slug})
+        return await self.exists(db_manager.get_sql("team-slug-exists"), slug=slug)
 
     async def _update_team_tags(self, team_id: UUID, tag_names: list[str]) -> None:
         """Update tags for a team."""
-        await self.driver.execute(db_manager.get_sql("clear-team-tags"), {"team_id": team_id})
+        await self.driver.execute(db_manager.get_sql("clear-team-tags"), team_id=team_id)
         for tag_name in tag_names:
             tag_row = await self.driver.select_one_or_none(
-                db_manager.get_sql("upsert-tag"),
-                {"name": tag_name, "slug": slugify(tag_name)}
+                db_manager.get_sql("upsert-tag"), name=tag_name, slug=slugify(tag_name)
             )
             if not tag_row:
-                tag_row = await self.driver.select_one(db_manager.get_sql("get-tag-id-by-name"), {"name": tag_name})
-            await self.driver.execute(db_manager.get_sql("add-team-tag"), {"team_id": team_id, "tag_id": tag_row["id"]})
+                tag_row = await self.driver.select_one(db_manager.get_sql("get-tag-id-by-name"), name=tag_name)
+            await self.driver.execute(db_manager.get_sql("add-team-tag"), team_id=team_id, tag_id=tag_row["id"])
 
     async def _get_team_with_relationships(self, team_id: UUID) -> s.Team:
         """Get a team with all its relationships loaded."""
         return await self.get_or_404(
             db_manager.get_sql("get-team-with-relationships"),
-            {"team_id": team_id},
+            team_id=team_id,
             schema_type=s.Team,
             error_message=f"Team {team_id} not found",
         )

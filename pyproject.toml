@@ -19,7 +19,7 @@ Homepage = "https://github.com/cofin/litestar-sqlstack"
 Source = "https://github.com/cofin/litestar-sqlstack"
 
 [project.scripts]
-sqlstack = "sqlstack:main"
+sqlstack = "sqlstack.__main__:run_cli"
 
 
 [dependency-groups]

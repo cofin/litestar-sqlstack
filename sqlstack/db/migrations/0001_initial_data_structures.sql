@@ -3,7 +3,8 @@
 -- Description: Initial data structures
 -- Created: 2025-08-14T20:00:58.967827+00:00
 -- Author: cody
--- name: migrate-0001-up 
+-- name: migrate-0001-up
+-- dialect: postgres
 create table
     role (
         id uuid not null constraint pk_role primary key,

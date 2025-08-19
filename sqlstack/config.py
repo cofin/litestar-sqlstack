@@ -64,6 +64,7 @@ db_manager = SQLSpec(
         DatabaseConfig(config=etl_db, connection_key="etl_connection", pool_key="etl_pool", session_key="etl_session"),
     ]
 )
+
 db_manager.load_sql_files(BASE_DIR / "db" / "sql")
 
 log = StructlogConfig(

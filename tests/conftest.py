@@ -9,11 +9,13 @@ from typing import TYPE_CHECKING
 import pytest
 from litestar.testing import AsyncTestClient
 
+from sqlstack.config import AsyncpgConfig
+
 # Set test environment before any other imports
 os.environ.update(
     {
         "SECRET_KEY": "test-secret-key-for-testing-only",
-        "DATABASE_URL": "postgresql+psycopg://test:test@localhost:5432/test_sqlstack",
+        "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test_sqlstack",
         "DATABASE_ECHO": "false",
         "DATABASE_ECHO_POOL": "false",
         "LOG_LEVEL": "40",  # WARNING level as integer
@@ -41,7 +43,7 @@ if TYPE_CHECKING:
     from litestar import Litestar
     from pytest import MonkeyPatch
     from pytest_databases.docker.postgres import PostgresService
-    from sqlspec.adapters.asyncpg import AsyncpgConnection, AsyncpgDriver
+    from sqlspec.adapters.asyncpg import AsyncpgDriver
 
 
 pytestmark = pytest.mark.anyio
@@ -69,182 +71,147 @@ async def fx_database_url(postgres_service: PostgresService) -> str:
     return f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
 
-@pytest.fixture(name="db_connection")
-async def fx_db_connection(postgres_service: PostgresService) -> AsyncGenerator[AsyncpgConnection, None]:
-    """Database connection for tests following reference app pattern."""
-    import asyncpg
+@pytest.fixture(autouse=True)
+async def fx_test_db(postgres_service: PostgresService, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[None, None]:
+    """Set up test database by patching the global db_manager."""
+    from sqlspec.adapters.asyncpg import AsyncpgConfig
+    from sqlspec.extensions.litestar import DatabaseConfig, SQLSpec
 
-    # Create connection using postgres_service directly (like reference app)
-    database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
-    conn = await asyncpg.connect(database_url)
+    from sqlstack import config
 
-    # Create tables using the same pattern as reference app
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_account (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            email VARCHAR(255) UNIQUE NOT NULL,
-            name VARCHAR(255),
-            hashed_password VARCHAR(255),
-            is_active BOOLEAN DEFAULT true,
-            is_verified BOOLEAN DEFAULT false,
-            is_superuser BOOLEAN DEFAULT false,
-            avatar_url VARCHAR(500),
-            verified_at DATE,
-            joined_at DATE DEFAULT CURRENT_DATE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            last_login TIMESTAMP WITH TIME ZONE
-        )
-    """)
+    # Create test database configuration
+    database_url = f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS role (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(100) UNIQUE NOT NULL,
-            slug VARCHAR(100) UNIQUE NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+    # Create new AsyncpgConfig for testing
+    test_config = AsyncpgConfig(
+        pool_config={
+            "dsn": database_url,
+        }
+    )
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS tag (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(100) UNIQUE NOT NULL,
-            slug VARCHAR(100) UNIQUE NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+    # Create test SQLSpec instance
+    test_db_config = DatabaseConfig(config=test_config, commit_mode="autocommit")
+    test_db_manager = SQLSpec(config=[test_db_config])
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS team (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            name VARCHAR(100) NOT NULL,
-            slug VARCHAR(100) UNIQUE NOT NULL,
-            description TEXT,
-            is_active BOOLEAN DEFAULT true,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+    # Patch the global db_manager
+    monkeypatch.setattr(config, "db_manager", test_db_manager)
+    monkeypatch.setattr(config, "db", test_config)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS email_verification_token (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            email VARCHAR(255) NOT NULL,
-            token VARCHAR(255) UNIQUE NOT NULL,
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            used BOOLEAN DEFAULT false,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+    async with test_config.provide_session() as driver:
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS user_account (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(255),
+                hashed_password VARCHAR(255),
+                is_active BOOLEAN DEFAULT true,
+                is_verified BOOLEAN DEFAULT false,
+                is_superuser BOOLEAN DEFAULT false,
+                avatar_url VARCHAR(500),
+                verified_at DATE,
+                joined_at DATE DEFAULT CURRENT_DATE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                last_login TIMESTAMP WITH TIME ZONE
+            )
+        """)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS password_reset_token (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            token VARCHAR(255) UNIQUE NOT NULL,
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            used BOOLEAN DEFAULT false,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS role (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(100) UNIQUE NOT NULL,
+                slug VARCHAR(100) UNIQUE NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        """)
 
-    # Add missing critical tables
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_account_role (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            role_id UUID NOT NULL REFERENCES role(id) ON DELETE CASCADE,
-            assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            UNIQUE(user_id, role_id)
-        )
-    """)
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS tag (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(100) UNIQUE NOT NULL,
+                slug VARCHAR(100) UNIQUE NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        """)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS team_member (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
-            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            role VARCHAR(50) DEFAULT 'MEMBER',
-            is_owner BOOLEAN DEFAULT false,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            UNIQUE(team_id, user_id)
-        )
-    """)
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS team (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(100) NOT NULL,
+                slug VARCHAR(100) UNIQUE NOT NULL,
+                description TEXT,
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+        """)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS team_tag (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
-            tag_id UUID NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            UNIQUE(team_id, tag_id)
-        )
-    """)
+        # Add critical junction tables
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS user_account_role (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+                role_id UUID NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+                assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(user_id, role_id)
+            )
+        """)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS team_invitation (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
-            invited_by_user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            email VARCHAR(255) NOT NULL,
-            role VARCHAR(50) DEFAULT 'MEMBER',
-            token VARCHAR(255) UNIQUE NOT NULL,
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            is_accepted BOOLEAN DEFAULT false,
-            accepted_at TIMESTAMP WITH TIME ZONE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS team_member (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
+                role VARCHAR(50) DEFAULT 'MEMBER',
+                is_owner BOOLEAN DEFAULT false,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(team_id, user_id)
+            )
+        """)
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_account_oauth (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-            provider VARCHAR(100) NOT NULL,
-            oauth_account_id VARCHAR(255) NOT NULL,
-            oauth_account_email VARCHAR(255),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            UNIQUE(provider, oauth_account_id)
-        )
-    """)
+        await driver.execute("""
+            CREATE TABLE IF NOT EXISTS team_tag (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
+                tag_id UUID NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(team_id, tag_id)
+            )
+        """)
 
-    yield conn
+    yield
 
-    # Cleanup following reference app pattern
-    await conn.execute("DROP TABLE IF EXISTS user_account_oauth CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS team_invitation CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS team_tag CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS team_member CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS user_account_role CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS password_reset_token CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS email_verification_token CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS team CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS tag CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS role CASCADE")
-    await conn.execute("DROP TABLE IF EXISTS user_account CASCADE")
-    await conn.close()
+    async with test_config.provide_session() as driver:
+        await driver.execute("DROP TABLE IF EXISTS team_tag CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS team_member CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS user_account_role CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS team CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS tag CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS role CASCADE")
+        await driver.execute("DROP TABLE IF EXISTS user_account CASCADE")
+
+
+@pytest.fixture(name="db_config")
+async def fx_db_config(database_url: str) -> AsyncpgConfig:
+    """Database configuration for tests."""
+    return AsyncpgConfig(pool_config={"dsn": database_url})
 
 
 @pytest.fixture(name="driver")
-async def fx_driver(db_connection: AsyncpgConnection) -> AsyncpgDriver:
+async def fx_driver(db_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver, None]:
     """SQLSpec driver for tests."""
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
 
-    return AsyncpgDriver(db_connection)
+    # Get a driver from the patched global db_manager
+    async with db_config.provide_session() as driver:
+        yield driver
 
 
 @pytest.fixture
@@ -369,7 +336,6 @@ async def test_role(role_service: RoleService) -> s.Role:
     """Create a test role."""
     role_data = s.RoleCreate(
         name="Test Role",
-        slug="test-role",
         description="A test role for testing",
     )
     return await role_service.create(role_data)
@@ -380,7 +346,6 @@ async def test_tag(tag_service: TagService) -> s.Tag:
     """Create a test tag."""
     tag_data = s.TagCreate(
         name="Test Tag",
-        slug="test-tag",
         description="A test tag for testing",
     )
     return await tag_service.create(tag_data)
@@ -391,9 +356,7 @@ async def test_team(team_service: TeamService, test_user: s.User) -> s.Team:
     """Create a test team with owner."""
     team_data = s.TeamCreate(
         name="Test Team",
-        slug="test-team",
         description="A test team for integration testing",
-        owner_id=test_user.id,
     )
     return await team_service.create(team_data)
 

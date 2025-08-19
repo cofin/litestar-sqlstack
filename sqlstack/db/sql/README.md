@@ -23,7 +23,7 @@ RETURNING id, email, name, created_at, updated_at;
 ### Core Entity Files
 
 - `users.sql` - User CRUD operations and management
-- `roles.sql` - Role CRUD operations  
+- `roles.sql` - Role CRUD operations
 - `tags.sql` - Tag management and search operations
 - `teams.sql` - Team CRUD operations and search
 
@@ -83,7 +83,7 @@ class UserService(SQLSpecService):
     async def get_user_by_id(self, user_id: UUID) -> User:
         # Get named statement from loaded SQL files
         stmt = db_manager.get_sql("get-user-by-id")
-        
+
         # Execute with driver
         return await self.driver.select_one(
             stmt,
