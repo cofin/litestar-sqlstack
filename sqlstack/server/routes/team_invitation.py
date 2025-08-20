@@ -28,7 +28,9 @@ class TeamInvitationController(Controller):
 
     @post(operation_id="CreateTeamInvitation", path="/{team_id:uuid}")
     async def create_team_invitation(
-        self, team_invitations_service: TeamInvitationService, data: s.TeamInvitationCreate
+        self,
+        team_invitations_service: TeamInvitationService,
+        data: s.TeamInvitationCreate,
     ) -> s.TeamInvitation:
         """Create a team invitation.
 
@@ -43,7 +45,9 @@ class TeamInvitationController(Controller):
 
     @get(operation_id="ListTeamInvitations", path="/{team_id:uuid}")
     async def list_team_invitations(
-        self, team_invitations_service: TeamInvitationService, team_id: UUID
+        self,
+        team_invitations_service: TeamInvitationService,
+        team_id: UUID,
     ) -> OffsetPagination[s.TeamInvitation]:
         """List team invitations.
 

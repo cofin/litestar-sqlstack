@@ -143,7 +143,9 @@ class TeamService(SQLSpecService):
         await self.driver.execute(db_manager.get_sql("clear-team-tags"), team_id=team_id)
         for tag_name in tag_names:
             tag_row = await self.driver.select_one_or_none(
-                db_manager.get_sql("upsert-tag"), name=tag_name, slug=slugify(tag_name)
+                db_manager.get_sql("upsert-tag"),
+                name=tag_name,
+                slug=slugify(tag_name),
             )
             if not tag_row:
                 tag_row = await self.driver.select_one(db_manager.get_sql("get-tag-id-by-name"), name=tag_name)

@@ -7,6 +7,7 @@ from litestar.security.jwt import OAuth2PasswordBearerAuth
 
 from sqlstack import schemas as s
 from sqlstack.lib.settings import get_settings
+from sqlstack.schemas._enums import TeamRoles
 from sqlstack.server import deps
 
 if TYPE_CHECKING:
@@ -98,7 +99,7 @@ def requires_team_membership(connection: ASGIConnection[Any, s.User, Token, Any]
     has_system_role = any(
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     )
-    has_team_role = any(membership.team.id == team_id for membership in connection.user.teams)
+    has_team_role = any(membership.team_id == team_id for membership in connection.user.teams)
     if connection.user.is_superuser or has_system_role or has_team_role:
         return
     raise PermissionDeniedException(detail="Insufficient permissions to access team.")
@@ -120,7 +121,7 @@ def requires_team_admin(connection: ASGIConnection[Any, s.User, Token, Any], _: 
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     )
     has_team_role = any(
-        membership.team.id == team_id and membership.role == s.TeamRoles.ADMIN for membership in connection.user.teams
+        membership.team_id == team_id and membership.role == TeamRoles.ADMIN for membership in connection.user.teams
     )
     if connection.user.is_superuser or has_system_role or has_team_role:
         return
@@ -142,7 +143,7 @@ def requires_team_ownership(connection: ASGIConnection[Any, s.User, Token, Any],
     has_system_role = any(
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     )
-    has_team_role = any(membership.team.id == team_id and membership.is_owner for membership in connection.user.teams)
+    has_team_role = any(membership.team_id == team_id and membership.is_owner for membership in connection.user.teams)
     if connection.user.is_superuser or has_system_role or has_team_role:
         return
 

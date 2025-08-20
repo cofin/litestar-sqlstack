@@ -33,7 +33,9 @@ class RoleService(SQLSpecService):
     async def delete(self, role_id: UUID) -> schemas.Role:
         """Delete a role."""
         return await self.driver.select_one(
-            db_manager.get_sql("delete-role"), role_id=role_id, schema_type=schemas.Role
+            db_manager.get_sql("delete-role"),
+            role_id=role_id,
+            schema_type=schemas.Role,
         )
 
     async def get_one(self, role_id: UUID) -> schemas.Role:
@@ -99,12 +101,13 @@ class RoleService(SQLSpecService):
     async def get_by_slug(self, slug: str) -> schemas.Role | None:
         """Get a role by slug."""
         return await self.driver.select_one_or_none(
-            db_manager.get_sql("get-role-by-slug"), slug=slug, schema_type=schemas.Role
+            db_manager.get_sql("get-role-by-slug"),
+            slug=slug,
+            schema_type=schemas.Role,
         )
 
     async def get_available_slug(self, name: str) -> str:
         """Generate a unique slug for the given name."""
-
         base_slug = slugify(name)
         slug = base_slug
         counter = 1

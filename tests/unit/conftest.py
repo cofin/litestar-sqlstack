@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-def mock_user_data() -> dict[str, any]:
+def mock_user_data() -> dict[str, Any]:
     """Mock user data for unit tests."""
     return {
         "id": "97108ac1-ffcb-411d-8b1e-d9183399f63b",
@@ -21,7 +23,7 @@ def mock_user_data() -> dict[str, any]:
 
 
 @pytest.fixture
-def mock_team_data() -> dict[str, any]:
+def mock_team_data() -> dict[str, Any]:
     """Mock team data for unit tests."""
     return {
         "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -32,7 +34,7 @@ def mock_team_data() -> dict[str, any]:
 
 
 @pytest.fixture
-def mock_role_data() -> dict[str, any]:
+def mock_role_data() -> dict[str, Any]:
     """Mock role data for unit tests."""
     return {
         "id": "a47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -43,7 +45,7 @@ def mock_role_data() -> dict[str, any]:
 
 
 @pytest.fixture
-def mock_tag_data() -> dict[str, any]:
+def mock_tag_data() -> dict[str, Any]:
     """Mock tag data for unit tests."""
     return {
         "id": "d47ac10b-58cc-4372-a567-0e02b2c3d479",

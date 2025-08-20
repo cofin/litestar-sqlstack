@@ -318,6 +318,8 @@ def test_settings_caching() -> None:
 
 def test_settings_exception_during_initialization() -> None:
     """Test system exit on settings initialization error."""
-    with patch("sqlstack.lib.settings.DatabaseSettings", side_effect=Exception("Test error")):
-        with pytest.raises(SystemExit):
-            Settings.from_env()
+    with (
+        patch("sqlstack.lib.settings.DatabaseSettings", side_effect=Exception("Test error")),
+        pytest.raises(SystemExit),
+    ):
+        Settings.from_env()

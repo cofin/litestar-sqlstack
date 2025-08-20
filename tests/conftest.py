@@ -15,7 +15,7 @@ from sqlstack.config import AsyncpgConfig
 os.environ.update(
     {
         "SECRET_KEY": "test-secret-key-for-testing-only",
-        "DATABASE_URL": "postgresql+asyncpg://test:test@localhost:5432/test_sqlstack",
+        "DATABASE_URL": "postgresql://test:test@localhost:5432/test_sqlstack",
         "DATABASE_ECHO": "false",
         "DATABASE_ECHO_POOL": "false",
         "LOG_LEVEL": "40",  # WARNING level as integer
@@ -68,7 +68,7 @@ def _patch_settings(monkeypatch: MonkeyPatch) -> None:
 @pytest.fixture(name="database_url")
 async def fx_database_url(postgres_service: PostgresService) -> str:
     """PostgreSQL URL for testing."""
-    return f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
+    return f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
 
 @pytest.fixture(autouse=True)
@@ -80,7 +80,7 @@ async def fx_test_db(postgres_service: PostgresService, monkeypatch: pytest.Monk
     from sqlstack import config
 
     # Create test database configuration
-    database_url = f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
+    database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
     # Create new AsyncpgConfig for testing
     test_config = AsyncpgConfig(

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlspec.adapters.asyncpg import AsyncpgDriver
-
 from sqlstack.services import (
     EmailVerificationService,
     PasswordResetService,
@@ -20,174 +18,140 @@ from sqlstack.services import (
 )
 
 if TYPE_CHECKING:
-    from litestar import Request
-    from sqlspec.adapters.asyncpg import AsyncpgConnection
+    from sqlspec.adapters.asyncpg import AsyncpgDriver
 
 
-def _get_db_session(request: Request) -> AsyncpgConnection:
-    """Get database session from request state.
-
-    Args:
-        request: The Litestar request object
-
-    Returns:
-        Database session/connection
-    """
-    # This will be provided by the SQLSpec Litestar plugin
-    return request.state.session
-
-
-def provide_users_service(request: Request) -> UserService:
+def provide_users_service(db_session: AsyncpgDriver) -> UserService:
     """Provide user service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         UserService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return UserService(driver)
+    return UserService(db_session)
 
 
-def provide_email_verification_service(request: Request) -> EmailVerificationService:
+def provide_email_verification_service(db_session: AsyncpgDriver) -> EmailVerificationService:
     """Provide email verification service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         EmailVerificationService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return EmailVerificationService(driver)
+    return EmailVerificationService(db_session)
 
 
-def provide_password_reset_service(request: Request) -> PasswordResetService:
+def provide_password_reset_service(db_session: AsyncpgDriver) -> PasswordResetService:
     """Provide password reset service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         PasswordResetService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return PasswordResetService(driver)
+    return PasswordResetService(db_session)
 
 
-def provide_team_service(request: Request) -> TeamService:
+def provide_team_service(db_session: AsyncpgDriver) -> TeamService:
     """Provide team service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         TeamService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return TeamService(driver)
+    return TeamService(db_session)
 
 
-def provide_role_service(request: Request) -> RoleService:
+def provide_role_service(db_session: AsyncpgDriver) -> RoleService:
     """Provide role service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         RoleService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return RoleService(driver)
+    return RoleService(db_session)
 
 
-def provide_tag_service(request: Request) -> TagService:
+def provide_tag_service(db_session: AsyncpgDriver) -> TagService:
     """Provide tag service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         TagService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return TagService(driver)
+    return TagService(db_session)
 
 
-def provide_team_invitation_service(request: Request) -> TeamInvitationService:
+def provide_team_invitation_service(db_session: AsyncpgDriver) -> TeamInvitationService:
     """Provide team invitation service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         TeamInvitationService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return TeamInvitationService(driver)
+    return TeamInvitationService(db_session)
 
 
-def provide_team_member_service(request: Request) -> TeamMemberService:
+def provide_team_member_service(db_session: AsyncpgDriver) -> TeamMemberService:
     """Provide team member service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         TeamMemberService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return TeamMemberService(driver)
+    return TeamMemberService(db_session)
 
 
-def provide_user_oauth_service(request: Request) -> UserOAuthAccountService:
+def provide_user_oauth_service(db_session: AsyncpgDriver) -> UserOAuthAccountService:
     """Provide user OAuth account service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         UserOAuthAccountService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return UserOAuthAccountService(driver)
+    return UserOAuthAccountService(db_session)
 
 
-def provide_user_role_service(request: Request) -> UserRoleService:
+def provide_user_role_service(db_session: AsyncpgDriver) -> UserRoleService:
     """Provide user role service with database driver.
 
     Args:
-        request: The Litestar request object
+        db_session: The database session
 
     Returns:
         UserRoleService instance
     """
-    session = _get_db_session(request)
-    driver = AsyncpgDriver(session)
-    return UserRoleService(driver)
+    return UserRoleService(db_session)
 
 
 # Plural provider aliases for backward compatibility
-def provide_teams_service(request: Request) -> TeamService:
+def provide_teams_service(db_session: AsyncpgDriver) -> TeamService:
     """Provide teams service (alias for team service)."""
-    return provide_team_service(request)
+    return provide_team_service(db_session)
 
 
-def provide_roles_service(request: Request) -> RoleService:
+def provide_roles_service(db_session: AsyncpgDriver) -> RoleService:
     """Provide roles service (alias for role service)."""
-    return provide_role_service(request)
+    return provide_role_service(db_session)
 
 
-def provide_tags_service(request: Request) -> TagService:
+def provide_tags_service(db_session: AsyncpgDriver) -> TagService:
     """Provide tags service (alias for tag service)."""
-    return provide_tag_service(request)
+    return provide_tag_service(db_session)

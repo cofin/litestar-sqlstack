@@ -295,7 +295,10 @@ class UserService(SQLSpecService):
         )
 
     async def authenticate_or_create_oauth_user(
-        self, oauth_data: dict[str, Any], provider_name: str, account_id: str
+        self,
+        oauth_data: dict[str, Any],
+        provider_name: str,
+        account_id: str,
     ) -> tuple[s.User, bool]:
         """Authenticate or create a user from OAuth provider data.
 

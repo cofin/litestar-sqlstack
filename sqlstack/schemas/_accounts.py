@@ -55,10 +55,13 @@ class OauthAccount(CamelizedBaseStruct):
     """Holds linked Oauth details for a user."""
 
     id: UUID
+    user_id: UUID
     oauth_name: str
-    access_token: str
     account_id: str
     account_email: str
+    created_at: datetime
+    updated_at: datetime
+    access_token: str | None = None
     expires_at: int | None = None
     refresh_token: str | None = None
 

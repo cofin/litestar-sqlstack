@@ -38,16 +38,15 @@ async def _seed_integration_db(
     """Seed database for integration tests following reference app pattern."""
     import asyncpg
 
-    from sqlstack.config import get_database_config
+    from sqlstack.config import get_settings
 
-    # Create connection using postgres_service directly (like reference app)
+    settings = get_settings()
+    # Create connection using post  gres_service directly (like reference app)
     database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
     conn = await asyncpg.connect(database_url)
 
-    # Patch the database config to use our test connection
-    test_config = get_database_config()
-    test_config.url = database_url
-    monkeypatch.setattr("sqlstack.config._DATABASE_CONFIG", test_config)
+    settings.db.URL = database_url
+    monkeypatch.setattr("sqlstack.config._DATABASE_CONFIG", settings.database)
 
     # Create test users with hashed passwords
     test_user_id = uuid4()
@@ -137,7 +136,7 @@ def _patch_db_config(
     """Patch database configuration for integration tests."""
     from sqlstack import config
 
-    database_url = f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
+    database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
 
     # Update the database config
     test_config = config.get_database_config()

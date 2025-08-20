@@ -74,7 +74,11 @@ class SQLSpecService:
     ) -> OffsetPagination[ModelDTOT]:
         """Paginate the data."""
         results, total = await self.driver.select_with_total(
-            statement, *parameters, schema_type=schema_type, statement_config=statement_config, **kwargs
+            statement,
+            *parameters,
+            schema_type=schema_type,
+            statement_config=statement_config,
+            **kwargs,
         )
         limit_offset = self.find_filter(LimitOffsetFilter, parameters)
         offset = limit_offset.offset if limit_offset else 0
@@ -108,7 +112,11 @@ class SQLSpecService:
             ValueError: If no record is found
         """
         result = await self.driver.select_one_or_none(
-            statement, *parameters, schema_type=schema_type, statement_config=statement_config, **kwargs
+            statement,
+            *parameters,
+            schema_type=schema_type,
+            statement_config=statement_config,
+            **kwargs,
         )
         if result is None:
             raise ValueError(error_message or "Record not found")
@@ -134,7 +142,10 @@ class SQLSpecService:
             True if record exists, False otherwise
         """
         result = await self.driver.select_one_or_none(
-            statement, *parameters, statement_config=statement_config, **kwargs
+            statement,
+            *parameters,
+            statement_config=statement_config,
+            **kwargs,
         )
         return result is not None
 

@@ -62,7 +62,9 @@ class TeamMemberController(Controller):
         return await teams_service.get_one(team_id)
 
     @delete(
-        operation_id="RemoveMemberFromTeam", path="/api/teams/{team_id:uuid}/members", status_code=HTTP_202_ACCEPTED
+        operation_id="RemoveMemberFromTeam",
+        path="/api/teams/{team_id:uuid}/members",
+        status_code=HTTP_202_ACCEPTED,
     )
     async def remove_member_from_team(
         self,

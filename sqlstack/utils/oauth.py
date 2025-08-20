@@ -133,7 +133,6 @@ class OAuth2ProviderPlugin(InitPluginProtocol):
         Returns:
             AppConfig: The configured :class:`AppConfig <.config.app.AppConfig>` instance.
         """
-
         app_config.signature_namespace.update(
             {
                 "OAuth2AuthorizeCallback": OAuth2AuthorizeCallback,

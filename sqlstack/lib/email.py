@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 import smtplib
 from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
@@ -21,6 +22,9 @@ if TYPE_CHECKING:
     from sqlstack.schemas import User
 
 logger = logging.getLogger(__name__)
+
+# Constants
+HTML_TAG_PATTERN = r"<[^<]+?>"
 
 
 def async_to_sync(func: Any) -> Any:
@@ -54,7 +58,8 @@ class EmailService:
 
         self.template_dir = TEMPLATE_DIR
         self.jinja_env = Environment(
-            loader=FileSystemLoader(self.template_dir), autoescape=select_autoescape(["html", "xml"])
+            loader=FileSystemLoader(self.template_dir),
+            autoescape=select_autoescape(["html", "xml"]),
         )
 
     def _create_smtp_connection(self) -> smtplib.SMTP | smtplib.SMTP_SSL | None:
@@ -69,6 +74,7 @@ class EmailService:
 
         try:
             # Use SSL connection if specified
+            smtp: smtplib.SMTP | smtplib.SMTP_SSL
             if self.settings.USE_SSL:
                 smtp = smtplib.SMTP_SSL(self.settings.SMTP_HOST, self.settings.SMTP_PORT, timeout=self.settings.TIMEOUT)
             else:
@@ -135,9 +141,7 @@ class EmailService:
         # Add text content (required for spam filters)
         if not text_content:
             # Simple HTML to text conversion
-            import re
-
-            text_content = re.sub("<[^<]+?>", "", html_content)
+            text_content = re.sub(HTML_TAG_PATTERN, "", html_content)
             text_content = text_content.replace("&nbsp;", " ").strip()
 
         text_part = MIMEText(text_content, "plain")
@@ -320,7 +324,11 @@ class EmailService:
             )
 
     async def send_password_reset_email(
-        self, user: User, token: str, expires_in_minutes: int = 60, ip_address: str = "unknown"
+        self,
+        user: User,
+        token: str,
+        expires_in_minutes: int = 60,
+        ip_address: str = "unknown",
     ) -> bool:
         """Send password reset email to user.
 
@@ -380,7 +388,11 @@ class EmailService:
         )
 
     async def send_team_invitation_email(
-        self, invitee_email: str, inviter_name: str, team_name: str, invitation_url: str
+        self,
+        invitee_email: str,
+        inviter_name: str,
+        team_name: str,
+        invitation_url: str,
     ) -> bool:
         """Send team invitation email.
 

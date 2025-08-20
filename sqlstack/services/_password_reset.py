@@ -108,7 +108,7 @@ class PasswordResetService(SQLSpecService):
         await self.driver.execute(
             sql.update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
-            .where_eq("id", token_record.id)
+            .where_eq("id", token_record.id),
         )
 
         # Return updated record
@@ -125,7 +125,7 @@ class PasswordResetService(SQLSpecService):
             sql.update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
             .where_eq("user_id", user_id)
-            .where_eq("used", False)
+            .where_eq("used", False),
         )
 
     async def cleanup_expired_tokens(self) -> int:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlspec import sql
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas as s
+from sqlstack.config import db_manager
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:
@@ -37,7 +38,7 @@ class UserOAuthAccountService(SQLSpecService):
             schema_type=s.OauthAccount,
         )
 
-    async def update(self, account_id: UUID, data: dict) -> s.OauthAccount:
+    async def update(self, account_id: UUID, data: dict[str, Any]) -> s.OauthAccount:
         """Update an existing OAuth account."""
         return await self.driver.select_one(
             sql.update("oauth_account")
@@ -181,10 +182,13 @@ class UserOAuthAccountService(SQLSpecService):
         )
 
     async def update_access_token(
-        self, account_id: UUID, access_token: str, expires_at: int | None = None
+        self,
+        account_id: UUID,
+        access_token: str,
+        expires_at: int | None = None,
     ) -> s.OauthAccount:
         """Update the access token for an OAuth account."""
-        update_data = {"access_token": access_token}
+        update_data: dict[str, Any] = {"access_token": access_token}
         if expires_at is not None:
             update_data["expires_at"] = expires_at
 
@@ -231,7 +235,7 @@ class UserOAuthAccountService(SQLSpecService):
     async def delete_by_user_and_provider(self, user_id: UUID, oauth_name: str) -> None:
         """Delete OAuth account by user ID and provider name."""
         await self.driver.execute(
-            sql.delete("oauth_account").where_eq("user_id", user_id).where_eq("oauth_name", oauth_name)
+            sql.delete("oauth_account").where_eq("user_id", user_id).where_eq("oauth_name", oauth_name),
         )
 
     async def create_or_update_oauth_account(
@@ -244,7 +248,7 @@ class UserOAuthAccountService(SQLSpecService):
         refresh_token: str | None = None,
         expires_at: int | None = None,
     ) -> s.OauthAccount:
-        """Create or update an OAuth account for a user.
+        """Create or update an OAuth account for a user using upsert.
 
         Args:
             user_id: ID of the user
@@ -258,24 +262,30 @@ class UserOAuthAccountService(SQLSpecService):
         Returns:
             Created or updated OAuth account
         """
-        # Check if account already exists
-        existing_account = await self.get_by_oauth_id(provider_name, account_id)
+        # Use upsert query for atomic create or update
+        result = await self.driver.select_one(
+            db_manager.get_sql("upsert-user-oauth-account"),
+            user_id=user_id,
+            provider=provider_name,
+            oauth_account_id=account_id,
+            oauth_account_email=account_email,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+        )
 
-        account_data = {
-            "user_id": user_id,
-            "oauth_name": provider_name,
-            "account_id": account_id,
-            "account_email": account_email,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "expires_at": expires_at,
-        }
-
-        if existing_account:
-            # Update existing account
-            return await self.update(existing_account.id, account_data)
-        # Create new account
-        return await self.create(s.OauthAccount(**account_data))
+        return s.OauthAccount(
+            id=result["id"],
+            user_id=result["user_id"],
+            oauth_name=result["provider"],
+            account_id=result["oauth_account_id"],
+            account_email=result["oauth_account_email"],
+            created_at=result["created_at"],
+            updated_at=result["updated_at"],
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+        )
 
     async def find_user_by_oauth_account(self, provider_name: str, account_id: str) -> s.User | None:
         """Find a user by their OAuth account credentials.
@@ -342,7 +352,13 @@ class UserOAuthAccountService(SQLSpecService):
             raise ValueError(msg)
 
         return await self.create_or_update_oauth_account(
-            user_id, provider_name, account_id, account_email, access_token, refresh_token, expires_at
+            user_id,
+            provider_name,
+            account_id,
+            account_email,
+            access_token,
+            refresh_token,
+            expires_at,
         )
 
     async def unlink_oauth_account(self, user_id: UUID, provider_name: str) -> None:
@@ -359,7 +375,11 @@ class UserOAuthAccountService(SQLSpecService):
         return await self.get_by_user_id(user_id)
 
     async def update_tokens(
-        self, account_id: UUID, access_token: str, refresh_token: str | None = None, expires_at: int | None = None
+        self,
+        account_id: UUID,
+        access_token: str,
+        refresh_token: str | None = None,
+        expires_at: int | None = None,
     ) -> s.OauthAccount:
         """Update OAuth tokens for an account.
 
@@ -372,7 +392,7 @@ class UserOAuthAccountService(SQLSpecService):
         Returns:
             Updated OAuth account
         """
-        update_data = {"access_token": access_token}
+        update_data: dict[str, Any] = {"access_token": access_token}
         if refresh_token is not None:
             update_data["refresh_token"] = refresh_token
         if expires_at is not None:
@@ -394,7 +414,7 @@ class UserOAuthAccountService(SQLSpecService):
             sql.select("1")
             .from_("oauth_account")
             .where_eq("oauth_name", provider_name)
-            .where_eq("account_id", account_id)
+            .where_eq("account_id", account_id),
         )
 
     async def get_oauth_statistics(self) -> dict:

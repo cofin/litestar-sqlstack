@@ -62,7 +62,7 @@ db_manager = SQLSpec(
     config=[
         DatabaseConfig(commit_mode="autocommit", config=db),
         DatabaseConfig(config=etl_db, connection_key="etl_connection", pool_key="etl_pool", session_key="etl_session"),
-    ]
+    ],
 )
 
 db_manager.load_sql_files(BASE_DIR / "db" / "sql")
@@ -88,6 +88,11 @@ log = StructlogConfig(
                 "sqlspec": {
                     "propagate": False,
                     "level": settings.log.SQLSPEC_LEVEL,
+                    "handlers": ["queue_listener"],
+                },
+                "sqlglot": {
+                    "propagate": False,
+                    "level": settings.log.SQLGLOT_LEVEL,
                     "handlers": ["queue_listener"],
                 },
                 "_granian": {

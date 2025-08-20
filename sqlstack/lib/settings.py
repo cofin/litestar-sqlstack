@@ -54,7 +54,7 @@ class DatabaseSettings:
     MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations"))
     """The path to database migrations."""
     MIGRATION_DDL_VERSION_TABLE: str = field(
-        default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version")
+        default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version"),
     )
     """The name to use for the migrations versions table name."""
     FIXTURE_PATH: str = field(default_factory=get_env("DATABASE_FIXTURE_PATH", f"{BASE_DIR}/db/fixtures"))
@@ -235,12 +235,14 @@ class LogSettings:
                 "LOG_RESPONSE_FIELDS",
                 ["status_code"],
             ),
-        )
+        ),
     )
     """Attributes of the [Response][litestar.response.Response] to be
     logged."""
     SQLSPEC_LEVEL: int = field(default_factory=get_env("SQLSPEC_LOG_LEVEL", 30))
     """Level to log SQLSpec logs."""
+    SQLGLOT_LEVEL: int = field(default_factory=get_env("SQLGLOT_LOG_LEVEL", 40))
+    """Level to log SQLGlot logs."""
     ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 30))
     """Level to log uvicorn access logs."""
     ASGI_ERROR_LEVEL: int = field(default_factory=get_env("ASGI_ERROR_LOG_LEVEL", 30))

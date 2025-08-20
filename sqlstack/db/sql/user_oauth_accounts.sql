@@ -38,3 +38,29 @@ RETURNING id, user_id, provider, oauth_account_id, oauth_account_email, created_
 DELETE FROM user_account_oauth
 WHERE id = :oauth_account_id
 RETURNING id, user_id, provider, oauth_account_id, oauth_account_email, created_at, updated_at;
+
+-- name: upsert-user-oauth-account
+INSERT INTO user_account_oauth (
+    id, user_id, provider, access_token, expires_at, refresh_token,
+    oauth_account_id, oauth_account_email, created_at, updated_at
+)
+VALUES (
+    gen_random_uuid(),
+    :user_id,
+    :provider,
+    :access_token,
+    :expires_at,
+    :refresh_token,
+    :oauth_account_id,
+    :oauth_account_email,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (provider, oauth_account_id) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    access_token = EXCLUDED.access_token,
+    expires_at = EXCLUDED.expires_at,
+    refresh_token = COALESCE(EXCLUDED.refresh_token, user_account_oauth.refresh_token),
+    oauth_account_email = EXCLUDED.oauth_account_email,
+    updated_at = NOW()
+RETURNING id, user_id, provider, oauth_account_id, oauth_account_email, created_at, updated_at;

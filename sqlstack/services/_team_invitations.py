@@ -27,7 +27,15 @@ class TeamInvitationService(SQLSpecService):
             sql.insert("team_invitation")
             .values(**invitation_data)
             .returning(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             ),
             schema_type=s.TeamInvitation,
         )
@@ -39,7 +47,15 @@ class TeamInvitationService(SQLSpecService):
             .set(**data, updated_at=sql.raw("NOW()"))
             .where_eq("id", invitation_id)
             .returning(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             ),
             schema_type=s.TeamInvitation,
         )
@@ -50,7 +66,15 @@ class TeamInvitationService(SQLSpecService):
             sql.delete("team_invitation")
             .where_eq("id", invitation_id)
             .returning(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             ),
             schema_type=s.TeamInvitation,
         )
@@ -59,7 +83,15 @@ class TeamInvitationService(SQLSpecService):
         """Get a single team invitation by ID."""
         return await self.get_or_404(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_eq("id", invitation_id),
@@ -70,7 +102,15 @@ class TeamInvitationService(SQLSpecService):
         """Get all invitations for a specific team."""
         return await self.driver.select(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_eq("team_id", team_id)
@@ -82,7 +122,15 @@ class TeamInvitationService(SQLSpecService):
         """Get all invitations for a specific email address."""
         return await self.driver.select(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_eq("email", email)
@@ -94,7 +142,15 @@ class TeamInvitationService(SQLSpecService):
         """Get invitation by email and team (to check for duplicates)."""
         return await self.driver.select_one_or_none(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_eq("email", email)
@@ -106,7 +162,15 @@ class TeamInvitationService(SQLSpecService):
         """List team invitations with pagination."""
         return await self.paginate(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .order_by(sql.column("created_at").desc()),
@@ -118,7 +182,15 @@ class TeamInvitationService(SQLSpecService):
         """Get all pending (not accepted/expired) invitations for a team."""
         return await self.driver.select(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_eq("team_id", team_id)
@@ -132,7 +204,15 @@ class TeamInvitationService(SQLSpecService):
         """Get all expired invitations."""
         return await self.driver.select(
             sql.select(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             )
             .from_("team_invitation")
             .where_is_null("accepted_at")
@@ -148,7 +228,15 @@ class TeamInvitationService(SQLSpecService):
             .set(accepted_at=sql.raw("NOW()"), accepted_by=user_id)
             .where_eq("id", invitation_id)
             .returning(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             ),
             schema_type=s.TeamInvitation,
         )
@@ -160,13 +248,13 @@ class TeamInvitationService(SQLSpecService):
             .from_("team_invitation")
             .where_eq("id", invitation_id)
             .where_is_null("accepted_at")
-            .where_gte("expires_at", sql.raw("NOW()"))
+            .where_gte("expires_at", sql.raw("NOW()")),
         )
 
     async def bulk_delete_expired(self) -> int:
         """Delete all expired invitations and return count of deleted records."""
         result = await self.driver.execute(
-            sql.delete("team_invitation").where_is_null("accepted_at").where_lt("expires_at", sql.raw("NOW()"))
+            sql.delete("team_invitation").where_is_null("accepted_at").where_lt("expires_at", sql.raw("NOW()")),
         )
         return result.rowcount if hasattr(result, "rowcount") else 0
 
@@ -177,7 +265,15 @@ class TeamInvitationService(SQLSpecService):
             .set(expires_at=new_expiry, updated_at=sql.raw("NOW()"))
             .where_eq("id", invitation_id)
             .returning(
-                "id", "team_id", "email", "role", "created_at", "updated_at", "accepted_at", "accepted_by", "expires_at"
+                "id",
+                "team_id",
+                "email",
+                "role",
+                "created_at",
+                "updated_at",
+                "accepted_at",
+                "accepted_by",
+                "expires_at",
             ),
             schema_type=s.TeamInvitation,
         )

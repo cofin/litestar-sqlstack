@@ -73,7 +73,7 @@ class UserRoleService(SQLSpecService):
     async def user_has_role(self, user_id: UUID, role_id: UUID) -> bool:
         """Check if a user has a specific role."""
         return await self.exists(
-            sql.select("1").from_("user_role").where_eq("user_id", user_id).where_eq("role_id", role_id)
+            sql.select("1").from_("user_role").where_eq("user_id", user_id).where_eq("role_id", role_id),
         )
 
     async def user_has_role_by_slug(self, user_id: UUID, role_slug: str) -> bool:
@@ -83,7 +83,7 @@ class UserRoleService(SQLSpecService):
             .from_("user_role ur")
             .join("role r", "ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
-            .where_eq("r.slug", role_slug)
+            .where_eq("r.slug", role_slug),
         )
 
     async def get_users_by_role_slug(self, role_slug: str) -> list[s.User]:
@@ -136,14 +136,14 @@ class UserRoleService(SQLSpecService):
         result = await self.driver.select_one(
             sql.select("COUNT(*) as count").from_("user_role").where_eq("role_id", role_id),
         )
-        return result["count"]
+        return int(result["count"])
 
     async def get_user_assignment_count(self, user_id: UUID) -> int:
         """Get the number of roles assigned to a user."""
         result = await self.driver.select_one(
             sql.select("COUNT(*) as count").from_("user_role").where_eq("user_id", user_id),
         )
-        return result["count"]
+        return int(result["count"])
 
     async def bulk_assign_role(self, role_id: UUID, user_ids: list[UUID]) -> list[s.UserRole]:
         """Assign a role to multiple users."""

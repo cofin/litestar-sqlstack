@@ -12,7 +12,6 @@ def create_app() -> Litestar:
     Returns:
         The ASGI application.
     """
-
     from litestar import Litestar
 
     from sqlstack.server.core import ApplicationCore

@@ -73,7 +73,7 @@ class EmailVerificationService(SQLSpecService):
         await self.driver.execute(
             sql.update("email_verification_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
-            .where_eq("id", token_record.id)
+            .where_eq("id", token_record.id),
         )
 
         # Update user as verified
@@ -103,13 +103,13 @@ class EmailVerificationService(SQLSpecService):
             sql.update("email_verification_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
             .where_eq("user_id", user_id)
-            .where_eq("used", False)
+            .where_eq("used", False),
         )
 
     async def cleanup_expired_tokens(self) -> int:
         """Remove expired verification tokens and return count of deleted records."""
         result = await self.driver.execute(
-            sql.delete("email_verification_token").where_lt("expires_at", sql.raw("NOW()"))
+            sql.delete("email_verification_token").where_lt("expires_at", sql.raw("NOW()")),
         )
         return result.rowcount if hasattr(result, "rowcount") else 0
 

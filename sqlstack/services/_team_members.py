@@ -18,7 +18,10 @@ class TeamMemberService(SQLSpecService):
     """Handles database operations for team members."""
 
     async def add_member_to_team(
-        self, team_id: UUID, user_id: UUID, role: TeamRoles = TeamRoles.MEMBER
+        self,
+        team_id: UUID,
+        user_id: UUID,
+        role: TeamRoles = TeamRoles.MEMBER,
     ) -> s.TeamMember:
         """Add a user as a member to a team."""
         return await self.driver.select_one(
@@ -47,7 +50,14 @@ class TeamMemberService(SQLSpecService):
         """Get all members of a specific team."""
         return await self.driver.select(
             sql.select(
-                "tm.id", "tm.team_id", "tm.user_id", "tm.role", "tm.is_owner", "tm.joined_at", "u.email", "u.name"
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+                "u.email",
+                "u.name",
             )
             .from_("team_member tm")
             .join("user_account u", "tm.user_id = u.id")
@@ -60,7 +70,13 @@ class TeamMemberService(SQLSpecService):
         """Get all teams a user is a member of."""
         return await self.driver.select(
             sql.select(
-                "tm.id", "tm.team_id", "tm.user_id", "tm.role", "tm.is_owner", "tm.joined_at", "t.name as team_name"
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+                "t.name as team_name",
             )
             .from_("team_member tm")
             .join("team t", "tm.team_id = t.id")
@@ -72,7 +88,7 @@ class TeamMemberService(SQLSpecService):
     async def is_member_of_team(self, team_id: UUID, user_id: UUID) -> bool:
         """Check if a user is a member of a specific team."""
         return await self.exists(
-            sql.select("1").from_("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id)
+            sql.select("1").from_("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id),
         )
 
     async def get_member_role(self, team_id: UUID, user_id: UUID) -> TeamRoles | None:
@@ -89,7 +105,7 @@ class TeamMemberService(SQLSpecService):
             .from_("team_member")
             .where_eq("team_id", team_id)
             .where_eq("user_id", user_id)
-            .where_eq("is_owner", True)
+            .where_eq("is_owner", True),
         )
 
     async def set_team_owner(self, team_id: UUID, user_id: UUID) -> s.TeamMember:
@@ -112,7 +128,7 @@ class TeamMemberService(SQLSpecService):
         result = await self.driver.select_one(
             sql.select("COUNT(*) as count").from_("team_member").where_eq("team_id", team_id),
         )
-        return result["count"]
+        return int(result["count"])
 
     async def list_all_memberships(self, *filters: StatementFilter) -> OffsetPagination[s.TeamMember]:
         """List all team memberships with pagination."""

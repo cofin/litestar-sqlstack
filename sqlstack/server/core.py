@@ -44,7 +44,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         Returns:
             The configured app config.
         """
-
         from uuid import UUID
 
         from litestar.enums import RequestEncodingType
@@ -109,7 +108,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 routes.UserController,
                 routes.UserRoleController,
                 routes.WebController,
-            ]
+            ],
         )
         # signatures
         app_config.signature_namespace.update(
