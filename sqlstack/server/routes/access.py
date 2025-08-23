@@ -15,7 +15,7 @@ from sqlstack.server import deps, security
 if TYPE_CHECKING:
     from litestar.security.jwt import OAuth2Login, Token
 
-    from sqlstack.services import RoleService, UserService
+    from sqlstack.services import UserService
 
 
 class AccessController(Controller):
@@ -66,7 +66,6 @@ class AccessController(Controller):
         self,
         request: Request[s.User, Token, Any],
         users_service: UserService,
-        roles_service: RoleService,
         data: s.AccountRegister,
     ) -> s.User:
         """User Signup.

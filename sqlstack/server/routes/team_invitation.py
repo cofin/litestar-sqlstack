@@ -30,6 +30,7 @@ class TeamInvitationController(Controller):
     async def create_team_invitation(
         self,
         team_invitations_service: TeamInvitationService,
+        team_id: UUID,
         data: s.TeamInvitationCreate,
     ) -> s.TeamInvitation:
         """Create a team invitation.
@@ -41,7 +42,7 @@ class TeamInvitationController(Controller):
         Returns:
             The created team invitation.
         """
-        return await team_invitations_service.create(data)
+        return await team_invitations_service.create(data, team_id=team_id)
 
     @get(operation_id="ListTeamInvitations", path="/{team_id:uuid}")
     async def list_team_invitations(

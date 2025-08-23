@@ -26,21 +26,15 @@ class EmailVerificationService(SQLSpecService):
         # Invalidate existing tokens for this user
         await self.invalidate_user_tokens(user_id)
 
-        # Generate secure token
-        token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(UTC) + timedelta(hours=24)
-
-        token_data = {
-            "user_id": user_id,
-            "email": email,
-            "token": token,
-            "expires_at": expires_at,
-            "used": False,
-        }
-
         return await self.driver.select_one(
             sql.insert("email_verification_token")
-            .values(**token_data)
+            .values(
+                user_id=user_id,
+                email=email,
+                token=secrets.token_urlsafe(32),
+                expires_at=datetime.now(UTC) + timedelta(hours=24),
+                used=False,
+            )
             .returning("id", "user_id", "email", "token", "expires_at", "used", "created_at", "updated_at"),
             schema_type=s.EmailVerificationToken,
         )
@@ -111,7 +105,7 @@ class EmailVerificationService(SQLSpecService):
         result = await self.driver.execute(
             sql.delete("email_verification_token").where_lt("expires_at", sql.raw("NOW()")),
         )
-        return result.rowcount if hasattr(result, "rowcount") else 0
+        return result.get_affected_count()
 
     async def get_user_verification_status(self, user_id: UUID) -> bool:
         """Check if a user's email is verified."""

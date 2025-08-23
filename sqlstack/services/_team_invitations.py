@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlspec import sql
+from sqlspec import StatementConfig, sql
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas as s
-from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
+from sqlstack.services._base import SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:
     from datetime import datetime
     from uuid import UUID
+
+    from sqlstack.services import OffsetPagination
 
 __all__ = ["TeamInvitationService"]
 
@@ -40,7 +42,7 @@ class TeamInvitationService(SQLSpecService):
             schema_type=s.TeamInvitation,
         )
 
-    async def update(self, invitation_id: UUID, data: dict) -> s.TeamInvitation:
+    async def update(self, invitation_id: UUID, data: dict[str, Any]) -> s.TeamInvitation:
         """Update an existing team invitation."""
         return await self.driver.select_one(
             sql.update("team_invitation")
@@ -158,7 +160,9 @@ class TeamInvitationService(SQLSpecService):
             schema_type=s.TeamInvitation,
         )
 
-    async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.TeamInvitation]:
+    async def list_with_count(
+        self, *filters: StatementFilter, statement_config: StatementConfig | None = None, **kwargs: dict[str, Any]
+    ) -> OffsetPagination[s.TeamInvitation]:
         """List team invitations with pagination."""
         return await self.paginate(
             sql.select(
@@ -175,6 +179,8 @@ class TeamInvitationService(SQLSpecService):
             .from_("team_invitation")
             .order_by(sql.column("created_at").desc()),
             *filters,
+            statement_config=statement_config,
+            **kwargs,
             schema_type=s.TeamInvitation,
         )
 
@@ -256,7 +262,7 @@ class TeamInvitationService(SQLSpecService):
         result = await self.driver.execute(
             sql.delete("team_invitation").where_is_null("accepted_at").where_lt("expires_at", sql.raw("NOW()")),
         )
-        return result.rowcount if hasattr(result, "rowcount") else 0
+        return result.total_count or 0
 
     async def extend_invitation(self, invitation_id: UUID, new_expiry: datetime) -> s.TeamInvitation:
         """Extend the expiration date of an invitation."""
@@ -278,7 +284,7 @@ class TeamInvitationService(SQLSpecService):
             schema_type=s.TeamInvitation,
         )
 
-    async def get_invitation_stats(self, team_id: UUID) -> dict:
+    async def get_invitation_stats(self, team_id: UUID) -> dict[str, Any]:
         """Get invitation statistics for a team."""
         return await self.driver.select_one(
             sql.select(
@@ -297,7 +303,7 @@ class TeamInvitationService(SQLSpecService):
 
     async def bulk_invite(self, team_id: UUID, invitations: list[s.TeamInvitationCreate]) -> list[s.TeamInvitation]:
         """Create multiple invitations at once."""
-        created_invitations = []
+        created_invitations: list[s.TeamInvitation] = []
         for invitation_data in invitations:
             invitation = await self.create(invitation_data, team_id)
             created_invitations.append(invitation)

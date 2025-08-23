@@ -18,31 +18,12 @@ class UserService(SQLSpecService):
 
     async def create(self, data: s.UserCreate) -> s.User:
         """Create a new user account."""
-        # Prepare data for insertion, hashing the password
         user_data = schema_dump(data, exclude_unset=True)
-        # Replace plain text password with hash
-        hashed_password = await get_password_hash(user_data.pop("password"))
-        user_data["hashed_password"] = hashed_password
+        has_password = user_data.pop("password", None)
+        if has_password:
+            user_data["hashed_password"] = await get_password_hash(has_password)
 
-        user_record = await self.driver.select_one(
-            db_manager.get_sql("create-user"),
-            user_data,
-        )
-
-        # Convert to User schema (without password_hash field)
-        return s.User(
-            id=user_record["id"],
-            email=user_record["email"],
-            joined_at=user_record["joined_at"],
-            created_at=user_record["created_at"],
-            updated_at=user_record["updated_at"],
-            name=user_record["name"],
-            is_superuser=user_record["is_superuser"],
-            is_active=user_record["is_active"],
-            is_verified=user_record["is_verified"],
-            has_password=user_record["password_hash"] is not None,
-            avatar_url=user_record["avatar_url"],
-        )
+        return await self.driver.select_one(db_manager.get_sql("create-user"), user_data, schema_type=s.User)
 
     async def update(self, item_id: UUID, data: s.UserUpdate) -> s.User:
         """Update an existing user account."""
@@ -56,11 +37,7 @@ class UserService(SQLSpecService):
 
     async def delete(self, item_id: UUID) -> s.User:
         """Delete a user account."""
-        return await self.driver.select_one(
-            db_manager.get_sql("delete-user"),
-            user_id=item_id,
-            schema_type=s.User,
-        )
+        return await self.driver.select_one(db_manager.get_sql("delete-user"), user_id=item_id, schema_type=s.User)
 
     async def get_one(self, user_id: UUID) -> s.User:
         """Get a single user by ID."""

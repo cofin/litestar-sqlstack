@@ -14,7 +14,7 @@ VALUES (
     NOW(),
     NOW()
 )
-RETURNING id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at;
+RETURNING id, email, name, case when hashed_password is not null then true else false end as has_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at;
 
 -- name: get-user-by-id
 SELECT id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at
@@ -23,7 +23,7 @@ WHERE id = :user_id;
 
 -- name: get-user-with-relationships
 SELECT
-    u.id, u.email, u.name, u.hashed_password, u.avatar_url,
+    u.id, u.email, u.name, case when u.hashed_password is not null then 1 else 0 end as has_password, u.avatar_url,
     u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
     u.created_at, u.updated_at,
     COALESCE(
@@ -66,12 +66,12 @@ LEFT JOIN user_account_role ur ON u.id = ur.user_id
 LEFT JOIN role r ON ur.role_id = r.id
 LEFT JOIN user_account_oauth uoa ON u.id = uoa.user_id
 WHERE u.id = :user_id
-GROUP BY u.id, u.email, u.name, u.hashed_password, u.avatar_url,
+GROUP BY u.id, u.email, u.name, case when u.hashed_password is not null then 1 else 0 end, u.avatar_url,
          u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
          u.created_at, u.updated_at;
 
 -- name: get-user-by-email
-SELECT id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at
+SELECT id, email, name, case when hashed_password is not null then 1 else 0 end as has_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at
 FROM user_account
 WHERE email = :email;
 
