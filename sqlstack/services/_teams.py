@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from sqlspec import sql
 from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import schema_dump
 
@@ -82,7 +83,7 @@ class TeamService(SQLSpecService):
         return OffsetPagination(
             items=teams,
             limit=limit_offset.limit if limit_offset else len(teams),
-            offset=limit_offset.offset,
+            offset=limit_offset.offset if limit_offset else 0,
             total=total,
         )
 
@@ -120,9 +121,7 @@ class TeamService(SQLSpecService):
     @staticmethod
     def can_view_all(user: s.User) -> bool:
         """Check if user can view all teams."""
-        if user.is_superuser:
-            return True
-        return any(role.name == SUPERUSER_ACCESS_ROLE for role in user.roles)
+        return any(role.role_slug == "superuser" for role in user.roles)
 
     async def get_available_slug(self, name: str) -> str:
         """Generate a unique slug for the given name."""
@@ -136,7 +135,7 @@ class TeamService(SQLSpecService):
 
     async def _slug_exists(self, slug: str) -> bool:
         """Check if a slug already exists."""
-        return await self.exists(db_manager.get_sql("team-slug-exists"), slug=slug)
+        return await self.exists(sql.select("id").from_("team").where_eq("slug", slug))
 
     async def _update_team_tags(self, team_id: UUID, tag_names: list[str]) -> None:
         """Update tags for a team."""

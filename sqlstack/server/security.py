@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from litestar.exceptions import PermissionDeniedException
-from litestar.security.jwt import OAuth2PasswordBearerAuth
+from litestar.security.jwt import OAuth2PasswordBearerAuth, Token
 
 from sqlstack import schemas as s
+from sqlstack.config import db_manager
 from sqlstack.lib.settings import get_settings
-from sqlstack.schemas._enums import TeamRoles
+from sqlstack.schemas import TeamRoles
 from sqlstack.server import deps
 
 if TYPE_CHECKING:
@@ -15,7 +17,6 @@ if TYPE_CHECKING:
 
     from litestar.connection import ASGIConnection, Request
     from litestar.handlers.base import BaseRouteHandler
-    from litestar.security.jwt import Token
 
 settings = get_settings()
 
@@ -75,8 +76,6 @@ def requires_superuser(connection: ASGIConnection[Any, s.User, Token, Any], _: B
     Raises:
         PermissionDeniedException: Not authorized
     """
-    if connection.user.is_superuser:
-        return
     if any(
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     ):
@@ -100,7 +99,7 @@ def requires_team_membership(connection: ASGIConnection[Any, s.User, Token, Any]
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     )
     has_team_role = any(membership.team_id == team_id for membership in connection.user.teams)
-    if connection.user.is_superuser or has_system_role or has_team_role:
+    if has_system_role or has_team_role:
         return
     raise PermissionDeniedException(detail="Insufficient permissions to access team.")
 
@@ -123,7 +122,7 @@ def requires_team_admin(connection: ASGIConnection[Any, s.User, Token, Any], _: 
     has_team_role = any(
         membership.team_id == team_id and membership.role == TeamRoles.ADMIN for membership in connection.user.teams
     )
-    if connection.user.is_superuser or has_system_role or has_team_role:
+    if has_system_role or has_team_role:
         return
     raise PermissionDeniedException(detail="Insufficient permissions to access team.")
 
@@ -144,7 +143,7 @@ def requires_team_ownership(connection: ASGIConnection[Any, s.User, Token, Any],
         assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
     )
     has_team_role = any(membership.team_id == team_id and membership.is_owner for membership in connection.user.teams)
-    if connection.user.is_superuser or has_system_role or has_team_role:
+    if has_system_role or has_team_role:
         return
 
     msg = "Insufficient permissions to access team."
@@ -163,8 +162,12 @@ async def current_user_from_token(token: Token, connection: ASGIConnection[Any, 
     Returns:
         User: User record mapped to the JWT identifier
     """
-    service = deps.provide_users_service(connection)
-    user = await service.get_by_email(token.sub)
+    service = deps.provide_users_service(
+        db_manager.provide_async_request_session("db_session", connection.app.state, connection.scope)
+    )
+    user = await service.driver.select_one(
+        db_manager.get_sql("get-user-account-details"), user_id=token.extras["user_id"], schema_type=s.User
+    )
     return user if user and user.is_active else None
 
 
@@ -187,9 +190,6 @@ def create_access_token(
     Returns:
         JWT token string
     """
-    from datetime import UTC, datetime, timedelta
-
-    from litestar.security.jwt import Token
 
     token = Token(
         sub=email,

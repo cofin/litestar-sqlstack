@@ -79,6 +79,6 @@ class AccessController(Controller):
         Returns:
             User
         """
-        user = await users_service.create(data)
+        user = await users_service.create_user(data)
         request.app.emit(event_id="user_created", user_id=user.id)
         return user

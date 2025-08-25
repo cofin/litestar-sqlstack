@@ -72,7 +72,7 @@ class RoleController(Controller):
         Returns:
             The created role.
         """
-        return await roles_service.create(data)
+        return await roles_service.create_role(data)
 
     @patch(operation_id="UpdateRole", path="/{role_id:uuid}")
     async def update_role(
@@ -96,7 +96,7 @@ class RoleController(Controller):
         """
         if hasattr(data, "name") and data.name in {"User", "Superuser"}:
             raise HTTPException(status_code=400, detail="Cannot update default roles")
-        return await roles_service.update(role_id, data)
+        return await roles_service.update_role(role_id, data)
 
     @delete(operation_id="DeleteRole", path="/{role_id:uuid}")
     async def delete_role(

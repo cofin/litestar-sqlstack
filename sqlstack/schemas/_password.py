@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlstack.schemas.base import CamelizedBaseStruct
 
@@ -12,6 +12,7 @@ __all__ = (
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
     "PasswordResetToken",
+    "PasswordStrengthAnalysis",
     "ResetPasswordRequest",
     "ResetPasswordResponse",
     "ValidateResetTokenRequest",
@@ -73,6 +74,13 @@ class PasswordResetToken(CamelizedBaseStruct):
     user_id: UUID
     token: str
     expires_at: datetime
-    created_at: datetime
-    updated_at: datetime
     used: bool = False
+
+
+class PasswordStrengthAnalysis(CamelizedBaseStruct):
+    """Password strength analysis response."""
+
+    score: int
+    strength: str
+    requirements: dict[str, Any]
+    feedback: list[str]

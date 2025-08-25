@@ -24,10 +24,12 @@ from sqlstack.schemas._email_verification import (
     EmailVerificationStatusResponse,
     EmailVerificationToken,
 )
-from sqlstack.schemas._password_reset import (
+from sqlstack.schemas._enums import TeamRoles
+from sqlstack.schemas._password import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     PasswordResetToken,
+    PasswordStrengthAnalysis,
     ResetPasswordRequest,
     ResetPasswordResponse,
     ValidateResetTokenRequest,
@@ -66,6 +68,7 @@ __all__ = (
     "Message",
     "OauthAccount",
     "PasswordResetToken",
+    "PasswordStrengthAnalysis",
     "PasswordUpdate",
     "PasswordVerify",
     "ProfileUpdate",
@@ -85,6 +88,7 @@ __all__ = (
     "TeamMember",
     "TeamMemberCreate",
     "TeamMemberModify",
+    "TeamRoles",
     "TeamTag",
     "TeamUpdate",
     "User",

@@ -3,6 +3,7 @@ from uuid import UUID
 
 import msgspec
 
+from sqlstack.lib.types import Email, Name, Password, Slug
 from sqlstack.schemas._enums import TeamRoles
 from sqlstack.schemas.base import CamelizedBaseStruct
 
@@ -46,7 +47,7 @@ class UserRole(CamelizedBaseStruct):
     """
 
     role_id: UUID
-    role_slug: str
+    role_slug: Slug
     role_name: str
     assigned_at: datetime
 
@@ -58,7 +59,7 @@ class OauthAccount(CamelizedBaseStruct):
     user_id: UUID
     oauth_name: str
     account_id: str
-    account_email: str
+    account_email: Email
     created_at: datetime
     updated_at: datetime
     access_token: str | None = None
@@ -72,26 +73,20 @@ class User(CamelizedBaseStruct):
     id: UUID
     email: str
     joined_at: date
-    created_at: datetime
-    updated_at: datetime
     name: str | None = None
-    hashed_password: str | None = None
     avatar_url: str | None = None
     is_active: bool = False
-    is_superuser: bool = False
     is_verified: bool = False
     verified_at: date | None = None
     has_password: bool = False
-    teams: list[UserTeam] = msgspec.field(default_factory=list)
-    roles: list[UserRole] = msgspec.field(default_factory=list)
-    oauth_accounts: list[OauthAccount] = msgspec.field(default_factory=list)
+    teams: list[UserTeam] = []
+    roles: list[UserRole] = []
 
 
 class UserCreate(CamelizedBaseStruct):
     email: str
     password: str
     name: str | None = None
-    is_superuser: bool = False
     is_active: bool = True
     is_verified: bool = False
     verified_at: date | None = None
@@ -99,10 +94,9 @@ class UserCreate(CamelizedBaseStruct):
 
 
 class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
-    email: str | msgspec.UnsetType | None = msgspec.UNSET
-    password: str | msgspec.UnsetType | None = msgspec.UNSET
-    name: str | msgspec.UnsetType | None = msgspec.UNSET
-    is_superuser: bool | msgspec.UnsetType | None = msgspec.UNSET
+    email: Email | msgspec.UnsetType | None = msgspec.UNSET
+    password: Password | msgspec.UnsetType | None = msgspec.UNSET
+    name: Name | msgspec.UnsetType | None = msgspec.UNSET
     is_active: bool | msgspec.UnsetType | None = msgspec.UNSET
     is_verified: bool | msgspec.UnsetType | None = msgspec.UNSET
     verified_at: date | msgspec.UnsetType | None = msgspec.UNSET
@@ -111,26 +105,26 @@ class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
 
 class AccountLogin(CamelizedBaseStruct):
     username: str
-    password: str
+    password: Password
 
 
 class PasswordUpdate(CamelizedBaseStruct):
-    current_password: str
-    new_password: str
+    current_password: Password
+    new_password: Password
 
 
 class PasswordVerify(CamelizedBaseStruct):
-    current_password: str
+    current_password: Password
 
 
 class ProfileUpdate(CamelizedBaseStruct, omit_defaults=True):
-    name: str | msgspec.UnsetType | None = msgspec.UNSET
+    name: Name | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class AccountRegister(CamelizedBaseStruct):
-    email: str
-    password: str
-    name: str | None = None
+    email: Email
+    password: Password
+    name: Name | None = None
     initial_team_name: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
@@ -171,10 +165,10 @@ class UserOAuthAccountCreate(CamelizedBaseStruct):
     user_id: UUID
     provider: str
     oauth_account_id: str
-    oauth_account_email: str | None = None
+    oauth_account_email: Email | None = None
 
 
 class UserOAuthAccountUpdate(CamelizedBaseStruct):
     """Schema for updating a user OAuth account."""
 
-    oauth_account_email: str | None = None
+    oauth_account_email: Email | None = None

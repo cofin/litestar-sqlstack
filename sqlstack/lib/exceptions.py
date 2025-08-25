@@ -19,7 +19,6 @@ from structlog.contextvars import bind_contextvars
 
 if TYPE_CHECKING:
     from litestar.connection import Request
-    from litestar.middleware.exceptions.middleware import ExceptionResponseContent
     from litestar.response import Response
     from litestar.types import Scope
 
@@ -108,7 +107,7 @@ def after_exception_hook_handler(exc: Exception, _scope: Scope) -> None:
 def exception_to_http_response(
     request: Request[Any, Any, Any],
     exc: ApplicationError,
-) -> Response[ExceptionResponseContent]:
+) -> Response[Any]:
     """Transform application exceptions to HTTP exceptions.
 
     Args:

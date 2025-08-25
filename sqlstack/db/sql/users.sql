@@ -1,5 +1,5 @@
 -- name: create-user
-INSERT INTO user_account (id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at)
+INSERT INTO user_account (id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at )
 VALUES (
     :id,
     :email,
@@ -11,19 +11,25 @@ VALUES (
     :is_verified,
     :verified_at,
     :joined_at,
-    NOW(),
-    NOW()
 )
-RETURNING id, email, name, case when hashed_password is not null then true else false end as has_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at;
+RETURNING id;
 
--- name: get-user-by-id
-SELECT id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at
+-- name: get-active-user-with-password
+SELECT id, email, hashed_password, is_active
 FROM user_account
+WHERE email = :email AND is_active = true;
+
+-- name: update-user-account-last-login
+UPDATE user_account
+SET updated_at = NOW()
 WHERE id = :user_id;
 
--- name: get-user-with-relationships
+
+-- name: get-user-account-details
 SELECT
-    u.id, u.email, u.name, case when u.hashed_password is not null then 1 else 0 end as has_password, u.avatar_url,
+    u.id, u.email, u.name,
+    case when u.hashed_password is not null then 1 else 0 end as has_password,
+    u.avatar_url,
     u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
     u.created_at, u.updated_at,
     COALESCE(
@@ -47,52 +53,21 @@ SELECT
             )
         ) FILTER (WHERE r.id IS NOT NULL),
         '[]'::json
-    ) as roles,
-    COALESCE(
-        json_agg(
-            DISTINCT json_build_object(
-                'id', uoa.id,
-                'provider', uoa.provider,
-                'oauth_account_id', uoa.oauth_account_id,
-                'oauth_account_email', uoa.oauth_account_email
-            )
-        ) FILTER (WHERE uoa.id IS NOT NULL),
-        '[]'::json
-    ) as oauth_accounts
+    ) as roles
 FROM user_account u
 LEFT JOIN team_member tm ON u.id = tm.user_id
 LEFT JOIN team t ON tm.team_id = t.id
 LEFT JOIN user_account_role ur ON u.id = ur.user_id
 LEFT JOIN role r ON ur.role_id = r.id
-LEFT JOIN user_account_oauth uoa ON u.id = uoa.user_id
 WHERE u.id = :user_id
 GROUP BY u.id, u.email, u.name, case when u.hashed_password is not null then 1 else 0 end, u.avatar_url,
          u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
          u.created_at, u.updated_at;
 
--- name: get-user-by-email
-SELECT id, email, name, case when hashed_password is not null then 1 else 0 end as has_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at
-FROM user_account
-WHERE email = :email;
-
--- name: update-user
-UPDATE user_account
-SET email = COALESCE(:email, email),
-    name = COALESCE(:name, name),
-    hashed_password = COALESCE(:hashed_password, hashed_password),
-    avatar_url = COALESCE(:avatar_url, avatar_url),
-    is_active = COALESCE(:is_active, is_active),
-    is_superuser = COALESCE(:is_superuser, is_superuser),
-    is_verified = COALESCE(:is_verified, is_verified),
-    verified_at = COALESCE(:verified_at, verified_at),
-    updated_at = NOW()
-WHERE id = :user_id
-RETURNING id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at;
-
 -- name: delete-user
 DELETE FROM user_account
 WHERE id = :user_id
-RETURNING id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at;
+RETURNING id;
 
 -- name: list-users
 SELECT id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at

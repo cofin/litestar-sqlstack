@@ -18,13 +18,12 @@ from sqlstack.services._base import (
     apply_filter,
 )
 from sqlstack.services._email_verification import EmailVerificationService
-from sqlstack.services._password_reset import PasswordResetService
+from sqlstack.services._password import PasswordService
 from sqlstack.services._roles import RoleService
 from sqlstack.services._tags import TagService
 from sqlstack.services._team_invitations import TeamInvitationService
 from sqlstack.services._team_members import TeamMemberService
 from sqlstack.services._teams import TeamService
-from sqlstack.services._user_oauth_accounts import UserOAuthAccountService
 from sqlstack.services._user_roles import UserRoleService
 from sqlstack.services._users import UserService
 
@@ -44,7 +43,7 @@ __all__ = (
     "OnBeforeAfterFilter",
     "OrderByFilter",
     "PaginationFilter",
-    "PasswordResetService",
+    "PasswordService",
     "RoleService",
     "SearchFilter",
     "StatementFilter",
@@ -52,7 +51,6 @@ __all__ = (
     "TeamInvitationService",
     "TeamMemberService",
     "TeamService",
-    "UserOAuthAccountService",
     "UserRoleService",
     "UserService",
     "apply_filter",

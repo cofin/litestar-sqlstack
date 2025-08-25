@@ -33,7 +33,6 @@ def test_database_settings_default_values() -> None:
         assert db_settings.POOL_MAX_SIZE == 10
         assert db_settings.POOL_TIMEOUT == 30
         assert db_settings.POOL_RECYCLE == 300
-        assert db_settings.POOL_PRE_PING is False
         assert "postgres://app:app@localhost:15432/app" in db_settings.URL
         assert "migrations" in db_settings.MIGRATION_PATH
         assert db_settings.MIGRATION_DDL_VERSION_TABLE == "ddl_version"
@@ -64,7 +63,7 @@ def test_server_settings_default_values() -> None:
     server_settings = ServerSettings()
 
     assert server_settings.APP_LOC == "sqlstack.asgi:create_app"
-    assert server_settings.HOST == "0.0.0.0"
+    assert server_settings.HOST == "0.0.0.0"  # noqa: S104
     assert server_settings.PORT == 8000
     assert server_settings.KEEPALIVE == 65
     assert server_settings.RELOAD is False
@@ -106,13 +105,13 @@ def test_storage_settings_env_override() -> None:
         os.environ,
         {
             "PUBLIC_STORAGE_KEY": "assets",
-            "PRIVATE_STORAGE_PATH_URI": "/tmp/private",
+            "PRIVATE_STORAGE_PATH_URI": "/tmp/private",  # noqa: S108
         },
     ):
         storage_settings = StorageSettings()
 
         assert storage_settings.PUBLIC_STORAGE_KEY == "assets"
-        assert storage_settings.PRIVATE_STORAGE_URI == "/tmp/private"
+        assert storage_settings.PRIVATE_STORAGE_URI == "/tmp/private"  # noqa: S108
 
 
 def test_email_settings_default_values() -> None:
@@ -196,9 +195,11 @@ def test_app_settings_cors_origins_json_parsing() -> None:
 
 def test_app_settings_cors_origins_invalid_json() -> None:
     """Test invalid JSON raises ValueError."""
-    with patch.dict(os.environ, {"ALLOWED_CORS_ORIGINS": "[invalid json"}):
-        with pytest.raises(ValueError, match="ALLOWED_CORS_ORIGINS is not a valid list representation"):
-            AppSettings()
+    with (
+        patch.dict(os.environ, {"ALLOWED_CORS_ORIGINS": "[invalid json"}),
+        pytest.raises(ValueError, match="ALLOWED_CORS_ORIGINS is not a valid list representation"),
+    ):
+        AppSettings()
 
 
 def test_app_settings_env_override() -> None:

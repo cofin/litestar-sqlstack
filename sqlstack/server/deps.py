@@ -6,22 +6,21 @@ from typing import TYPE_CHECKING
 
 from sqlstack.services import (
     EmailVerificationService,
-    PasswordResetService,
+    PasswordService,
     RoleService,
     TagService,
     TeamInvitationService,
     TeamMemberService,
     TeamService,
-    UserOAuthAccountService,
     UserRoleService,
     UserService,
 )
 
 if TYPE_CHECKING:
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
+    from sqlspec.driver import AsyncDriverAdapterBase
 
 
-def provide_users_service(db_session: AsyncpgDriver) -> UserService:
+def provide_users_service(db_session: AsyncDriverAdapterBase) -> UserService:
     """Provide user service with database driver.
 
     Args:
@@ -33,7 +32,7 @@ def provide_users_service(db_session: AsyncpgDriver) -> UserService:
     return UserService(db_session)
 
 
-def provide_email_verification_service(db_session: AsyncpgDriver) -> EmailVerificationService:
+def provide_email_verification_service(db_session: AsyncDriverAdapterBase) -> EmailVerificationService:
     """Provide email verification service with database driver.
 
     Args:
@@ -45,19 +44,19 @@ def provide_email_verification_service(db_session: AsyncpgDriver) -> EmailVerifi
     return EmailVerificationService(db_session)
 
 
-def provide_password_reset_service(db_session: AsyncpgDriver) -> PasswordResetService:
-    """Provide password reset service with database driver.
+def provide_password_service(db_session: AsyncDriverAdapterBase) -> PasswordService:
+    """Provide password service with database driver.
 
     Args:
         db_session: The database session
 
     Returns:
-        PasswordResetService instance
+        PasswordService instance
     """
-    return PasswordResetService(db_session)
+    return PasswordService(db_session)
 
 
-def provide_team_service(db_session: AsyncpgDriver) -> TeamService:
+def provide_team_service(db_session: AsyncDriverAdapterBase) -> TeamService:
     """Provide team service with database driver.
 
     Args:
@@ -69,7 +68,7 @@ def provide_team_service(db_session: AsyncpgDriver) -> TeamService:
     return TeamService(db_session)
 
 
-def provide_role_service(db_session: AsyncpgDriver) -> RoleService:
+def provide_role_service(db_session: AsyncDriverAdapterBase) -> RoleService:
     """Provide role service with database driver.
 
     Args:
@@ -81,7 +80,7 @@ def provide_role_service(db_session: AsyncpgDriver) -> RoleService:
     return RoleService(db_session)
 
 
-def provide_tag_service(db_session: AsyncpgDriver) -> TagService:
+def provide_tag_service(db_session: AsyncDriverAdapterBase) -> TagService:
     """Provide tag service with database driver.
 
     Args:
@@ -93,7 +92,7 @@ def provide_tag_service(db_session: AsyncpgDriver) -> TagService:
     return TagService(db_session)
 
 
-def provide_team_invitation_service(db_session: AsyncpgDriver) -> TeamInvitationService:
+def provide_team_invitation_service(db_session: AsyncDriverAdapterBase) -> TeamInvitationService:
     """Provide team invitation service with database driver.
 
     Args:
@@ -105,7 +104,7 @@ def provide_team_invitation_service(db_session: AsyncpgDriver) -> TeamInvitation
     return TeamInvitationService(db_session)
 
 
-def provide_team_member_service(db_session: AsyncpgDriver) -> TeamMemberService:
+def provide_team_member_service(db_session: AsyncDriverAdapterBase) -> TeamMemberService:
     """Provide team member service with database driver.
 
     Args:
@@ -117,19 +116,7 @@ def provide_team_member_service(db_session: AsyncpgDriver) -> TeamMemberService:
     return TeamMemberService(db_session)
 
 
-def provide_user_oauth_service(db_session: AsyncpgDriver) -> UserOAuthAccountService:
-    """Provide user OAuth account service with database driver.
-
-    Args:
-        db_session: The database session
-
-    Returns:
-        UserOAuthAccountService instance
-    """
-    return UserOAuthAccountService(db_session)
-
-
-def provide_user_role_service(db_session: AsyncpgDriver) -> UserRoleService:
+def provide_user_role_service(db_session: AsyncDriverAdapterBase) -> UserRoleService:
     """Provide user role service with database driver.
 
     Args:
@@ -139,19 +126,3 @@ def provide_user_role_service(db_session: AsyncpgDriver) -> UserRoleService:
         UserRoleService instance
     """
     return UserRoleService(db_session)
-
-
-# Plural provider aliases for backward compatibility
-def provide_teams_service(db_session: AsyncpgDriver) -> TeamService:
-    """Provide teams service (alias for team service)."""
-    return provide_team_service(db_session)
-
-
-def provide_roles_service(db_session: AsyncpgDriver) -> RoleService:
-    """Provide roles service (alias for role service)."""
-    return provide_role_service(db_session)
-
-
-def provide_tags_service(db_session: AsyncpgDriver) -> TagService:
-    """Provide tags service (alias for tag service)."""
-    return provide_tag_service(db_session)

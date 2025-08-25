@@ -144,9 +144,8 @@ def test_server_error_logged(mock_exc_info: MagicMock, mock_bind: MagicMock) -> 
     """Test that server errors (5xx) are logged."""
     mock_exc_info.return_value = ("type", "value", "traceback")
     error = HTTPException(detail="Internal error", status_code=500)
-    scope = {}
 
-    after_exception_hook_handler(error, scope)
+    after_exception_hook_handler(error, {})
 
     mock_bind.assert_called_once_with(exc_info=("type", "value", "traceback"))
 
@@ -173,7 +172,7 @@ def test_authorization_error_mapping() -> None:
     with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
 
-        args, kwargs = mock_create.call_args
+        args, _kwargs = mock_create.call_args
         assert args[0] is mock_request
         assert isinstance(args[1], PermissionDeniedException)
 
@@ -187,7 +186,7 @@ def test_generic_application_error_mapping() -> None:
     with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
 
-        args, kwargs = mock_create.call_args
+        args, _kwargs = mock_create.call_args
         assert args[0] is mock_request
         assert isinstance(args[1], InternalServerException)
 
@@ -198,13 +197,15 @@ def test_debug_mode_response() -> None:
     mock_request.app.debug = True
     error = ApplicationError("Debug error")
 
-    with patch("litestar.exceptions.responses.create_debug_response") as mock_debug:
-        with patch("litestar.exceptions.responses.create_exception_response") as mock_exception:
-            exception_to_http_response(mock_request, error)
+    with (
+        patch("litestar.exceptions.responses.create_debug_response") as mock_debug,
+        patch("litestar.exceptions.responses.create_exception_response") as mock_exception,
+    ):
+        exception_to_http_response(mock_request, error)
 
-            # Should call debug response for server errors in debug mode
-            mock_debug.assert_called_once_with(mock_request, error)
-            mock_exception.assert_not_called()
+        # Should call debug response for server errors in debug mode
+        mock_debug.assert_called_once_with(mock_request, error)
+        mock_exception.assert_not_called()
 
 
 def test_debug_mode_no_debug_for_permission_error() -> None:
@@ -213,13 +214,15 @@ def test_debug_mode_no_debug_for_permission_error() -> None:
     mock_request.app.debug = True
     error = AuthorizationError("Permission denied")
 
-    with patch("litestar.exceptions.responses.create_debug_response") as mock_debug:
-        with patch("litestar.exceptions.responses.create_exception_response") as mock_exception:
-            exception_to_http_response(mock_request, error)
+    with (
+        patch("litestar.exceptions.responses.create_debug_response") as mock_debug,
+        patch("litestar.exceptions.responses.create_exception_response") as mock_exception,
+    ):
+        exception_to_http_response(mock_request, error)
 
-            # Should not call debug response for permission errors even in debug mode
-            mock_debug.assert_not_called()
-            mock_exception.assert_called_once()
+        # Should not call debug response for permission errors even in debug mode
+        mock_debug.assert_not_called()
+        mock_exception.assert_called_once()
 
 
 def test_error_cause_in_detail() -> None:
@@ -255,9 +258,11 @@ def test_exception_with_chaining() -> None:
     """Test exception chaining works properly."""
     try:
         try:
-            raise ValueError("Root cause")
+            msg = "Root cause"
+            raise ValueError(msg)  # noqa: TRY301
         except ValueError as e:
-            raise ApplicationError("Wrapped error") from e
+            msg = "Wrapped error"
+            raise ApplicationError(msg) from e
     except ApplicationError as wrapper:
         assert wrapper.__cause__ is not None
         assert isinstance(wrapper.__cause__, ValueError)

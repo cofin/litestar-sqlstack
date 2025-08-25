@@ -11,15 +11,11 @@ create table
         slug varchar(100) not null constraint uq_role_slug unique,
         name varchar not null constraint uq_role_name unique,
         description varchar,
-        created_at timestamp
-        with
-            time zone not null,
-            updated_at timestamp
-        with
-            time zone not null
+        created_at timestamp with time zone not null,
+        updated_at timestamp with time zone not null
     );
 
-alter table role owner to app;
+
 
 create unique index ix_role_slug_unique on role (slug);
 
@@ -29,15 +25,10 @@ create table
         slug varchar(100) not null constraint uq_tag_slug unique,
         name varchar not null,
         description varchar(255),
-        created_at timestamp
-        with
-            time zone not null,
-            updated_at timestamp
-        with
-            time zone not null
+        created_at timestamp with time zone not null,
+        updated_at timestamp with time zone not null
     );
 
-alter table tag owner to app;
 
 create unique index ix_tag_slug_unique on tag (slug);
 
@@ -48,15 +39,10 @@ create table
         name varchar not null,
         description varchar(500),
         is_active boolean not null,
-        created_at timestamp
-        with
-            time zone not null,
-            updated_at timestamp
-        with
-            time zone not null
+        created_at timestamp with time zone not null,
+        updated_at timestamp with time zone not null
     );
 
-alter table team owner to app;
 
 create index ix_team_name on team (name);
 
@@ -70,21 +56,15 @@ create table
         hashed_password varchar(255),
         avatar_url varchar(500),
         is_active boolean not null,
-        is_superuser boolean not null,
         is_verified boolean not null,
         verified_at date,
         joined_at date not null,
-        created_at timestamp
-        with
-            time zone not null,
-            updated_at timestamp
-        with
-            time zone not null
+        created_at timestamp with time zone not null,
+        updated_at timestamp with time zone not null
     );
 
 comment on table user_account is 'User accounts for application access';
 
-alter table user_account owner to app;
 
 create unique index ix_user_account_email on user_account (email);
 
@@ -104,8 +84,7 @@ create table
         with
             time zone not null
     );
-
-alter table team_invitation owner to app;
+ 
 
 create index ix_team_invitation_email on team_invitation (email);
 
@@ -125,7 +104,6 @@ create table
             constraint uq_team_member_user_id unique (user_id, team_id)
     );
 
-alter table team_member owner to app;
 
 create index ix_team_member_role on team_member (role);
 
@@ -137,32 +115,6 @@ create table
     );
 
 alter table team_tag owner to app;
-
-create table
-    user_account_oauth (
-        id uuid not null constraint pk_user_account_oauth primary key,
-        user_id uuid not null constraint fk_user_account_oauth_user_id_user_account references user_account on delete cascade,
-        provider varchar(100) not null,
-        access_token varchar(1024) not null,
-        expires_at integer,
-        refresh_token varchar(1024),
-        oauth_account_id varchar(320) not null,
-        oauth_account_email varchar(320),
-        created_at timestamp
-        with
-            time zone not null,
-            updated_at timestamp
-        with
-            time zone not null
-    );
-
-comment on table user_account_oauth is 'Registered OAUTH2 Accounts for Users';
-
-alter table user_account_oauth owner to app;
-
-create index ix_user_account_oauth_oauth_account_id on user_account_oauth (oauth_account_id);
-
-create index ix_user_account_oauth_provider on user_account_oauth (provider);
 
 create table
     user_account_role (
@@ -182,12 +134,9 @@ create table
 
 comment on table user_account_role is 'Links a user to a specific role.';
 
-alter table user_account_role owner to app;
 
 -- name: migrate-0001-down
 DROP TABLE IF EXISTS user_account_role CASCADE;
-
-DROP TABLE IF EXISTS user_account_oauth CASCADE;
 
 DROP TABLE IF EXISTS team_tag CASCADE;
 

@@ -24,13 +24,13 @@ from sqlspec.core.filters import (
     StatementFilter,
     apply_filter,
 )
+from sqlspec.driver import AsyncDriverAdapterBase
 from sqlspec.typing import ModelDTOT, StatementParameters
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Sequence
 
     from sqlspec import QueryBuilder, Statement, StatementConfig
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
 
 __all__ = (
     "AnyCollectionFilter",
@@ -54,12 +54,13 @@ __all__ = (
 )
 
 T = TypeVar("T")
+AsyncDriverT = TypeVar("AsyncDriverT", bound=AsyncDriverAdapterBase)
 
 
 class SQLSpecService:
     """Base service class for SQLSpec operations."""
 
-    def __init__(self, driver: AsyncpgDriver) -> None:
+    def __init__(self, driver: AsyncDriverAdapterBase) -> None:
         """Initialize the service."""
         self.driver = driver
 

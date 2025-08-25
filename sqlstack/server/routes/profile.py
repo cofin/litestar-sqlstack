@@ -54,7 +54,7 @@ class ProfileController(Controller):
         Returns:
             The response object.
         """
-        return await users_service.update(current_user.id, data)
+        return await users_service.update_user(current_user.id, data)
 
     @patch(operation_id="AccountPasswordUpdate", path="/api/me/password")
     async def update_password(
@@ -89,4 +89,4 @@ class ProfileController(Controller):
             users_service: The users service.
 
         """
-        await users_service.delete(current_user.id)
+        await users_service.delete_user(current_user.id)

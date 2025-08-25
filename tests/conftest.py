@@ -26,13 +26,12 @@ os.environ.update(
 from sqlstack import schemas as s
 from sqlstack.services import (
     EmailVerificationService,
-    PasswordResetService,
+    PasswordService,
     RoleService,
     TagService,
     TeamInvitationService,
     TeamMemberService,
     TeamService,
-    UserOAuthAccountService,
     UserRoleService,
     UserService,
 )
@@ -249,9 +248,9 @@ async def email_verification_service(driver: AsyncpgDriver) -> EmailVerification
 
 
 @pytest.fixture
-async def password_reset_service(driver: AsyncpgDriver) -> PasswordResetService:
-    """Create PasswordResetService instance."""
-    return PasswordResetService(driver)
+async def password_service(driver: AsyncpgDriver) -> PasswordService:
+    """Create PasswordService instance."""
+    return PasswordService(driver)
 
 
 @pytest.fixture
@@ -276,12 +275,6 @@ async def team_member_service(driver: AsyncpgDriver) -> TeamMemberService:
 async def team_invitation_service(driver: AsyncpgDriver) -> TeamInvitationService:
     """Create TeamInvitationService instance."""
     return TeamInvitationService(driver)
-
-
-@pytest.fixture
-async def user_oauth_account_service(driver: AsyncpgDriver) -> UserOAuthAccountService:
-    """Create UserOAuthAccountService instance."""
-    return UserOAuthAccountService(driver)
 
 
 @pytest.fixture
@@ -371,10 +364,10 @@ async def test_verification_token(
 
 @pytest.fixture
 async def test_password_reset_token(
-    password_reset_service: PasswordResetService, test_user: s.User
+    password_service: PasswordService, test_user: s.User
 ) -> s.PasswordResetToken:
     """Create a test password reset token."""
-    return await password_reset_service.create_reset_token(test_user.id)
+    return await password_service.create_reset_token(test_user.id)
 
 
 @pytest.fixture

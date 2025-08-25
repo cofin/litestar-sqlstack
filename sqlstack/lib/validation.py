@@ -1,16 +1,11 @@
 """Production-ready field validation utilities with comprehensive security checks."""
 
-import hashlib
 import re
 import unicodedata
-from typing import Annotated, Any
 from urllib.parse import urlparse
-
-import msgspec
 
 from sqlstack.lib.exceptions import ApplicationClientError
 
-# Compiled regex patterns for performance
 # Email patterns
 EMAIL_BASIC_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$")
 EMAIL_DOUBLE_DOT_PATTERN = re.compile(r"\.\.+")
@@ -21,17 +16,6 @@ EMAIL_BLOCKED_PATTERNS = [
     re.compile(r"^noreply@.*"),  # noreply addresses
     re.compile(r"^no-reply@.*"),  # no-reply addresses
 ]
-
-# Password patterns
-PASSWORD_UPPERCASE_PATTERN = re.compile(r"[A-Z]")
-PASSWORD_LOWERCASE_PATTERN = re.compile(r"[a-z]")
-PASSWORD_DIGIT_PATTERN = re.compile(r"\d")
-PASSWORD_SPECIAL_PATTERN = re.compile(r'[!@#$%^&*(),.?":{}|<>_+=\-\[\]\\\/~`]')
-PASSWORD_COMMON_PATTERN = re.compile(r"(password|123456|qwerty|admin)", re.IGNORECASE)
-PASSWORD_REPEATED_PATTERN = re.compile(r"(.)\1{4,}")  # 5+ repeated characters
-PASSWORD_SIMPLE_REPEATED_PATTERN = re.compile(r"^(.)\1{11,}$")  # 12+ same character
-PASSWORD_SEQUENTIAL_PATTERN = re.compile(r"^(012|123|234|345|456|567|678|789|890|abc|bcd|cde)", re.IGNORECASE)
-PASSWORD_KEYBOARD_PATTERN = re.compile(r"^(qwe|asd|zxc)", re.IGNORECASE)
 
 # Name patterns - Unicode-aware
 NAME_WHITESPACE_PATTERN = re.compile(r"\s+")
@@ -66,30 +50,6 @@ EMAIL_BLOCKED_DOMAINS = {
     "tempmail.net",
 }
 
-# Common passwords (first 1000 most common)
-COMMON_PASSWORDS = {
-    "password",
-    "password123",
-    "123456789",
-    "qwertyuiop",
-    "administrator",
-    "welcome123",
-    "password1234",
-    "letmein123",
-    "admin123456",
-    "password12345",
-}
-
-# Password length constants
-PASSWORD_MIN_LENGTH = 12
-PASSWORD_MAX_LENGTH = 128
-PASSWORD_STRONG_LENGTH = 16
-PASSWORD_VERY_STRONG_LENGTH = 20
-
-# Password strength score thresholds
-PASSWORD_SCORE_STRONG = 7
-PASSWORD_SCORE_MEDIUM = 5
-
 # Phone number length constants
 PHONE_MIN_DIGITS = 7
 PHONE_MAX_DIGITS = 15
@@ -107,21 +67,6 @@ USERNAME_MAX_LENGTH = 30
 # URL and slug length constants
 URL_MAX_LENGTH = 2048
 SLUG_MAX_LENGTH = 100
-
-# Common passwords hash set (SHA256 hashes of most common passwords)
-COMMON_PASSWORDS_HASHES = {
-    # SHA256 hashes of common passwords
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",  # empty
-    "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",  # 'password'
-    "65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5",  # 'qwerty'
-    "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",  # '123456'
-    "15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225",  # '123456789'
-    "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",  # '123'
-    "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0",  # 'qwerty123'
-    "0b14d501a594442a01c6859541bcb3e8164d183d32937b851835442f69d5c94e",  # 'password1'
-    "e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446",  # 'password123'
-    "c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646",  # '1234567890'
-}
 
 # Reserved usernames constant
 RESERVED_USERNAMES = {
@@ -168,12 +113,19 @@ class ValidationError(ApplicationClientError):
     """Custom validation error for all field validations."""
 
 
-class PasswordValidationError(ValidationError):
-    """Exception raised when password validation fails."""
-
-
 # Core Validation Framework
 def validate_not_empty(value: str) -> str:
+    """Validate that a value is not empty after stripping whitespace.
+
+    Args:
+        value: The string to validate
+
+    Returns:
+        The cleaned string
+
+    Raises:
+        ValidationError: If value is empty after stripping
+    """
     cleaned = value.strip()
     if not cleaned:
         msg = "Value cannot be empty"
@@ -182,6 +134,19 @@ def validate_not_empty(value: str) -> str:
 
 
 def validate_length(value: str, min_length: int = 0, max_length: int | None = None) -> str:
+    """Validate string length constraints.
+
+    Args:
+        value: The string to validate
+        min_length: Minimum allowed length
+        max_length: Maximum allowed length
+
+    Returns:
+        The input string if valid
+
+    Raises:
+        ValidationError: If length constraints are violated
+    """
     if len(value) < min_length:
         msg = f"Must be at least {min_length} characters"
         raise ValidationError(msg)
@@ -209,150 +174,19 @@ def validate_no_control_chars(value: str) -> str:
     return value
 
 
-def validate_password_strength(password: str) -> None:
-    """Validate password meets production security requirements.
-
-    Args:
-        password: The password to validate
-
-    Raises:
-        PasswordValidationError: If password doesn't meet requirements
-    """
-    if not isinstance(password, str):  # pyright: ignore
-        msg = "Password must be a string"  # type: ignore[unreachable]
-        raise PasswordValidationError(msg)
-
-    # Length requirements
-    if len(password) < PASSWORD_MIN_LENGTH:
-        msg = f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"
-        raise PasswordValidationError(msg)
-
-    if len(password) > PASSWORD_MAX_LENGTH:
-        msg = f"Password must not exceed {PASSWORD_MAX_LENGTH} characters"
-        raise PasswordValidationError(msg)
-
-    # Character type requirements
-    if not PASSWORD_UPPERCASE_PATTERN.search(password):
-        msg = "Password must contain at least one uppercase letter"
-        raise PasswordValidationError(msg)
-
-    if not PASSWORD_LOWERCASE_PATTERN.search(password):
-        msg = "Password must contain at least one lowercase letter"
-        raise PasswordValidationError(msg)
-
-    if not PASSWORD_DIGIT_PATTERN.search(password):
-        msg = "Password must contain at least one digit"
-        raise PasswordValidationError(msg)
-
-    if not PASSWORD_SPECIAL_PATTERN.search(password):
-        msg = "Password must contain at least one special character"
-        raise PasswordValidationError(msg)
-
-    # Check against common patterns
-    if _is_common_password(password):
-        msg = "Password is too common - please choose a more unique password"
-        raise PasswordValidationError(msg)
-
-
-def _is_common_password(password: str) -> bool:
-    """Check if password is in common password list.
-
-    Args:
-        password: The password to check
-
-    Returns:
-        True if password is common, False otherwise
-    """
-    password_lower = password.lower()
-
-    # Check exact matches
-    if password_lower in COMMON_PASSWORDS:
-        return True
-
-    # Check for simple patterns
-    if PASSWORD_SIMPLE_REPEATED_PATTERN.match(password):  # Repeated characters
-        return True
-
-    if PASSWORD_SEQUENTIAL_PATTERN.match(password_lower):
-        return True
-
-    return bool(PASSWORD_KEYBOARD_PATTERN.match(password_lower))
-
-
-def get_password_strength(password: str) -> dict[str, Any]:
-    """Get detailed password strength analysis.
-
-    Args:
-        password: The password to analyze
-
-    Returns:
-        Dictionary with strength analysis
-    """
-    analysis: dict[str, Any] = {
-        "score": 0,
-        "strength": "weak",
-        "requirements": {
-            "length": len(password) >= PASSWORD_MIN_LENGTH,
-            "uppercase": bool(PASSWORD_UPPERCASE_PATTERN.search(password)),
-            "lowercase": bool(PASSWORD_LOWERCASE_PATTERN.search(password)),
-            "digits": bool(PASSWORD_DIGIT_PATTERN.search(password)),
-            "special_chars": bool(PASSWORD_SPECIAL_PATTERN.search(password)),
-            "not_common": not _is_common_password(password),
-        },
-        "feedback": [],
-    }
-
-    # Calculate score
-    if analysis["requirements"]["length"]:
-        analysis["score"] += 2
-    else:
-        analysis["feedback"].append("Use at least 12 characters")
-
-    if analysis["requirements"]["uppercase"]:
-        analysis["score"] += 1
-    else:
-        analysis["feedback"].append("Include uppercase letters")
-
-    if analysis["requirements"]["lowercase"]:
-        analysis["score"] += 1
-    else:
-        analysis["feedback"].append("Include lowercase letters")
-
-    if analysis["requirements"]["digits"]:
-        analysis["score"] += 1
-    else:
-        analysis["feedback"].append("Include numbers")
-
-    if analysis["requirements"]["special_chars"]:
-        analysis["score"] += 1
-    else:
-        analysis["feedback"].append("Include special characters (!@#$%^&*)")
-
-    if analysis["requirements"]["not_common"]:
-        analysis["score"] += 1
-    else:
-        analysis["feedback"].append("Avoid common passwords")
-
-    # Bonus points for length
-    if len(password) >= PASSWORD_STRONG_LENGTH:
-        analysis["score"] += 1
-    if len(password) >= PASSWORD_VERY_STRONG_LENGTH:
-        analysis["score"] += 1
-
-    # Determine strength level
-    if analysis["score"] >= PASSWORD_SCORE_STRONG:
-        analysis["strength"] = "strong"
-    elif analysis["score"] >= PASSWORD_SCORE_MEDIUM:
-        analysis["strength"] = "medium"
-    else:
-        analysis["strength"] = "weak"
-
-    return analysis
-
-
 # Email Validation
 def validate_email(v: str) -> str:
-    """Production-ready email validation with comprehensive checks."""
+    """Production-ready email validation with comprehensive checks.
+
+    Args:
+        v: The email string to validate
+
+    Returns:
+        The validated and normalized email
+
+    Raises:
+        ValidationError: If email validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "Email must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -400,36 +234,19 @@ def validate_email(v: str) -> str:
     return email
 
 
-# Type annotation for use in schemas
-Email = Annotated[str, msgspec.Meta(description="Valid email address")]
-
-
-# Password Validation
-def validate_password(v: str) -> str:
-    """Production-ready password validation with security checks."""
-    if not isinstance(v, str):  # pyright: ignore
-        msg = "Password must be a string"  # type: ignore[unreachable]
-        raise ValidationError(msg)
-
-    # Use existing validation function
-    validate_password_strength(v)
-
-    # Check against common passwords
-    password_hash = hashlib.sha256(v.encode()).hexdigest()
-    if password_hash in COMMON_PASSWORDS_HASHES:
-        msg = "Password is too common, please choose a different one"
-        raise ValidationError(msg)
-
-    return v
-
-
-# Type annotation for use in schemas
-Password = Annotated[str, msgspec.Meta(description="Strong password (12+ chars, mixed case, numbers, symbols)")]
-
-
 # Name and Text Validation
 def validate_name(v: str) -> str:
-    """Human name validation with proper handling of international names."""
+    """Human name validation with proper handling of international names.
+
+    Args:
+        v: The name string to validate
+
+    Returns:
+        The validated and normalized name
+
+    Raises:
+        ValidationError: If name validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "Name must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -461,7 +278,17 @@ def validate_name(v: str) -> str:
 
 
 def validate_username(v: str) -> str:
-    """Username validation with uniqueness and character restrictions."""
+    """Username validation with uniqueness and character restrictions.
+
+    Args:
+        v: The username string to validate
+
+    Returns:
+        The validated and normalized username
+
+    Raises:
+        ValidationError: If username validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "Username must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -500,13 +327,18 @@ def validate_username(v: str) -> str:
     return username
 
 
-# Type annotations
-Name = Annotated[str, msgspec.Meta(description="Human name (1-100 characters)")]
-Username = Annotated[str, msgspec.Meta(description="Username (3-30 characters, alphanumeric/hyphens/underscores)")]
-
-
 def validate_url(v: str) -> str:
-    """URL validation with security checks."""
+    """URL validation with security checks.
+
+    Args:
+        v: The URL string to validate
+
+    Returns:
+        The validated URL
+
+    Raises:
+        ValidationError: If URL validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "URL must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -552,7 +384,17 @@ def validate_url(v: str) -> str:
 
 
 def validate_slug(v: str) -> str:
-    """Slug validation for URL-safe identifiers."""
+    """Slug validation for URL-safe identifiers.
+
+    Args:
+        v: The slug string to validate
+
+    Returns:
+        The validated slug
+
+    Raises:
+        ValidationError: If slug validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "Slug must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -585,14 +427,19 @@ def validate_slug(v: str) -> str:
     return slug
 
 
-# Type annotations
-Url = Annotated[str, msgspec.Meta(description="Valid HTTP/HTTPS URL")]
-Slug = Annotated[str, msgspec.Meta(description="URL-safe slug (lowercase, alphanumeric, hyphens)")]
-
-
 # Phone Number Validation
 def validate_phone(v: str) -> str:
-    """International phone number validation."""
+    """International phone number validation.
+
+    Args:
+        v: The phone number string to validate
+
+    Returns:
+        The validated phone number
+
+    Raises:
+        ValidationError: If phone validation fails
+    """
     if not isinstance(v, str):  # pyright: ignore
         msg = "Phone number must be a string"  # type: ignore[unreachable]
         raise ValidationError(msg)
@@ -616,7 +463,3 @@ def validate_phone(v: str) -> str:
         raise ValidationError(msg)
 
     return phone
-
-
-# Type annotation
-Phone = Annotated[str, msgspec.Meta(description="Valid international phone number")]

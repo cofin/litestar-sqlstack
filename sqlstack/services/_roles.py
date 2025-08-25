@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class RoleService(SQLSpecService):
     """Handles database operations for roles using SQLSpec's sql builder API."""
 
-    async def create(self, data: schemas.RoleCreate) -> schemas.Role:
+    async def create_role(self, data: schemas.RoleCreate) -> schemas.Role:
         """Create a new role."""
         role_data = schema_dump(data, exclude_unset=True)
         if "slug" not in role_data:
@@ -24,7 +24,7 @@ class RoleService(SQLSpecService):
 
         return await self.driver.select_one(db_manager.get_sql("create-role"), role_data, schema_type=schemas.Role)
 
-    async def update(self, role_id: UUID, data: schemas.RoleUpdate) -> schemas.Role:
+    async def update_role(self, role_id: UUID, data: schemas.RoleUpdate) -> schemas.Role:
         """Update an existing role."""
         update_data = schema_dump(data, exclude_unset=True)
         update_data["role_id"] = role_id
@@ -124,8 +124,8 @@ class RoleService(SQLSpecService):
         """Ensure default roles exist."""
         # Check if User role exists
         if not await self.exists_by_name("User"):
-            await self.create(schemas.RoleCreate(name="User"))
+            await self.create_role(schemas.RoleCreate(name="User"))
 
         # Check if Superuser role exists
         if not await self.exists_by_name("Superuser"):
-            await self.create(schemas.RoleCreate(name="Superuser"))
+            await self.create_role(schemas.RoleCreate(name="Superuser"))
