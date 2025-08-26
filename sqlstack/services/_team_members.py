@@ -24,10 +24,30 @@ class TeamMemberService(SQLSpecService):
         role: TeamRoles = TeamRoles.MEMBER,
     ) -> s.TeamMember:
         """Add a user as a member to a team."""
-        return await self.driver.select_one(
+        # First insert the team member
+        member = await self.driver.select_one(
             sql.insert("team_member")
-            .values(team_id=team_id, user_id=user_id, role=role, joined_at=sql.raw("NOW()"))
-            .returning("id", "team_id", "user_id", "role", "is_owner", "joined_at"),
+            .columns("team_id", "user_id", "role", "is_owner", "joined_at")
+            .values(team_id, user_id, role, False, sql.raw("NOW()"))
+            .returning("id", "user_id", "role", "is_owner", "joined_at"),
+            schema_type=s.TeamMember,
+        )
+
+        # Then fetch with user details for complete TeamMember schema
+        return await self.driver.select_one(
+            sql.select(
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "u.email",
+                "u.name",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+            )
+            .from_("team_member tm")
+            .join("user_account u", "tm.user_id = u.id")
+            .where_eq("tm.id", member.id),
             schema_type=s.TeamMember,
         )
 
@@ -37,12 +57,30 @@ class TeamMemberService(SQLSpecService):
 
     async def update_member_role(self, team_id: UUID, user_id: UUID, role: TeamRoles) -> s.TeamMember:
         """Update a team member's role."""
-        return await self.driver.select_one(
+        # Update the member's role
+        updated = await self.driver.select_one(
             sql.update("team_member")
             .set(role=role, updated_at=sql.raw("NOW()"))
             .where_eq("team_id", team_id)
             .where_eq("user_id", user_id)
-            .returning("id", "team_id", "user_id", "role", "is_owner", "joined_at"),
+            .returning("id"),
+        )
+
+        # Fetch with user details for complete TeamMember schema
+        return await self.driver.select_one(
+            sql.select(
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "u.email",
+                "u.name",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+            )
+            .from_("team_member tm")
+            .join("user_account u", "tm.user_id = u.id")
+            .where_eq("tm.id", updated["id"]),
             schema_type=s.TeamMember,
         )
 
@@ -53,11 +91,11 @@ class TeamMemberService(SQLSpecService):
                 "tm.id",
                 "tm.team_id",
                 "tm.user_id",
+                "u.email",
+                "u.name",
                 "tm.role",
                 "tm.is_owner",
                 "tm.joined_at",
-                "u.email",
-                "u.name",
             )
             .from_("team_member tm")
             .join("user_account u", "tm.user_id = u.id")
@@ -73,15 +111,16 @@ class TeamMemberService(SQLSpecService):
                 "tm.id",
                 "tm.team_id",
                 "tm.user_id",
+                "u.email",
+                "u.name",
                 "tm.role",
                 "tm.is_owner",
                 "tm.joined_at",
-                "t.name as team_name",
             )
             .from_("team_member tm")
-            .join("team t", "tm.team_id = t.id")
+            .join("user_account u", "tm.user_id = u.id")
             .where_eq("tm.user_id", user_id)
-            .order_by("t.name"),
+            .order_by("tm.joined_at DESC"),
             schema_type=s.TeamMember,
         )
 
@@ -114,12 +153,29 @@ class TeamMemberService(SQLSpecService):
         await self.driver.execute(sql.update("team_member").set(is_owner=False).where_eq("team_id", team_id))
 
         # Then set the new owner
-        return await self.driver.select_one(
+        updated = await self.driver.select_one(
             sql.update("team_member")
             .set(is_owner=True, role=TeamRoles.ADMIN)
             .where_eq("team_id", team_id)
             .where_eq("user_id", user_id)
-            .returning("id", "team_id", "user_id", "role", "is_owner", "joined_at"),
+            .returning("id"),
+        )
+
+        # Fetch with user details for complete TeamMember schema
+        return await self.driver.select_one(
+            sql.select(
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "u.email",
+                "u.name",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+            )
+            .from_("team_member tm")
+            .join("user_account u", "tm.user_id = u.id")
+            .where_eq("tm.id", updated["id"]),
             schema_type=s.TeamMember,
         )
 
@@ -137,16 +193,14 @@ class TeamMemberService(SQLSpecService):
                 "tm.id",
                 "tm.team_id",
                 "tm.user_id",
+                "u.email",
+                "u.name",
                 "tm.role",
                 "tm.is_owner",
                 "tm.joined_at",
-                "u.email",
-                "u.name",
-                "t.name as team_name",
             )
             .from_("team_member tm")
             .join("user_account u", "tm.user_id = u.id")
-            .join("team t", "tm.team_id = t.id")
             .order_by("tm.joined_at DESC"),
             *filters,
             schema_type=s.TeamMember,

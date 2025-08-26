@@ -40,8 +40,7 @@ class SystemController(Controller):
         """
         db_status: Literal["online", "offline"]
         try:
-            # Test database connectivity via service driver
-            await users_service.driver.select_one_or_none("SELECT 1 as test", schema_type=dict)
+            _ = await users_service.driver.select_value_or_none("SELECT 1 as test")
             db_status = "online"
         except (ConnectionError, OSError):
             db_status = "offline"

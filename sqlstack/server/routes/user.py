@@ -71,7 +71,7 @@ class UserController(Controller):
         Returns:
             The user.
         """
-        return await users_service.get_one(user_id)
+        return await users_service.get_user(user_id)
 
     @post(operation_id="CreateUser")
     async def create_user(self, users_service: UserService, data: s.UserCreate) -> s.User:

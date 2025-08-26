@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from litestar.exceptions import PermissionDeniedException
 from sqlspec import sql
+from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import is_dict_without_field, schema_dump
 
 from sqlstack import schemas as s
@@ -23,25 +24,33 @@ class UserService(SQLSpecService):
         user_data = schema_dump(data, exclude_unset=True)
         if has_password := user_data.pop("password", None):
             user_data["hashed_password"] = await get_password_hash(has_password)
+        initial_team = user_data.pop("initial_team_name", None)
         user_id = await self.driver.select_value(db_manager.get_sql("create-user"), user_data)
+        if role_id := await self.driver.select_value(sql.select("id").from_("role").where_eq("slug", "member")):
+            await self.driver.execute(sql.insert("user_role").values(user_id=user_id, role_id=role_id))
+        if initial_team:
+            team_id = await self.driver.select_value(
+                sql.insert("team").values(name=initial_team, slug=slugify(initial_team))
+            )
+            await self.driver.execute(sql.insert("user_team").values(user_id=user_id, team_id=team_id))
         return await self.driver.select_one(
             db_manager.get_sql("get-user-account-details"), user_id=user_id, schema_type=s.User
         )
 
-    async def update_user(self, item_id: UUID, data: s.UserUpdate) -> s.User:
+    async def update_user(self, user_id: UUID, data: s.UserUpdate | s.ProfileUpdate) -> s.User:
         """Update an existing user account."""
         await self.driver.execute(
-            sql.update("user_account").set(**schema_dump(data, exclude_unset=True)).where_eq("id", item_id)
+            sql.update("user_account").set(**schema_dump(data, exclude_unset=True)).where_eq("id", user_id)
         )
         return await self.driver.select_one(
-            db_manager.get_sql("get-user-account-details"), user_id=item_id, schema_type=s.User
+            db_manager.get_sql("get-user-account-details"), user_id=user_id, schema_type=s.User
         )
 
     async def delete_user(self, item_id: UUID) -> None:
         """Delete a user account."""
         await self.driver.execute(sql.delete("user_account").where_eq("id", item_id))
 
-    async def get_one(self, user_id: UUID) -> s.User:
+    async def get_user(self, user_id: UUID) -> s.User:
         """Get a single user by ID."""
         return await self.get_or_404(
             db_manager.get_sql("get-user-account-details"),
@@ -113,14 +122,7 @@ class UserService(SQLSpecService):
         if not await verify_password(current_password, active_auth["hashed_password"]):
             msg = "Current password is incorrect"
             raise ValueError(msg)
-
-        new_password_hash = await get_password_hash(new_password)
-        await self.driver.execute(
-            sql.update("user_account")
-            .set(hashed_password=new_password_hash, updated_at=sql.raw("NOW()"))
-            .where_eq("id", user_id),
-        )
-
+        await self.set_password(active_auth["id"], new_password)
         return await self.driver.select_one(
             db_manager.get_sql("get-user-account-details"), user_id=active_auth["id"], schema_type=s.User
         )
@@ -157,11 +159,15 @@ class UserService(SQLSpecService):
             any(assigned_role.role_name for assigned_role in user.roles if assigned_role.role_name == "superuser"),
         )
 
-    async def activate_user(self, user_id: UUID) -> None:
-        """Activate a user account."""
-        await self.driver.execute(
-            sql.update("user_account").set(is_active=True, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
-        )
+    async def get_available_team_slug(self, name: str) -> str:
+        """Generate a unique slug for the given name."""
+        base_slug = slugify(name)
+        slug = base_slug
+        counter = 1
+        while await self._slug_exists(slug):
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug
 
     async def deactivate_user(self, user_id: UUID) -> None:
         """Deactivate a user account."""
@@ -169,14 +175,18 @@ class UserService(SQLSpecService):
             sql.update("user_account").set(is_active=False, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
         )
 
-    async def verify_user_email(self, user_id: UUID) -> None:
+    async def activate_user(self, user_id: UUID) -> None:
+        """Activate a user account."""
+        await self.driver.execute(
+            sql.update("user_account").set(is_active=True, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
+        )
+
+    async def verify_user(self, user_id: UUID) -> None:
         """Mark a user's email as verified."""
         await self.driver.execute(
             sql.update("user_account").set(is_verified=True, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
         )
 
-    async def get_user_statistics(self) -> dict[str, Any]:
-        """Get user statistics."""
-        return await self.driver.select_one(
-            db_manager.get_sql("get-user-statistics"),
-        )
+    async def _slug_exists(self, slug: str) -> bool:
+        """Check if a slug already exists."""
+        return await self.exists(sql.select("id").from_("team").where_eq("slug", slug))

@@ -84,7 +84,7 @@ create table
         with
             time zone not null
     );
- 
+
 
 create index ix_team_invitation_email on team_invitation (email);
 
@@ -95,6 +95,9 @@ create table
         team_id uuid not null constraint fk_team_member_team_id_team references team on delete cascade,
         role varchar(50) not null,
         is_owner boolean not null,
+        joined_at timestamp
+        with
+            time zone not null,
         created_at timestamp
         with
             time zone not null,

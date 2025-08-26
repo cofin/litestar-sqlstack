@@ -27,11 +27,13 @@ class TeamTag(CamelizedBaseStruct):
 
 class TeamMember(CamelizedBaseStruct):
     id: UUID
+    team_id: UUID
     user_id: UUID
     email: str
     name: str | None = None
     role: TeamRoles | None = TeamRoles.MEMBER
     is_owner: bool | None = False
+    joined_at: datetime | None = None
 
 
 class Team(CamelizedBaseStruct, kw_only=True):
@@ -87,6 +89,5 @@ class TeamInvitation(CamelizedBaseStruct, kw_only=True):
 class TeamMemberCreate(CamelizedBaseStruct):
     """Schema for creating a team member."""
 
-    team_id: UUID
     user_id: UUID
     role: str | None = "MEMBER"

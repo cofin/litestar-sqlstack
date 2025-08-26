@@ -45,7 +45,7 @@ class AccessController(Controller):
         user = await users_service.authenticate(data.username, data.password)
         return security.auth.login(user.email)
 
-    @post(operation_id="AccountLogout", path="/api/access/logout", exclude_from_auth=True)
+    @post(operation_id="AccountLogout", path="/api/access/logout")
     async def logout(self, request: Request[s.User, Token, Any]) -> Response[s.Message]:
         """Account Logout
 

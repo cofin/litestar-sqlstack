@@ -9,7 +9,6 @@ from sqlstack.services import (
     PasswordService,
     RoleService,
     TagService,
-    TeamInvitationService,
     TeamMemberService,
     TeamService,
     UserRoleService,
@@ -90,18 +89,6 @@ def provide_tag_service(db_session: AsyncDriverAdapterBase) -> TagService:
         TagService instance
     """
     return TagService(db_session)
-
-
-def provide_team_invitation_service(db_session: AsyncDriverAdapterBase) -> TeamInvitationService:
-    """Provide team invitation service with database driver.
-
-    Args:
-        db_session: The database session
-
-    Returns:
-        TeamInvitationService instance
-    """
-    return TeamInvitationService(db_session)
 
 
 def provide_team_member_service(db_session: AsyncDriverAdapterBase) -> TeamMemberService:

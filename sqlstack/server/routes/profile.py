@@ -29,7 +29,7 @@ class ProfileController(Controller):
         summary="User Profile",
         description="User profile information.",
     )
-    async def get_profile(self, users_service: UserService, current_user: s.User) -> s.User:
+    async def get_profile(self, current_user: s.User) -> s.User:
         """User profile.
 
         Returns:
@@ -38,12 +38,7 @@ class ProfileController(Controller):
         return current_user
 
     @patch(operation_id="AccountProfileUpdate", path="/api/me")
-    async def update_profile(
-        self,
-        current_user: s.User,
-        data: s.ProfileUpdate,
-        users_service: UserService,
-    ) -> s.User:
+    async def update_profile(self, current_user: s.User, data: s.ProfileUpdate, users_service: UserService) -> s.User:
         """User Profile.
 
         Args:
@@ -58,10 +53,7 @@ class ProfileController(Controller):
 
     @patch(operation_id="AccountPasswordUpdate", path="/api/me/password")
     async def update_password(
-        self,
-        current_user: s.User,
-        data: s.PasswordUpdate,
-        users_service: UserService,
+        self, current_user: s.User, data: s.PasswordUpdate, users_service: UserService
     ) -> s.Message:
         """Update user password.
 
@@ -73,15 +65,11 @@ class ProfileController(Controller):
         Returns:
             The response object.
         """
-        await users_service.update_password(current_user.id, data.new_password)
+        await users_service.update_password(current_user.id, data.current_password, data.new_password)
         return s.Message(message="Your password was successfully modified.")
 
     @delete(operation_id="AccountDelete", path="/profile/")
-    async def remove_account(
-        self,
-        current_user: s.User,
-        users_service: UserService,
-    ) -> None:
+    async def remove_account(self, current_user: s.User, users_service: UserService) -> None:
         """Remove your account.
 
         Args:

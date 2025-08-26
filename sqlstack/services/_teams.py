@@ -89,17 +89,45 @@ class TeamService(SQLSpecService):
 
     async def add_member(self, team_id: UUID, user_id: UUID, role: str = "MEMBER") -> s.TeamMember:
         """Add a user to a team."""
+        # First insert the team member
+        member = await self.driver.select_one(
+            sql.insert("team_member")
+            .columns("id", "team_id", "user_id", "role", "is_owner", "joined_at", "created_at", "updated_at")
+            .values(
+                sql.raw("gen_random_uuid()"),
+                team_id,
+                user_id,
+                role,
+                False,
+                sql.raw("NOW()"),
+                sql.raw("NOW()"),
+                sql.raw("NOW()"),
+            )
+            .returning("id", "user_id", "role", "is_owner", "joined_at"),
+            schema_type=s.TeamMember,
+        )
+
+        # Then fetch with user details for complete TeamMember schema
         return await self.driver.select_one(
-            db_manager.get_sql("add-team-member"),
-            team_id=team_id,
-            user_id=user_id,
-            role=role,
+            sql.select(
+                "tm.id",
+                "tm.team_id",
+                "tm.user_id",
+                "u.email",
+                "u.name",
+                "tm.role",
+                "tm.is_owner",
+                "tm.joined_at",
+            )
+            .from_("team_member tm")
+            .join("user_account u", "tm.user_id = u.id")
+            .where_eq("tm.id", member.id),
             schema_type=s.TeamMember,
         )
 
     async def remove_member(self, team_id: UUID, user_id: UUID) -> None:
         """Remove a user from a team."""
-        await self.driver.execute(db_manager.get_sql("remove-team-member"), team_id=team_id, user_id=user_id)
+        await self.driver.execute(sql.delete("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id))
 
     async def get_user_teams(self, user_id: UUID) -> list[s.Team]:
         """Get all teams for a user."""

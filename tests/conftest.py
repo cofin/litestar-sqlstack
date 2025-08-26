@@ -363,9 +363,7 @@ async def test_verification_token(
 
 
 @pytest.fixture
-async def test_password_reset_token(
-    password_service: PasswordService, test_user: s.User
-) -> s.PasswordResetToken:
+async def test_password_reset_token(password_service: PasswordService, test_user: s.User) -> s.PasswordResetToken:
     """Create a test password reset token."""
     return await password_service.create_reset_token(test_user.id)
 

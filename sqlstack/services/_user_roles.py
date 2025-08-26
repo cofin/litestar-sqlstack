@@ -147,7 +147,7 @@ class UserRoleService(SQLSpecService):
 
     async def bulk_assign_role(self, role_id: UUID, user_ids: list[UUID]) -> list[s.UserRole]:
         """Assign a role to multiple users."""
-        assignments = []
+        assignments: list[s.UserRole] = []
         for user_id in user_ids:
             assignment = await self.assign_role_to_user(user_id, role_id)
             assignments.append(assignment)

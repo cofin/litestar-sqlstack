@@ -50,7 +50,7 @@ class UserRoleController(Controller):
             s.Message
         """
         role_id = (await roles_service.get_one(slug=role_slug)).id
-        user_obj = await users_service.get_one(email=data.user_name)
+        user_obj = await users_service.get_user(email=data.user_name)
         obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)
         if created:
             return s.Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")
@@ -78,7 +78,7 @@ class UserRoleController(Controller):
         Returns:
             s.Message
         """
-        user_obj = await users_service.get_one(email=data.user_name)
+        user_obj = await users_service.get_user(email=data.user_name)
         removed_role: bool = False
         for user_role in user_obj.roles:
             if user_role.role_slug == role_slug:
