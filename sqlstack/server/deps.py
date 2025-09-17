@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sqlspec.driver import AsyncDriverAdapterBase
 from sqlstack.services import (
     EmailVerificationService,
     PasswordService,
@@ -16,7 +17,7 @@ from sqlstack.services import (
 )
 
 if TYPE_CHECKING:
-    from sqlspec.driver import AsyncDriverAdapterBase
+    pass
 
 
 def provide_users_service(db_session: AsyncDriverAdapterBase) -> UserService:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
+from uuid import UUID
 
 from litestar import Controller, delete, get, patch, post
 from litestar.di import Provide
@@ -13,8 +14,6 @@ from sqlstack.server import deps, security
 from sqlstack.services import FilterTypes
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from sqlstack import schemas as s
     from sqlstack.services import UserService
     from sqlstack.services._base import OffsetPagination

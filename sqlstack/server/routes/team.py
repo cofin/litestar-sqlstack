@@ -24,7 +24,7 @@ class TeamController(Controller):
 
     tags = ["Teams"]
     dependencies = {
-        "teams_service": Provide(deps.provide_teams_service, sync_to_thread=False),
+        "teams_service": Provide(deps.provide_team_service, sync_to_thread=False),
     }
 
     guards = [security.requires_active_user]
