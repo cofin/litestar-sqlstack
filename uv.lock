@@ -1689,7 +1689,6 @@ dev = [
     { name = "types-protobuf" },
     { name = "types-psutil" },
     { name = "types-pygments" },
-    { name = "types-python-dateutil" },
 ]
 doc = [
     { name = "auto-pytabs", extras = ["sphinx"], specifier = ">=0.5.0" },
@@ -1730,7 +1729,6 @@ lint = [
     { name = "types-colorama" },
     { name = "types-protobuf" },
     { name = "types-pygments" },
-    { name = "types-python-dateutil" },
 ]
 test = [
     { name = "aiohttp" },

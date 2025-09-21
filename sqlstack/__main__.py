@@ -26,6 +26,7 @@ def run_cli() -> None:
     This function sets up the environment and runs the Litestar CLI.
     If there's an error loading the required libraries, it will exit with a status code of 1.
     """
+
     setup_environment()
 
     try:
