@@ -17,9 +17,9 @@ from litestar.logging.config import (
 from litestar.middleware.logging import LoggingMiddlewareConfig
 from litestar.plugins.problem_details import ProblemDetailsConfig
 from litestar.plugins.structlog import StructlogConfig
+from sqlspec import SQLSpec
 from sqlspec.adapters.asyncpg import AsyncpgConfig
 from sqlspec.adapters.duckdb import DuckDBConfig
-from sqlspec.extensions.litestar import DatabaseConfig, SQLSpec
 
 from sqlstack.lib import log as log_conf
 from sqlstack.lib.settings import get_settings
@@ -43,29 +43,47 @@ csrf = CSRFConfig(
 )
 cors = CORSConfig(allow_origins=cast("list[str]", settings.app.ALLOWED_CORS_ORIGINS))
 problem_details = ProblemDetailsConfig(enable_for_all_http_exceptions=True)
-db = AsyncpgConfig(
-    pool_config={
-        "dsn": settings.db.URL,
-        "min_size": settings.db.POOL_MIN_SIZE,
-        "max_size": settings.db.POOL_MAX_SIZE,
-        "timeout": settings.db.POOL_TIMEOUT,
-        "command_timeout": settings.db.POOL_RECYCLE,
-    },
-    migration_config={
-        "version_table_name": settings.db.MIGRATION_DDL_VERSION_TABLE,
-        "script_location": settings.db.MIGRATION_PATH,
-        "project_root": BASE_DIR,
-    },
-)
-etl_db = DuckDBConfig()
-db_manager = SQLSpec(
-    config=[
-        DatabaseConfig(commit_mode="autocommit", config=db),
-        DatabaseConfig(config=etl_db, connection_key="etl_connection", pool_key="etl_pool", session_key="etl_session"),
-    ],
+
+sqlspec = SQLSpec()
+
+db_config = sqlspec.add_config(
+    AsyncpgConfig(
+        pool_config={
+            "dsn": settings.db.URL,
+            "min_size": settings.db.POOL_MIN_SIZE,
+            "max_size": settings.db.POOL_MAX_SIZE,
+            "timeout": settings.db.POOL_TIMEOUT,
+            "command_timeout": settings.db.POOL_RECYCLE,
+        },
+        migration_config={
+            "version_table_name": settings.db.MIGRATION_DDL_VERSION_TABLE,
+            "script_location": settings.db.MIGRATION_PATH,
+            "project_root": BASE_DIR,
+        },
+        extension_config={
+            "litestar": {
+                "commit_mode": "autocommit",
+                "connection_key": "db_connection",
+                "pool_key": "db_pool",
+                "session_key": "db_session",
+            }
+        },
+    )
 )
 
-db_manager.load_sql_files(BASE_DIR / "db" / "sql")
+etl_config = sqlspec.add_config(
+    DuckDBConfig(
+        extension_config={
+            "litestar": {
+                "connection_key": "etl_connection",
+                "pool_key": "etl_pool",
+                "session_key": "etl_session",
+            }
+        }
+    )
+)
+
+sqlspec.load_sql_files(BASE_DIR / "db" / "sql")
 
 log = StructlogConfig(
     enable_middleware_logging=False,

@@ -5,7 +5,7 @@ dependencies = [
     "litestar-granian[uvloop]>=0.12.2",
     "litestar[structlog,jwt,jinja]>=2.15.2",
     "pwdlib[argon2]>=0.2.1",
-    "sqlspec[asyncpg,duckdb,performance,polars,mypyc]",
+    "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@adk-session",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
 name = "sqlstack"

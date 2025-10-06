@@ -8,7 +8,7 @@ from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import is_dict_without_field, schema_dump
 
 from sqlstack import schemas as s
-from sqlstack.config import db_manager
+from sqlstack.config import sqlspec as db_manager
 from sqlstack.lib.crypt import get_password_hash, verify_password
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 

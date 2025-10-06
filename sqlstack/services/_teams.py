@@ -7,7 +7,7 @@ from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas as s
-from sqlstack.config import db_manager
+from sqlstack.config import sqlspec as db_manager
 from sqlstack.services._base import LimitOffsetFilter, OffsetPagination, SQLSpecService, StatementFilter
 
 # Constants that were in lib.constants

@@ -6,7 +6,7 @@ from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas
-from sqlstack.config import db_manager
+from sqlstack.config import sqlspec as db_manager
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:

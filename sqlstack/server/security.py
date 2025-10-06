@@ -7,10 +7,10 @@ from litestar.exceptions import PermissionDeniedException
 from litestar.security.jwt import OAuth2PasswordBearerAuth, Token
 
 from sqlstack import schemas as s
-from sqlstack.config import db_manager
+from sqlstack.config import sqlspec
 from sqlstack.lib.settings import get_settings
 from sqlstack.schemas import TeamRoles
-from sqlstack.server import deps
+from sqlstack.server import deps, plugins
 
 if TYPE_CHECKING:
     from typing import Any
@@ -163,10 +163,10 @@ async def current_user_from_token(token: Token, connection: ASGIConnection[Any, 
         User: User record mapped to the JWT identifier
     """
     service = deps.provide_users_service(
-        db_manager.provide_async_request_session("db_session", connection.app.state, connection.scope)
+        plugins.sqlspec.provide_async_request_session("db_session", connection.app.state, connection.scope)
     )
     user = await service.driver.select_one(
-        db_manager.get_sql("get-user-account-details"), user_id=token.extras["user_id"], schema_type=s.User
+        sqlspec.get_sql("get-user-account-details"), user_id=token.extras["user_id"], schema_type=s.User
     )
     return user if user and user.is_active else None
 
