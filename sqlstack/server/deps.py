@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
+
+from litestar.params import Dependency
 
 from sqlstack.services import (
     EmailVerificationService,
@@ -19,7 +21,9 @@ if TYPE_CHECKING:
     from sqlspec.driver import AsyncDriverAdapterBase
 
 
-def provide_users_service(db_session: AsyncDriverAdapterBase) -> UserService:
+def provide_users_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> UserService:
     """Provide user service with database driver.
 
     Args:
@@ -31,7 +35,9 @@ def provide_users_service(db_session: AsyncDriverAdapterBase) -> UserService:
     return UserService(db_session)
 
 
-def provide_email_verification_service(db_session: AsyncDriverAdapterBase) -> EmailVerificationService:
+def provide_email_verification_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> EmailVerificationService:
     """Provide email verification service with database driver.
 
     Args:
@@ -43,7 +49,9 @@ def provide_email_verification_service(db_session: AsyncDriverAdapterBase) -> Em
     return EmailVerificationService(db_session)
 
 
-def provide_password_service(db_session: AsyncDriverAdapterBase) -> PasswordService:
+def provide_password_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> PasswordService:
     """Provide password service with database driver.
 
     Args:
@@ -55,7 +63,9 @@ def provide_password_service(db_session: AsyncDriverAdapterBase) -> PasswordServ
     return PasswordService(db_session)
 
 
-def provide_team_service(db_session: AsyncDriverAdapterBase) -> TeamService:
+def provide_team_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> TeamService:
     """Provide team service with database driver.
 
     Args:
@@ -67,7 +77,9 @@ def provide_team_service(db_session: AsyncDriverAdapterBase) -> TeamService:
     return TeamService(db_session)
 
 
-def provide_role_service(db_session: AsyncDriverAdapterBase) -> RoleService:
+def provide_role_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> RoleService:
     """Provide role service with database driver.
 
     Args:
@@ -79,7 +91,7 @@ def provide_role_service(db_session: AsyncDriverAdapterBase) -> RoleService:
     return RoleService(db_session)
 
 
-def provide_tag_service(db_session: AsyncDriverAdapterBase) -> TagService:
+def provide_tag_service(db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)]) -> TagService:
     """Provide tag service with database driver.
 
     Args:
@@ -91,7 +103,9 @@ def provide_tag_service(db_session: AsyncDriverAdapterBase) -> TagService:
     return TagService(db_session)
 
 
-def provide_team_member_service(db_session: AsyncDriverAdapterBase) -> TeamMemberService:
+def provide_team_member_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> TeamMemberService:
     """Provide team member service with database driver.
 
     Args:
@@ -103,7 +117,9 @@ def provide_team_member_service(db_session: AsyncDriverAdapterBase) -> TeamMembe
     return TeamMemberService(db_session)
 
 
-def provide_user_role_service(db_session: AsyncDriverAdapterBase) -> UserRoleService:
+def provide_user_role_service(
+    db_session: Annotated[AsyncDriverAdapterBase, Dependency(skip_validation=True)],
+) -> UserRoleService:
     """Provide user role service with database driver.
 
     Args:

@@ -191,19 +191,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AppSettings(BaseSettings):
     """Application settings."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="APP_",
         case_sensitive=False,
     )
-    
+
     NAME: str = "My Application"
     DEBUG: bool = False
     SECRET_KEY: SecretStr
     ALLOWED_CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     JWT_ENCRYPTION_ALGORITHM: str = "HS256"
-    
+
     CSRF_COOKIE_NAME: str = "csrftoken"
     CSRF_COOKIE_SECURE: bool = True
     CSRF_HEADER_NAME: str = "x-csrftoken"
@@ -211,26 +211,26 @@ class AppSettings(BaseSettings):
 
 class DatabaseSettings(BaseSettings):
     """Database settings."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="DB_",
         case_sensitive=False,
     )
-    
+
     URL: PostgresDsn
     POOL_MIN_SIZE: int = 10
     POOL_MAX_SIZE: int = 50
     POOL_TIMEOUT: float = 5.0
     POOL_RECYCLE: float = 300.0
-    
+
     MIGRATION_DDL_VERSION_TABLE: str = "_db_migrations"
     MIGRATION_PATH: str = "db/migrations"
 
 
 class Settings(BaseSettings):
     """Combined settings."""
-    
+
     app: AppSettings = Field(default_factory=AppSettings)
     db: DatabaseSettings = Field(default_factory=DatabaseSettings)
     log: LogSettings = Field(default_factory=LogSettings)
@@ -253,18 +253,18 @@ Store SQL queries in separate files under `db/sql/`. Each query has a name comme
 ```sql
 -- name: create-user
 INSERT INTO user_account (
-    id, email, name, hashed_password, 
+    id, email, name, hashed_password,
     avatar_url, is_active, is_verified, created_at
 )
 VALUES (
     gen_random_uuid(), :email, :name, :hashed_password,
-    :avatar_url, COALESCE(:is_active, true), 
+    :avatar_url, COALESCE(:is_active, true),
     COALESCE(:is_verified, false), NOW()
 )
 RETURNING id, email, name, is_active, is_verified, created_at, updated_at;
 
 -- name: get-user-by-id
-SELECT 
+SELECT
     u.id, u.email, u.name, u.avatar_url,
     u.is_active, u.is_verified, u.created_at, u.updated_at,
     CASE WHEN u.hashed_password IS NOT NULL THEN true ELSE false END as has_password,
@@ -299,16 +299,16 @@ WHERE u.id = :user_id
 GROUP BY u.id;
 
 -- name: list-users
-SELECT 
+SELECT
     u.id, u.email, u.name, u.avatar_url,
-    u.is_active, u.is_verified, 
+    u.is_active, u.is_verified,
     u.created_at, u.updated_at
 FROM user_account u
 WHERE 1=1
     AND (:search IS NULL OR u.name ILIKE '%' || :search || '%' OR u.email ILIKE '%' || :search || '%')
     AND (:is_active IS NULL OR u.is_active = :is_active)
     AND (:is_verified IS NULL OR u.is_verified = :is_verified)
-ORDER BY 
+ORDER BY
     CASE WHEN :sort_field = 'name' AND :sort_order = 'asc' THEN u.name END ASC,
     CASE WHEN :sort_field = 'name' AND :sort_order = 'desc' THEN u.name END DESC,
     CASE WHEN :sort_field = 'created_at' AND :sort_order = 'asc' THEN u.created_at END ASC,
@@ -326,7 +326,7 @@ WHERE 1=1
 
 -- name: update-user-password
 UPDATE user_account
-SET 
+SET
     hashed_password = :hashed_password,
     updated_at = NOW()
 WHERE id = :user_id
@@ -440,7 +440,7 @@ class SQLSpecService:
         **kwargs: Any,
     ) -> OffsetPagination[ModelDTOT]:
         """Execute paginated query with total count.
-        
+
         Returns OffsetPagination object with items, limit, offset, and total.
         """
         results, total = await self.driver.select_with_total(
@@ -552,7 +552,7 @@ class UserService(SQLSpecService):
     """Handles database operations for users."""
 
     async def create_user(
-        self, 
+        self,
         data: UserCreate | AccountRegister
     ) -> User:
         """Create a new user account with role and team setup."""
@@ -560,17 +560,17 @@ class UserService(SQLSpecService):
         user_data = schema_dump(data, exclude_unset=True)
         if password := user_data.pop("password", None):
             user_data["hashed_password"] = await get_password_hash(password)
-        
+
         # Extract optional team name
         initial_team = user_data.pop("initial_team_name", None)
-        
+
         # Create user using named query
         result = await self.driver.select_one(
             db_manager.get_sql("create-user"),
             schema_type=User,
             **user_data
         )
-        
+
         # Assign default role using query builder
         if default_role := await self._get_default_role():
             await self.driver.execute(
@@ -579,7 +579,7 @@ class UserService(SQLSpecService):
                     role_id=default_role.id
                 )
             )
-        
+
         # Create initial team if requested
         if initial_team:
             team_slug = await self._get_unique_slug(initial_team)
@@ -596,7 +596,7 @@ class UserService(SQLSpecService):
                     is_owner=True
                 )
             )
-        
+
         # Return full user with relationships
         return await self.get_user(result.id)
 
@@ -657,25 +657,25 @@ class UserService(SQLSpecService):
             .from_("user_account")
             .where_eq("email", email)
         )
-        
+
         if not auth_data:
             raise PermissionDeniedException("Invalid credentials")
-        
+
         # Verify password
         if not await verify_password(password, auth_data["hashed_password"]):
             raise PermissionDeniedException("Invalid credentials")
-        
+
         # Check if account is active
         if not auth_data["is_active"]:
             raise PermissionDeniedException("Account is inactive")
-        
+
         # Update last login
         await self.driver.execute(
             sql.update("user_account")
             .set(last_login=sql.raw("NOW()"))
             .where_eq("id", auth_data["id"])
         )
-        
+
         return await self.get_user(auth_data["id"])
 
     async def update_password(
@@ -691,11 +691,11 @@ class UserService(SQLSpecService):
             .from_("user_account")
             .where_eq("id", user_id)
         )
-        
+
         # Verify current password
         if not await verify_password(current_password, current["hashed_password"]):
             raise ValueError("Current password is incorrect")
-        
+
         # Update with new password
         new_hash = await get_password_hash(new_password)
         await self.driver.execute(
@@ -703,7 +703,7 @@ class UserService(SQLSpecService):
             user_id=user_id,
             hashed_password=new_hash
         )
-        
+
         return await self.get_user(user_id)
 
     async def bulk_deactivate(
@@ -746,13 +746,13 @@ class UserService(SQLSpecService):
         base_slug = slugify(name)
         slug = base_slug
         counter = 1
-        
+
         while await self.exists(
             sql.select("id").from_("team").where_eq("slug", slug)
         ):
             slug = f"{base_slug}-{counter}"
             counter += 1
-        
+
         return slug
 ```
 
@@ -772,7 +772,7 @@ class UserService(SQLSpecService):
 ```sql
 -- name: get-user-activity-report
 WITH activity_summary AS (
-    SELECT 
+    SELECT
         u.id as user_id,
         COUNT(DISTINCT l.id) as login_count,
         COUNT(DISTINCT p.id) as post_count,
@@ -784,7 +784,7 @@ WITH activity_summary AS (
     GROUP BY u.id
 ),
 team_summary AS (
-    SELECT 
+    SELECT
         tm.user_id,
         array_agg(t.name) as team_names,
         COUNT(*) as team_count
@@ -792,7 +792,7 @@ team_summary AS (
     JOIN team t ON tm.team_id = t.id
     GROUP BY tm.user_id
 )
-SELECT 
+SELECT
     u.*,
     as.login_count,
     as.post_count,
@@ -877,7 +877,7 @@ class UserController(Controller):
     path = "/api/users"
     tags = ["User Accounts"]
     guards = [security.requires_active_user]
-    
+
     # Service injection
     dependencies = {
         "users_service": Provide(
@@ -992,11 +992,11 @@ class UserController(Controller):
 ```python
 class TeamMemberController(Controller):
     """Team member management."""
-    
+
     path = "/api/teams/{team_id:uuid}/members"
     tags = ["Team Members"]
     guards = [security.requires_team_membership]
-    
+
     dependencies = {
         "team_service": Provide(deps.provide_team_service),
         "member_service": Provide(deps.provide_team_member_service),
@@ -1090,13 +1090,13 @@ async def current_user_from_token(
             connection.scope
         )
     )
-    
+
     user = await service.driver.select_one_or_none(
         db_manager.get_sql("get-user-by-id"),
         user_id=token.extras["user_id"],
         schema_type=User
     )
-    
+
     return user if user and user.is_active else None
 
 
@@ -1180,19 +1180,19 @@ def requires_team_membership(
 ) -> None:
     """Verify user is member of the team."""
     team_id = connection.path_params["team_id"]
-    
+
     # Superusers always have access
     is_superuser = any(
         role.slug == "superuser"
         for role in connection.user.roles
     )
-    
+
     # Check team membership
     is_member = any(
         membership.team_id == team_id
         for membership in connection.user.teams
     )
-    
+
     if not (is_superuser or is_member):
         raise PermissionDeniedException("Not a team member")
 
@@ -1203,19 +1203,19 @@ def requires_team_admin(
 ) -> None:
     """Verify user is team admin."""
     team_id = connection.path_params["team_id"]
-    
+
     # Superusers always have access
     is_superuser = any(
         role.slug == "superuser"
         for role in connection.user.roles
     )
-    
+
     # Check for admin role in team
     is_admin = any(
         membership.team_id == team_id and membership.role == "admin"
         for membership in connection.user.teams
     )
-    
+
     if not (is_superuser or is_admin):
         raise PermissionDeniedException("Admin access required")
 ```
@@ -1225,9 +1225,9 @@ def requires_team_admin(
 ```python
 class AccessController(Controller):
     """Authentication endpoints."""
-    
+
     tags = ["Authentication"]
-    
+
     dependencies = {
         "users_service": Provide(deps.provide_users_service),
     }
@@ -1253,7 +1253,7 @@ class AccessController(Controller):
             data.username,  # Email
             data.password
         )
-        
+
         # Create token
         access_token = create_access_token(
             user_id=str(user.id),
@@ -1261,7 +1261,7 @@ class AccessController(Controller):
             is_superuser=user.is_superuser,
             is_verified=user.is_verified
         )
-        
+
         return Response(
             OAuth2Login(
                 access_token=access_token,
@@ -1282,13 +1282,13 @@ class AccessController(Controller):
     ) -> User:
         """Register new user account."""
         user = await users_service.create_user(data)
-        
+
         # Emit event for other services
         request.app.emit(
             event_id="user_created",
             user_id=user.id
         )
-        
+
         return user
 
     @post(
@@ -1302,13 +1302,13 @@ class AccessController(Controller):
         """Logout current user."""
         request.cookies.pop(auth.key, None)
         request.clear_session()
-        
+
         response = Response(
             Message(message="Logged out successfully"),
             status_code=200
         )
         response.delete_cookie(auth.key)
-        
+
         return response
 ```
 
@@ -1323,24 +1323,24 @@ from sqlspec.core.filters import (
     # Pagination filters
     LimitOffsetFilter,
     OffsetPagination,
-    
+
     # Search filters
     SearchFilter,
     NotInSearchFilter,
-    
+
     # Collection filters
     InCollectionFilter,
     NotInCollectionFilter,
     AnyCollectionFilter,
     NotAnyCollectionFilter,
-    
+
     # Date filters
     BeforeAfterFilter,
     OnBeforeAfterFilter,
-    
+
     # Sorting
     OrderByFilter,
-    
+
     # Base types
     StatementFilter,
     PaginationFilter,
@@ -1356,22 +1356,22 @@ from sqlspec.extensions.litestar.providers import create_filter_dependencies
 dependencies = create_filter_dependencies({
     # Enable ID filtering
     "id_filter": UUID,
-    
+
     # Enable text search on specific fields
     "search": "name,email,description",
-    
+
     # Configure pagination
     "pagination_type": "limit_offset",
     "pagination_size": 20,
-    
+
     # Enable date filtering
     "created_at": True,
     "updated_at": True,
-    
+
     # Configure default sorting
     "sort_field": "created_at",
     "sort_order": "desc",
-    
+
     # Enable status filtering
     "is_active": bool,
     "is_verified": bool,
@@ -1382,22 +1382,22 @@ dependencies = create_filter_dependencies({
 
 ```python
 class UserService(SQLSpecService):
-    
+
     async def list_users(
         self,
         *filters: StatementFilter
     ) -> OffsetPagination[User]:
         """List users with dynamic filtering."""
-        
+
         # Extract specific filters
         limit_offset = self.find_filter(LimitOffsetFilter, filters)
         search = self.find_filter(SearchFilter, filters)
         order_by = self.find_filter(OrderByFilter, filters)
         date_filter = self.find_filter(BeforeAfterFilter, filters)
-        
+
         # Build query dynamically
         query = sql.select("*").from_("user_account")
-        
+
         # Apply search filter
         if search and search.search_value:
             query = query.where(
@@ -1406,20 +1406,20 @@ class UserService(SQLSpecService):
                     sql.column("email").ilike(f"%{search.search_value}%")
                 )
             )
-        
+
         # Apply date filter
         if date_filter:
             if date_filter.after:
                 query = query.where("created_at >= :after", after=date_filter.after)
             if date_filter.before:
                 query = query.where("created_at <= :before", before=date_filter.before)
-        
+
         # Apply ordering
         if order_by:
             query = query.order_by(order_by.order_by)
         else:
             query = query.order_by("created_at DESC")
-        
+
         # Execute with pagination
         return await self.paginate(
             query,
@@ -1440,10 +1440,10 @@ from sqlspec.core.filters import StatementFilter
 @dataclass
 class TeamFilter(StatementFilter):
     """Filter by team membership."""
-    
+
     team_id: UUID
     role: str | None = None
-    
+
     def apply(self, statement):
         """Apply team filter to query."""
         statement = statement.where_eq("team_id", self.team_id)
@@ -1455,11 +1455,11 @@ class TeamFilter(StatementFilter):
 @dataclass
 class StatusFilter(StatementFilter):
     """Filter by multiple status fields."""
-    
+
     is_active: bool | None = None
     is_verified: bool | None = None
     is_superuser: bool | None = None
-    
+
     def apply(self, statement):
         """Apply status filters."""
         if self.is_active is not None:
@@ -1536,7 +1536,7 @@ def provide_team_member_service(
 ```python
 class UserController(Controller):
     """User management endpoints."""
-    
+
     # Define dependencies at class level
     dependencies = {
         "users_service": Provide(
@@ -1548,7 +1548,7 @@ class UserController(Controller):
             sync_to_thread=False
         ),
     }
-    
+
     @post(operation_id="CreateUser")
     async def create_user(
         self,
@@ -1570,10 +1570,10 @@ Configure application-wide dependencies:
 # server/core.py
 class ApplicationCore(InitPluginProtocol):
     """Application core configuration."""
-    
+
     def on_app_init(self, app_config: AppConfig) -> AppConfig:
         """Configure application."""
-        
+
         # Global dependencies
         dependencies = {
             "current_user": Provide(
@@ -1584,9 +1584,9 @@ class ApplicationCore(InitPluginProtocol):
                 db_manager.provide_async_request_session
             ),
         }
-        
+
         app_config.dependencies.update(dependencies)
-        
+
         return app_config
 ```
 
@@ -1624,7 +1624,7 @@ from sqlspec.utils.text import camelize
 
 class BaseStruct(msgspec.Struct):
     """Base msgspec struct for high-performance serialization."""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert struct to dictionary."""
         return {
@@ -1641,7 +1641,7 @@ class CamelizedBaseStruct(BaseStruct, rename="camel"):
 
 class BaseSchema(_BaseModel):
     """Base Pydantic schema."""
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
         from_attributes=True,
@@ -1652,7 +1652,7 @@ class BaseSchema(_BaseModel):
 
 class CamelizedBaseSchema(BaseSchema):
     """Base schema with camelCase field names."""
-    
+
     model_config = ConfigDict(
         populate_by_name=True,
         alias_generator=camelize
@@ -1674,7 +1674,7 @@ from schemas.base import CamelizedBaseSchema
 
 class UserBase(CamelizedBaseSchema):
     """Base user schema."""
-    
+
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=100)
     avatar_url: Optional[str] = None
@@ -1682,10 +1682,10 @@ class UserBase(CamelizedBaseSchema):
 
 class UserCreate(UserBase):
     """Schema for creating users."""
-    
+
     password: str = Field(..., min_length=8, max_length=100)
     initial_team_name: Optional[str] = None
-    
+
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
@@ -1701,14 +1701,14 @@ class UserCreate(UserBase):
 
 class UserUpdate(CamelizedBaseSchema):
     """Schema for updating users."""
-    
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     avatar_url: Optional[str] = None
 
 
 class TeamMembership(CamelizedBaseSchema):
     """Team membership info."""
-    
+
     team_id: UUID
     team_name: str
     role: str
@@ -1718,7 +1718,7 @@ class TeamMembership(CamelizedBaseSchema):
 
 class RoleAssignment(CamelizedBaseSchema):
     """Role assignment info."""
-    
+
     role_id: UUID
     role_name: str
     role_slug: str
@@ -1727,7 +1727,7 @@ class RoleAssignment(CamelizedBaseSchema):
 
 class User(UserBase):
     """Full user schema with relationships."""
-    
+
     id: UUID
     is_active: bool
     is_verified: bool
@@ -1737,20 +1737,20 @@ class User(UserBase):
     last_login: Optional[datetime]
     created_at: datetime
     updated_at: datetime
-    
+
     # Relationships
     teams: list[TeamMembership] = Field(default_factory=list)
     roles: list[RoleAssignment] = Field(default_factory=list)
-    
+
     @property
     def full_name(self) -> str:
         """Get user's full display name."""
         return self.name or self.email
-    
+
     def has_role(self, role_slug: str) -> bool:
         """Check if user has specific role."""
         return any(r.role_slug == role_slug for r in self.roles)
-    
+
     def is_team_member(self, team_id: UUID) -> bool:
         """Check if user is member of team."""
         return any(t.team_id == team_id for t in self.teams)
@@ -1762,21 +1762,21 @@ class User(UserBase):
 # schemas/_accounts.py (continued)
 class AccountLogin(CamelizedBaseSchema):
     """OAuth2 compatible login schema."""
-    
+
     username: EmailStr  # Email in our case
     password: str
 
 
 class AccountRegister(UserCreate):
     """Registration schema."""
-    
+
     terms_accepted: bool = Field(..., const=True)
     newsletter_opt_in: bool = False
 
 
 class ProfileUpdate(CamelizedBaseSchema):
     """Schema for users updating their own profile."""
-    
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     avatar_url: Optional[str] = None
     bio: Optional[str] = Field(None, max_length=500)
@@ -1785,11 +1785,11 @@ class ProfileUpdate(CamelizedBaseSchema):
 
 class PasswordChange(CamelizedBaseSchema):
     """Schema for password changes."""
-    
+
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=100)
     confirm_password: str
-    
+
     @field_validator("confirm_password")
     @classmethod
     def passwords_match(cls, v: str, values: dict) -> str:
@@ -1801,13 +1801,13 @@ class PasswordChange(CamelizedBaseSchema):
 
 class BulkUserIds(CamelizedBaseSchema):
     """Schema for bulk operations on users."""
-    
+
     user_ids: list[UUID] = Field(..., min_items=1, max_items=100)
 
 
 class BulkOperationResult(CamelizedBaseSchema):
     """Result of bulk operation."""
-    
+
     affected_count: int
     success: bool = True
     errors: list[str] = Field(default_factory=list)
@@ -1820,14 +1820,14 @@ class BulkOperationResult(CamelizedBaseSchema):
 ```python
 class TeamService(SQLSpecService):
     """Team management service."""
-    
+
     async def create_team_with_members(
         self,
         data: TeamCreate,
         member_emails: list[str]
     ) -> Team:
         """Create team and add initial members atomically."""
-        
+
         # Use transaction context manager
         async with self.begin_transaction():
             # Create team
@@ -1841,7 +1841,7 @@ class TeamService(SQLSpecService):
                 .returning("*"),
                 schema_type=Team
             )
-            
+
             # Add creator as owner
             await self.driver.execute(
                 sql.insert("team_member")
@@ -1852,14 +1852,14 @@ class TeamService(SQLSpecService):
                     is_owner=True
                 )
             )
-            
+
             # Add other members
             for email in member_emails:
                 user = await self.driver.select_one_or_none(
                     sql.select("id").from_("user_account")
                     .where_eq("email", email)
                 )
-                
+
                 if user:
                     await self.driver.execute(
                         sql.insert("team_member")
@@ -1869,18 +1869,18 @@ class TeamService(SQLSpecService):
                             role="member"
                         )
                     )
-            
+
             # Transaction commits here if no errors
             return team
         # Transaction rolls back if any error occurred
-    
+
     async def transfer_ownership(
         self,
         team_id: UUID,
         new_owner_id: UUID
     ) -> None:
         """Transfer team ownership atomically."""
-        
+
         # Manual transaction control
         await self.begin()
         try:
@@ -1891,7 +1891,7 @@ class TeamService(SQLSpecService):
                 .where_eq("team_id", team_id)
                 .where_eq("is_owner", True)
             )
-            
+
             # Set new owner
             await self.driver.execute(
                 sql.update("team_member")
@@ -1899,7 +1899,7 @@ class TeamService(SQLSpecService):
                 .where_eq("team_id", team_id)
                 .where_eq("user_id", new_owner_id)
             )
-            
+
             # Update team record
             await self.driver.execute(
                 sql.update("team")
@@ -1909,7 +1909,7 @@ class TeamService(SQLSpecService):
                 )
                 .where_eq("id", team_id)
             )
-            
+
             await self.commit()
         except Exception as e:
             await self.rollback()
@@ -1921,13 +1921,13 @@ class TeamService(SQLSpecService):
 ```python
 class OrderService(SQLSpecService):
     """Order management service."""
-    
+
     async def process_order(
         self,
         order_id: UUID
     ) -> Order:
         """Process order with nested transactions."""
-        
+
         async with self.begin_transaction():
             # Update order status
             order = await self.driver.select_one(
@@ -1937,18 +1937,18 @@ class OrderService(SQLSpecService):
                 .returning("*"),
                 schema_type=Order
             )
-            
+
             # Process each item
             for item in order.items:
                 # This could be in its own service with transaction
                 await self._process_order_item(item)
-            
+
             # Update inventory
             await self._update_inventory(order.items)
-            
+
             # Create invoice
             await self._create_invoice(order)
-            
+
             # Mark as processed
             order = await self.driver.select_one(
                 sql.update("orders")
@@ -1960,7 +1960,7 @@ class OrderService(SQLSpecService):
                 .returning("*"),
                 schema_type=Order
             )
-            
+
             return order
 ```
 
@@ -1991,9 +1991,9 @@ async def test_create_user(user_service):
         name="Test User",
         password="SecurePass123!"
     )
-    
+
     user = await user_service.create_user(data)
-    
+
     assert user.id is not None
     assert user.email == "test@example.com"
     assert user.name == "Test User"
@@ -2010,14 +2010,14 @@ async def test_authenticate_user(user_service):
         password="SecurePass123!"
     )
     await user_service.create_user(data)
-    
+
     # Test authentication
     user = await user_service.authenticate(
         "auth@example.com",
         "SecurePass123!"
     )
     assert user.email == "auth@example.com"
-    
+
     # Test invalid password
     with pytest.raises(PermissionDeniedException):
         await user_service.authenticate(
@@ -2038,14 +2038,14 @@ async def test_list_users_with_filters(user_service):
                 password="SecurePass123!"
             )
         )
-    
+
     # Test pagination
     from services._base import LimitOffsetFilter
-    
+
     result = await user_service.list_users(
         LimitOffsetFilter(limit=10, offset=0)
     )
-    
+
     assert len(result.items) == 10
     assert result.total == 25
     assert result.limit == 10
@@ -2067,7 +2067,7 @@ def app() -> Litestar:
     """Create test application."""
     from server.core import ApplicationCore
     from litestar import Litestar
-    
+
     return Litestar(
         route_handlers=[],
         plugins=[ApplicationCore()]
@@ -2096,7 +2096,7 @@ async def test_create_user_endpoint(client, auth_headers):
         },
         headers=auth_headers
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == "newuser@example.com"
@@ -2110,7 +2110,7 @@ async def test_list_users_pagination(client, auth_headers):
         "/api/users?limit=5&offset=10",
         headers=auth_headers
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -2210,14 +2210,14 @@ INSERT INTO post (
     author_id, title, slug, content, published, published_at
 )
 VALUES (
-    :author_id, :title, :slug, :content, 
+    :author_id, :title, :slug, :content,
     COALESCE(:published, false),
     CASE WHEN :published THEN NOW() ELSE NULL END
 )
 RETURNING *;
 
 -- name: get-post-with-author
-SELECT 
+SELECT
     p.*,
     json_build_object(
         'id', u.id,
@@ -2230,7 +2230,7 @@ JOIN user_account u ON p.author_id = u.id
 WHERE p.id = :post_id;
 
 -- name: list-published-posts
-SELECT 
+SELECT
     p.id, p.title, p.slug, p.published_at, p.view_count,
     u.name as author_name,
     COUNT(DISTINCT c.id) as comment_count
@@ -2263,7 +2263,7 @@ RETURNING *;
 -- name: get-post-comments
 WITH RECURSIVE comment_tree AS (
     -- Base case: root comments
-    SELECT 
+    SELECT
         c.*,
         json_build_object(
             'id', u.id,
@@ -2273,14 +2273,14 @@ WITH RECURSIVE comment_tree AS (
         0 as depth
     FROM comment c
     JOIN user_account u ON c.author_id = u.id
-    WHERE c.post_id = :post_id 
+    WHERE c.post_id = :post_id
         AND c.parent_id IS NULL
         AND c.is_deleted = false
-    
+
     UNION ALL
-    
+
     -- Recursive case: nested comments
-    SELECT 
+    SELECT
         c.*,
         json_build_object(
             'id', u.id,
@@ -2313,7 +2313,7 @@ from schemas.base import CamelizedBaseSchema
 
 class PostBase(CamelizedBaseSchema):
     """Base post schema."""
-    
+
     title: str = Field(..., min_length=1, max_length=200)
     content: str = Field(..., min_length=1)
     published: bool = False
@@ -2321,9 +2321,9 @@ class PostBase(CamelizedBaseSchema):
 
 class PostCreate(PostBase):
     """Create post schema."""
-    
+
     slug: Optional[str] = None
-    
+
     @field_validator("slug")
     @classmethod
     def generate_slug(cls, v: Optional[str], values: dict) -> str:
@@ -2336,7 +2336,7 @@ class PostCreate(PostBase):
 
 class PostUpdate(CamelizedBaseSchema):
     """Update post schema."""
-    
+
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     content: Optional[str] = Field(None, min_length=1)
     published: Optional[bool] = None
@@ -2344,7 +2344,7 @@ class PostUpdate(CamelizedBaseSchema):
 
 class Author(CamelizedBaseSchema):
     """Author info schema."""
-    
+
     id: UUID
     name: str
     email: str
@@ -2353,7 +2353,7 @@ class Author(CamelizedBaseSchema):
 
 class Post(PostBase):
     """Full post schema."""
-    
+
     id: UUID
     author_id: UUID
     slug: str
@@ -2361,7 +2361,7 @@ class Post(PostBase):
     published_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
-    
+
     # Nested data
     author: Optional[Author] = None
     comment_count: int = 0
@@ -2369,14 +2369,14 @@ class Post(PostBase):
 
 class CommentCreate(CamelizedBaseSchema):
     """Create comment schema."""
-    
+
     content: str = Field(..., min_length=1, max_length=5000)
     parent_id: Optional[UUID] = None
 
 
 class Comment(CamelizedBaseSchema):
     """Comment schema."""
-    
+
     id: UUID
     post_id: UUID
     author_id: UUID
@@ -2385,7 +2385,7 @@ class Comment(CamelizedBaseSchema):
     is_deleted: bool
     created_at: datetime
     updated_at: datetime
-    
+
     # Nested
     author: Author
     depth: int = 0
@@ -2413,7 +2413,7 @@ if TYPE_CHECKING:
 
 class BlogService(SQLSpecService):
     """Blog post and comment management."""
-    
+
     async def create_post(
         self,
         author_id: UUID,
@@ -2421,19 +2421,19 @@ class BlogService(SQLSpecService):
     ) -> Post:
         """Create a new blog post."""
         post_data = schema_dump(data, exclude_unset=True)
-        
+
         # Ensure unique slug
         if not post_data.get("slug"):
             post_data["slug"] = await self._get_unique_slug(data.title)
-        
+
         post_data["author_id"] = author_id
-        
+
         return await self.driver.select_one(
             db_manager.get_sql("create-post"),
             schema_type=Post,
             **post_data
         )
-    
+
     async def update_post(
         self,
         post_id: UUID,
@@ -2445,21 +2445,21 @@ class BlogService(SQLSpecService):
         post = await self.get_post(post_id)
         if post.author_id != author_id:
             raise PermissionDeniedException("Not the post author")
-        
+
         update_data = schema_dump(data, exclude_unset=True)
-        
+
         # Handle publishing
         if data.published and not post.published:
             update_data["published_at"] = sql.raw("NOW()")
-        
+
         await self.driver.execute(
             sql.update("post")
             .set(**update_data, updated_at=sql.raw("NOW()"))
             .where_eq("id", post_id)
         )
-        
+
         return await self.get_post(post_id)
-    
+
     async def get_post(
         self,
         post_id: UUID,
@@ -2471,14 +2471,14 @@ class BlogService(SQLSpecService):
                 db_manager.get_sql("update-post-views"),
                 post_id=post_id
             )
-        
+
         return await self.get_or_404(
             db_manager.get_sql("get-post-with-author"),
             post_id=post_id,
             schema_type=Post,
             error_message=f"Post {post_id} not found"
         )
-    
+
     async def list_published_posts(
         self,
         *filters: StatementFilter
@@ -2489,7 +2489,7 @@ class BlogService(SQLSpecService):
             *filters,
             schema_type=Post
         )
-    
+
     async def add_comment(
         self,
         post_id: UUID,
@@ -2501,7 +2501,7 @@ class BlogService(SQLSpecService):
         post = await self.get_post(post_id)
         if not post.published:
             raise ValueError("Cannot comment on unpublished post")
-        
+
         # Verify parent comment if provided
         if data.parent_id:
             parent = await self.driver.select_one_or_none(
@@ -2511,7 +2511,7 @@ class BlogService(SQLSpecService):
             )
             if not parent or parent["post_id"] != post_id:
                 raise ValueError("Invalid parent comment")
-        
+
         return await self.driver.select_one(
             db_manager.get_sql("add-comment"),
             post_id=post_id,
@@ -2520,7 +2520,7 @@ class BlogService(SQLSpecService):
             content=data.content,
             schema_type=Comment
         )
-    
+
     async def get_post_comments(
         self,
         post_id: UUID
@@ -2531,20 +2531,20 @@ class BlogService(SQLSpecService):
             post_id=post_id,
             schema_type=Comment
         )
-        
+
         # Build tree structure
         comment_map = {c.id: c for c in flat_comments}
         roots = []
-        
+
         for comment in flat_comments:
             if comment.parent_id and comment.parent_id in comment_map:
                 parent = comment_map[comment.parent_id]
                 parent.replies.append(comment)
             elif not comment.parent_id:
                 roots.append(comment)
-        
+
         return roots
-    
+
     async def delete_comment(
         self,
         comment_id: UUID,
@@ -2557,29 +2557,29 @@ class BlogService(SQLSpecService):
             .from_("comment")
             .where_eq("id", comment_id)
         )
-        
+
         if comment["author_id"] != author_id:
             raise PermissionDeniedException("Not the comment author")
-        
+
         # Soft delete
         await self.driver.execute(
             sql.update("comment")
             .set(is_deleted=True, content="[deleted]")
             .where_eq("id", comment_id)
         )
-    
+
     async def _get_unique_slug(self, title: str) -> str:
         """Generate unique slug for post."""
         base_slug = slugify(title)
         slug = base_slug
         counter = 1
-        
+
         while await self.exists(
             sql.select("id").from_("post").where_eq("slug", slug)
         ):
             slug = f"{base_slug}-{counter}"
             counter += 1
-        
+
         return slug
 ```
 
@@ -2608,10 +2608,10 @@ if TYPE_CHECKING:
 
 class BlogController(Controller):
     """Blog post management."""
-    
+
     path = "/api/posts"
     tags = ["Blog"]
-    
+
     dependencies = {
         "blog_service": Provide(deps.provide_blog_service),
     }
@@ -2627,7 +2627,7 @@ class BlogController(Controller):
     ) -> OffsetPagination[Post]:
         """List all published blog posts."""
         return await blog_service.list_published_posts(*filters)
-    
+
     @get(
         operation_id="GetPost",
         path="/{post_id:uuid}",
@@ -2644,7 +2644,7 @@ class BlogController(Controller):
             post_id,
             increment_views=increment_views
         )
-    
+
     @post(
         operation_id="CreatePost",
         guards=[security.requires_active_user],
@@ -2661,7 +2661,7 @@ class BlogController(Controller):
             current_user.id,
             data
         )
-    
+
     @patch(
         operation_id="UpdatePost",
         path="/{post_id:uuid}",
@@ -2681,7 +2681,7 @@ class BlogController(Controller):
             current_user.id,
             data
         )
-    
+
     @get(
         operation_id="GetPostComments",
         path="/{post_id:uuid}/comments",
@@ -2694,7 +2694,7 @@ class BlogController(Controller):
     ) -> list[Comment]:
         """Get all comments for a post."""
         return await blog_service.get_post_comments(post_id)
-    
+
     @post(
         operation_id="AddComment",
         path="/{post_id:uuid}/comments",
@@ -2714,7 +2714,7 @@ class BlogController(Controller):
             current_user.id,
             data
         )
-    
+
     @delete(
         operation_id="DeleteComment",
         path="/comments/{comment_id:uuid}",
@@ -2740,19 +2740,19 @@ class BlogController(Controller):
 # server/core.py
 def on_app_init(self, app_config: AppConfig) -> AppConfig:
     """Configure application."""
-    
+
     # Add blog controller to routes
     app_config.route_handlers.extend([
         routes.BlogController,
         # ... other controllers
     ])
-    
+
     # Add blog service to signature namespace
     app_config.signature_namespace.update({
         "BlogService": BlogService,
         # ... other services
     })
-    
+
     return app_config
 
 # server/deps.py

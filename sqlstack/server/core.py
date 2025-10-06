@@ -49,6 +49,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from litestar.enums import RequestEncodingType
         from litestar.params import Body, Parameter
         from litestar.security.jwt import Token
+        from sqlspec.driver import AsyncDriverAdapterBase
 
         from sqlstack import config
         from sqlstack import schemas as s
@@ -83,6 +84,9 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config = security.auth.on_app_init(app_config)
         # security
         app_config.cors_config = config.cors
+        # session - table created via migrations (include_extensions: ["litestar"])
+        app_config.stores = config.stores
+        app_config.middleware.append(config.session_config.middleware)
         # plugins
         app_config.plugins.extend(
             [
@@ -129,6 +133,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
                 "UserService": UserService,
                 "OffsetPagination": OffsetPagination,
                 "SQLSpecService": SQLSpecService,
+                "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
             },
         )
         # dependencies

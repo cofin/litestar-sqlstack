@@ -1,5 +1,5 @@
 import logging
-from typing import cast
+from typing import Any, cast
 
 import structlog
 from litestar.config.compression import CompressionConfig
@@ -15,10 +15,13 @@ from litestar.logging.config import (
     default_logger_factory,
 )
 from litestar.middleware.logging import LoggingMiddlewareConfig
+from litestar.middleware.session.server_side import ServerSideSessionConfig
 from litestar.plugins.problem_details import ProblemDetailsConfig
 from litestar.plugins.structlog import StructlogConfig
+from litestar.stores.registry import StoreRegistry
 from sqlspec import SQLSpec
 from sqlspec.adapters.asyncpg import AsyncpgConfig
+from sqlspec.adapters.asyncpg.litestar.store import AsyncpgStore
 from sqlspec.adapters.duckdb import DuckDBConfig
 
 from sqlstack.lib import log as log_conf
@@ -59,6 +62,7 @@ db_config = sqlspec.add_config(
             "version_table_name": settings.db.MIGRATION_DDL_VERSION_TABLE,
             "script_location": settings.db.MIGRATION_PATH,
             "project_root": BASE_DIR,
+            "include_extensions": ["litestar"],
         },
         extension_config={
             "litestar": {
@@ -66,6 +70,7 @@ db_config = sqlspec.add_config(
                 "connection_key": "db_connection",
                 "pool_key": "db_pool",
                 "session_key": "db_session",
+                "session_table": "app_session",
             }
         },
     )
@@ -84,6 +89,11 @@ etl_config = sqlspec.add_config(
 )
 
 sqlspec.load_sql_files(BASE_DIR / "db" / "sql")
+
+
+session_store = AsyncpgStore(config=sqlspec.get_config(db_config), table_name="app_session")
+stores = StoreRegistry(stores={"sessions": cast("Any", session_store)})
+session_config = ServerSideSessionConfig(store="sessions")
 
 log = StructlogConfig(
     enable_middleware_logging=False,
