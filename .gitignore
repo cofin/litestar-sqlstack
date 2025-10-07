@@ -103,6 +103,7 @@ celerybeat.pid
 # Environments
 .env*
 !.env.*.example
+!.env.example
 !.env.testing
 !tools/deploy/docker/.env.docker
 .venv
@@ -114,6 +115,7 @@ venv.bak/
 .venv
 media/
 !media/.gitkeep
+
 
 # Spyder project settings
 .spyderproject

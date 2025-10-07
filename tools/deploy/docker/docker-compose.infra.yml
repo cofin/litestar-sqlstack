@@ -54,7 +54,7 @@ services:
   db:
     image: postgres:latest
     ports:
-      - "15432:5432"
+      - "35432:5432"
     hostname: db
     environment:
       POSTGRES_PASSWORD: "app"
