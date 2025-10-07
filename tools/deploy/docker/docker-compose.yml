@@ -1,3 +1,5 @@
+name: sqlstack
+
 services:
   object-storage:
     image: quay.io/minio/minio
