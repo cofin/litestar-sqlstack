@@ -13,18 +13,6 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 
-@pytest.fixture(name="app")
-def fx_app(pytestconfig: pytest.Config, monkeypatch: MonkeyPatch) -> Litestar:
-    """App fixture.
-
-    Returns:
-        An application instance, configured via plugin.
-    """
-    from sqlstack.server.asgi import create_app
-
-    return create_app()
-
-
 @pytest.fixture(name="raw_users")
 def fx_raw_users() -> list[dict[str, Any]]:
     """Unstructured user representations."""

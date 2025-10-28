@@ -190,3 +190,5 @@ CLAUDE.*.md
 .gemini
 GEMINI.md
 CRUSH.md
+AGENTS.md
+specs/

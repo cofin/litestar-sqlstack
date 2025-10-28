@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -10,6 +11,8 @@ from sqlstack import schemas as s
 
 if TYPE_CHECKING:
     from sqlstack.services import TeamInvitationService, TeamMemberService, TeamService, UserService
+
+logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.anyio
 
@@ -48,7 +51,7 @@ class TestTeamManagement:
                 owner_id=owner.id,
             )
             team = await team_service.create(team_data_with_owner)
-        except Exception:
+        except (TypeError, ValueError, AttributeError):
             # If owner_id not supported in creation, create team first then add owner
             team = await team_service.create(team_data)
 
@@ -264,9 +267,9 @@ class TestTeamManagement:
             membership = await team_member_service.get_member(team.id, invitee.id)
             if membership:
                 assert membership.role == "MEMBER"
-        except Exception:
+        except (AttributeError, NotImplementedError, LookupError) as e:
             # Automatic membership creation might not be implemented
-            pass
+            logger.debug("Automatic membership creation not available: %s", e)
 
     async def test_team_search_and_listing(
         self,

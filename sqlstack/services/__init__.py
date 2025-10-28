@@ -14,6 +14,7 @@ from sqlstack.services._base import (
     OrderByFilter,
     PaginationFilter,
     SearchFilter,
+    SQLSpecService,
     StatementFilter,
     apply_filter,
 )
@@ -44,6 +45,7 @@ __all__ = (
     "PaginationFilter",
     "PasswordService",
     "RoleService",
+    "SQLSpecService",
     "SearchFilter",
     "StatementFilter",
     "TagService",

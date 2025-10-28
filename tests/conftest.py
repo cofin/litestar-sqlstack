@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 from litestar.testing import AsyncTestClient
-
-from sqlstack.config import AsyncpgConfig
 
 # Set test environment before any other imports
 os.environ.update(
@@ -29,7 +27,6 @@ from sqlstack.services import (
     PasswordService,
     RoleService,
     TagService,
-    TeamInvitationService,
     TeamMemberService,
     TeamService,
     UserRoleService,
@@ -42,8 +39,7 @@ if TYPE_CHECKING:
     from litestar import Litestar
     from pytest import MonkeyPatch
     from pytest_databases.docker.postgres import PostgresService
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
-
+    from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver
 
 pytestmark = pytest.mark.anyio
 pytest_plugins = [
@@ -59,226 +55,164 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-@pytest.fixture(autouse=True)
-def _patch_settings(monkeypatch: MonkeyPatch) -> None:
-    """Patch the settings - environment already set at module level."""
-
-
-@pytest.fixture(name="database_url")
-async def fx_database_url(postgres_service: PostgresService) -> str:
+@pytest.fixture(scope="session")
+def database_url(postgres_service: PostgresService) -> str:
     """PostgreSQL URL for testing."""
-    return f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
-
-
-@pytest.fixture(autouse=True)
-async def fx_test_db(postgres_service: PostgresService, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[None, None]:
-    """Set up test database by patching the global db_manager."""
-    from sqlspec.adapters.asyncpg import AsyncpgConfig
-    from sqlspec.extensions.litestar import DatabaseConfig, SQLSpec
-
-    from sqlstack import config
-
-    # Create test database configuration
-    database_url = f"postgresql://{postgres_service.user}:{postgres_service.password}@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
-
-    # Create new AsyncpgConfig for testing
-    test_config = AsyncpgConfig(
-        pool_config={
-            "dsn": database_url,
-        }
+    return (
+        f"postgresql://{postgres_service.user}:{postgres_service.password}"
+        f"@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
     )
 
-    # Create test SQLSpec instance
-    test_db_config = DatabaseConfig(config=test_config, commit_mode="autocommit")
-    test_db_manager = SQLSpec(config=[test_db_config])
 
-    # Patch the global db_manager
-    monkeypatch.setattr(config, "db_manager", test_db_manager)
-    monkeypatch.setattr(config, "db", test_config)
+@pytest.fixture(scope="session")
+async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, None]:
+    """Session-scoped test database configuration that runs migrations."""
+    from sqlspec.adapters.asyncpg import AsyncpgConfig
+    from sqlspec.migrations.commands import AsyncMigrationCommands
 
-    async with test_config.provide_session() as driver:
+    migration_path = Path(__file__).parent.parent / "sqlstack" / "db" / "migrations"
+
+    config = AsyncpgConfig(
+        pool_config={"dsn": database_url, "max_size": 15, "min_size": 5},
+        migration_config={
+            "script_location": str(migration_path),
+            "version_table_name": "sqlspec_migrations_test",
+        },
+    )
+
+    # Run migrations to set up schema
+    migration_commands = AsyncMigrationCommands(config)
+    await migration_commands.upgrade("head")
+
+    yield config
+
+    # Cleanup: optionally downgrade migrations
+    # await migration_commands.downgrade("base")
+
+
+@pytest.fixture(autouse=True)
+async def clean_database(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[None, None]:
+    """Function-scoped fixture to truncate all tables for test isolation.
+
+    Uses dynamic query to discover all tables in public schema,
+    excluding the migration version table.
+    """
+    yield  # Run test first
+
+    # Clean up after test
+    async with asyncpg_config.provide_session() as driver:
         await driver.execute("""
-            CREATE TABLE IF NOT EXISTS user_account (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                email VARCHAR(255) UNIQUE NOT NULL,
-                name VARCHAR(255),
-                hashed_password VARCHAR(255),
-                is_active BOOLEAN DEFAULT true,
-                is_verified BOOLEAN DEFAULT false,
-                is_superuser BOOLEAN DEFAULT false,
-                avatar_url VARCHAR(500),
-                verified_at DATE,
-                joined_at DATE DEFAULT CURRENT_DATE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                last_login TIMESTAMP WITH TIME ZONE
-            )
+            DO $$
+            DECLARE stmt text;
+            BEGIN
+                SELECT 'TRUNCATE TABLE ' ||
+                       string_agg(format('%I.%I', schemaname, tablename), ', ') ||
+                       ' RESTART IDENTITY CASCADE'
+                INTO stmt
+                FROM pg_tables
+                WHERE schemaname = 'public'
+                  AND tablename NOT IN ('sqlspec_migrations_test');
+
+                IF stmt IS NOT NULL THEN
+                    EXECUTE stmt;
+                END IF;
+            END $$;
         """)
-
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS role (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(100) UNIQUE NOT NULL,
-                slug VARCHAR(100) UNIQUE NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        """)
-
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS tag (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(100) UNIQUE NOT NULL,
-                slug VARCHAR(100) UNIQUE NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        """)
-
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS team (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name VARCHAR(100) NOT NULL,
-                slug VARCHAR(100) UNIQUE NOT NULL,
-                description TEXT,
-                is_active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        """)
-
-        # Add critical junction tables
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS user_account_role (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-                role_id UUID NOT NULL REFERENCES role(id) ON DELETE CASCADE,
-                assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                UNIQUE(user_id, role_id)
-            )
-        """)
-
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS team_member (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
-                user_id UUID NOT NULL REFERENCES user_account(id) ON DELETE CASCADE,
-                role VARCHAR(50) DEFAULT 'MEMBER',
-                is_owner BOOLEAN DEFAULT false,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                UNIQUE(team_id, user_id)
-            )
-        """)
-
-        await driver.execute("""
-            CREATE TABLE IF NOT EXISTS team_tag (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                team_id UUID NOT NULL REFERENCES team(id) ON DELETE CASCADE,
-                tag_id UUID NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                UNIQUE(team_id, tag_id)
-            )
-        """)
-
-    yield
-
-    async with test_config.provide_session() as driver:
-        await driver.execute("DROP TABLE IF EXISTS team_tag CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS team_member CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS user_account_role CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS team CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS tag CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS role CASCADE")
-        await driver.execute("DROP TABLE IF EXISTS user_account CASCADE")
+        await driver.commit()
 
 
-@pytest.fixture(name="db_config")
-async def fx_db_config(database_url: str) -> AsyncpgConfig:
-    """Database configuration for tests."""
-    return AsyncpgConfig(pool_config={"dsn": database_url})
-
-
-@pytest.fixture(name="driver")
-async def fx_driver(db_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver, None]:
-    """SQLSpec driver for tests."""
-
-    # Get a driver from the patched global db_manager
-    async with db_config.provide_session() as driver:
+@pytest.fixture
+async def driver(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver, None]:
+    """Function-scoped SQLSpec driver for tests."""
+    async with asyncpg_config.provide_session() as driver:
         yield driver
 
 
 @pytest.fixture
-def app() -> Litestar:
-    """Create Litestar app for testing."""
-    from sqlstack.server.asgi import create_app
+def app(asyncpg_config: AsyncpgConfig, database_url: str, monkeypatch: MonkeyPatch) -> Litestar:
+    """Litestar app fixture with test database configuration.
 
-    return create_app()
+    Recreates the SQLSpec config to point to test database.
+    The asyncpg_config fixture already ran migrations on the test database.
+    """
+    import os
+    import sys
+
+    # Remove app config module to force reload
+    if "sqlstack.config" in sys.modules:
+        del sys.modules["sqlstack.config"]
+    if "sqlstack.server.asgi" in sys.modules:
+        del sys.modules["sqlstack.server.asgi"]
+
+    # Temporarily set env vars for config initialization
+    original_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = database_url
+    os.environ["POOL_MIN_SIZE"] = "5"
+    os.environ["POOL_MAX_SIZE"] = "15"
+    os.environ["MIGRATION_DDL_VERSION_TABLE"] = "sqlspec_migrations_test"
+
+    try:
+        from sqlstack.server.asgi import create_app
+
+        return create_app()
+    finally:
+        # Restore original env
+        if original_url:
+            os.environ["DATABASE_URL"] = original_url
 
 
 @pytest.fixture
 async def client(app: Litestar) -> AsyncGenerator[AsyncTestClient, None]:
-    """Create test client."""
+    """Function-scoped test client."""
     async with AsyncTestClient(app=app) as client:
         yield client
 
 
 # Service fixtures
 @pytest.fixture
-async def user_service(driver: AsyncpgDriver) -> UserService:
+def user_service(driver: AsyncpgDriver) -> UserService:
     """Create UserService instance."""
     return UserService(driver)
 
 
 @pytest.fixture
-async def team_service(driver: AsyncpgDriver) -> TeamService:
+def team_service(driver: AsyncpgDriver) -> TeamService:
     """Create TeamService instance."""
     return TeamService(driver)
 
 
 @pytest.fixture
-async def email_verification_service(driver: AsyncpgDriver) -> EmailVerificationService:
+def email_verification_service(driver: AsyncpgDriver) -> EmailVerificationService:
     """Create EmailVerificationService instance."""
     return EmailVerificationService(driver)
 
 
 @pytest.fixture
-async def password_service(driver: AsyncpgDriver) -> PasswordService:
+def password_service(driver: AsyncpgDriver) -> PasswordService:
     """Create PasswordService instance."""
     return PasswordService(driver)
 
 
 @pytest.fixture
-async def role_service(driver: AsyncpgDriver) -> RoleService:
+def role_service(driver: AsyncpgDriver) -> RoleService:
     """Create RoleService instance."""
     return RoleService(driver)
 
 
 @pytest.fixture
-async def tag_service(driver: AsyncpgDriver) -> TagService:
+def tag_service(driver: AsyncpgDriver) -> TagService:
     """Create TagService instance."""
     return TagService(driver)
 
 
 @pytest.fixture
-async def team_member_service(driver: AsyncpgDriver) -> TeamMemberService:
+def team_member_service(driver: AsyncpgDriver) -> TeamMemberService:
     """Create TeamMemberService instance."""
     return TeamMemberService(driver)
 
 
 @pytest.fixture
-async def team_invitation_service(driver: AsyncpgDriver) -> TeamInvitationService:
-    """Create TeamInvitationService instance."""
-    return TeamInvitationService(driver)
-
-
-@pytest.fixture
-async def user_role_service(driver: AsyncpgDriver) -> UserRoleService:
+def user_role_service(driver: AsyncpgDriver) -> UserRoleService:
     """Create UserRoleService instance."""
     return UserRoleService(driver)
 
@@ -294,7 +228,7 @@ async def test_user(user_service: UserService) -> s.User:
         is_active=True,
         is_verified=True,
     )
-    return await user_service.create(user_data)
+    return await user_service.create_user(user_data)
 
 
 @pytest.fixture
@@ -308,7 +242,7 @@ async def admin_user(user_service: UserService) -> s.User:
         is_verified=True,
         is_superuser=True,
     )
-    return await user_service.create(user_data)
+    return await user_service.create_user(user_data)
 
 
 @pytest.fixture
@@ -321,7 +255,7 @@ async def unverified_user(user_service: UserService) -> s.User:
         is_active=True,
         is_verified=False,
     )
-    return await user_service.create(user_data)
+    return await user_service.create_user(user_data)
 
 
 @pytest.fixture
@@ -331,7 +265,7 @@ async def test_role(role_service: RoleService) -> s.Role:
         name="Test Role",
         description="A test role for testing",
     )
-    return await role_service.create(role_data)
+    return await role_service.create_role(role_data)
 
 
 @pytest.fixture
@@ -341,7 +275,7 @@ async def test_tag(tag_service: TagService) -> s.Tag:
         name="Test Tag",
         description="A test tag for testing",
     )
-    return await tag_service.create(tag_data)
+    return await tag_service.create_tag(tag_data)
 
 
 @pytest.fixture

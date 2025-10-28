@@ -10,7 +10,7 @@ VALUES (
     :is_superuser,
     :is_verified,
     :verified_at,
-    :joined_at,
+    :joined_at
 )
 RETURNING id;
 

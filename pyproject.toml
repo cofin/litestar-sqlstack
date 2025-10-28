@@ -5,7 +5,7 @@ dependencies = [
     "litestar-granian[uvloop]>=0.12.2",
     "litestar[structlog,jwt,jinja]>=2.15.2",
     "pwdlib[argon2]>=0.2.1",
-    "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@adk-session",
+    "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@main",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
 name = "sqlstack"
@@ -35,7 +35,7 @@ linting = ["pre-commit", "mypy", "ruff", "slotscheck", "types-click", "types-pyy
 test = [
     "pytest",
     "pytest-xdist",
-    "pytest-asyncio",
+    "anyio",
     "pytest-mock",
     "pytest-cov",
     "coverage[toml]",
@@ -104,8 +104,6 @@ relative_files = true
 
 [tool.pytest.ini_options]
 addopts = ["-q", "-ra"]
-asyncio_default_fixture_loop_scope = "function"
-asyncio_mode = "auto"
 filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources",
     "ignore::DeprecationWarning:google.*",

@@ -91,7 +91,7 @@ etl_config = sqlspec.add_config(
 sqlspec.load_sql_files(BASE_DIR / "db" / "sql")
 
 
-session_store = AsyncpgStore(config=sqlspec.get_config(db_config), table_name="app_session")
+session_store = AsyncpgStore(config=sqlspec.get_config(db_config))
 stores = StoreRegistry(stores={"sessions": cast("Any", session_store)})
 session_config = ServerSideSessionConfig(store="sessions")
 

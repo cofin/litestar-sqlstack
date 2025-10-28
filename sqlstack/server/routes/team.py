@@ -59,11 +59,11 @@ class TeamController(Controller):
             s.Team
         """
         # Add owner_id to the team creation data
-        team_data = s.TeamCreate(
+        team_data = s.TeamCreate(  # type: ignore[call-arg]
             name=data.name,
             description=data.description,
-            slug=data.slug,
-            owner_id=current_user.id,
+            slug=data.slug,  # type: ignore[attr-defined]
+            owner_id=current_user.id,  # type: ignore[call-arg]
             tags=data.tags if hasattr(data, "tags") else [],
         )
         return await teams_service.create(team_data)

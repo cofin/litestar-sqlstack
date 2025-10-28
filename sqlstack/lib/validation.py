@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from typing import Any
 from urllib.parse import urlparse
 
 from sqlstack.lib.exceptions import ApplicationClientError
@@ -463,3 +464,252 @@ def validate_phone(v: str) -> str:
         raise ValidationError(msg)
 
     return phone
+
+
+# Password Validation Constants
+PASSWORD_MIN_LENGTH = 12
+PASSWORD_MAX_LENGTH = 128
+PASSWORD_SCORE_WEAK = 0
+PASSWORD_SCORE_MEDIUM = 50
+PASSWORD_SCORE_STRONG = 80
+
+# Common passwords (top 100 most common - expand as needed)
+COMMON_PASSWORDS = {
+    "password",
+    "123456",
+    "123456789",
+    "12345678",
+    "12345",
+    "1234567",
+    "password1",
+    "123123",
+    "1234567890",
+    "000000",
+    "abc123",
+    "qwerty",
+    "qwerty123",
+    "qwertyuiop",
+    "123321",
+    "letmein",
+    "admin",
+    "welcome",
+    "monkey",
+    "dragon",
+    "master",
+    "sunshine",
+    "princess",
+    "football",
+    "iloveyou",
+    "111111",
+    "666666",
+    "654321",
+    "passw0rd",
+    "password123",
+    "superman",
+    "trustno1",
+    "liverpool",
+    "123qwe",
+    "qweasd",
+    "welcome1",
+}
+
+# Password pattern detection
+PASSWORD_REPEATED_PATTERN = re.compile(r"(.)\1{2,}")  # 3+ repeated characters
+PASSWORD_SEQUENTIAL_123 = "0123456789"  # noqa: S105 - not a password, pattern string
+PASSWORD_SEQUENTIAL_ABC = "abcdefghijklmnopqrstuvwxyz"  # noqa: S105 - not a password, pattern string
+PASSWORD_SEQUENTIAL_QWE = "qwertyuiopasdfghjklzxcvbnm"  # noqa: S105 - not a password, pattern string
+
+
+class PasswordValidationError(ValidationError):
+    """Password validation specific error."""
+
+
+def validate_password(password: str) -> str:
+    """Basic password validation that delegates to strength validation.
+
+    Args:
+        password: Password string to validate
+
+    Returns:
+        The validated password
+
+    Raises:
+        PasswordValidationError: If password doesn't meet requirements
+    """
+    return validate_password_strength(password)
+
+
+def validate_password_strength(password: str) -> str:
+    """Validate password meets strength requirements.
+
+    Requirements:
+    - Length: 12-128 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    - Not in common passwords list
+    - No excessive repeated characters (3+)
+    - No obvious sequential patterns
+
+    Args:
+        password: Password string to validate
+
+    Returns:
+        The validated password
+
+    Raises:
+        PasswordValidationError: If password doesn't meet requirements
+    """
+    if not isinstance(password, str):  # pyright: ignore
+        msg = "Password must be a string"  # type: ignore[unreachable]
+        raise PasswordValidationError(msg)
+
+    # Length checks
+    if len(password) < PASSWORD_MIN_LENGTH:
+        msg = f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"
+        raise PasswordValidationError(msg)
+
+    if len(password) > PASSWORD_MAX_LENGTH:
+        msg = f"Password must not exceed {PASSWORD_MAX_LENGTH} characters"
+        raise PasswordValidationError(msg)
+
+    # Character requirement checks
+    if not any(c.isupper() for c in password):
+        msg = "Password must contain at least one uppercase letter"
+        raise PasswordValidationError(msg)
+
+    if not any(c.islower() for c in password):
+        msg = "Password must contain at least one lowercase letter"
+        raise PasswordValidationError(msg)
+
+    if not any(c.isdigit() for c in password):
+        msg = "Password must contain at least one digit"
+        raise PasswordValidationError(msg)
+
+    # Special character check
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?/~`" for c in password):
+        msg = "Password must contain at least one special character"
+        raise PasswordValidationError(msg)
+
+    # Common password check (case-insensitive)
+    password_lower = password.lower()
+    if password_lower in COMMON_PASSWORDS:
+        msg = "Password is too common"
+        raise PasswordValidationError(msg)
+
+    # Check for common password patterns at start
+    for common in COMMON_PASSWORDS:
+        if password_lower.startswith(common):
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+
+    # Repeated character check
+    if PASSWORD_REPEATED_PATTERN.search(password):
+        msg = "Password is too common"
+        raise PasswordValidationError(msg)
+
+    # Sequential pattern checks (case-insensitive, 4+ sequential chars)
+    for i in range(len(password_lower) - 3):
+        substring = password_lower[i : i + 4]
+        # Check numeric sequences
+        if substring in PASSWORD_SEQUENTIAL_123 or substring in PASSWORD_SEQUENTIAL_123[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+        # Check alphabetic sequences
+        if substring in PASSWORD_SEQUENTIAL_ABC or substring in PASSWORD_SEQUENTIAL_ABC[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+        # Check keyboard patterns
+        if substring in PASSWORD_SEQUENTIAL_QWE or substring in PASSWORD_SEQUENTIAL_QWE[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+
+    return password
+
+
+def get_password_strength(password: str) -> dict[str, Any]:
+    """Analyze password strength and return detailed analysis.
+
+    Args:
+        password: Password string to analyze
+
+    Returns:
+        dict with:
+            - strength: "weak" | "medium" | "strong"
+            - score: int (0-100)
+            - requirements: dict of requirement checks
+            - feedback: list of improvement suggestions
+    """
+    score = 0
+    feedback: list[str] = []
+
+    # Check length (0-25 points)
+    length = len(password)
+    if length < 8:  # noqa: PLR2004 - minimum weak password threshold
+        feedback.append("Use at least 12 characters")
+        score += max(0, length * 2)
+    elif length < PASSWORD_MIN_LENGTH:
+        feedback.append("Use at least 12 characters")
+        score += 15
+    elif length >= PASSWORD_MIN_LENGTH:
+        score += 25
+
+    # Check uppercase (0-15 points)
+    has_upper = any(c.isupper() for c in password)
+    if has_upper:
+        score += 15
+    else:
+        feedback.append("Add uppercase letters")
+
+    # Check lowercase (0-15 points)
+    has_lower = any(c.islower() for c in password)
+    if has_lower:
+        score += 15
+    else:
+        feedback.append("Add lowercase letters")
+
+    # Check digits (0-15 points)
+    has_digit = any(c.isdigit() for c in password)
+    if has_digit:
+        score += 15
+    else:
+        feedback.append("Add numbers")
+
+    # Check special characters (0-15 points)
+    has_special = any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?/~`" for c in password)
+    if has_special:
+        score += 15
+    else:
+        feedback.append("Add special characters (!@#$%^&* etc.)")
+
+    # Check for common passwords (-20 points)
+    if password.lower() in COMMON_PASSWORDS:
+        score = max(0, score - 20)
+        feedback.append("Avoid common passwords")
+
+    # Check for repeated characters (-10 points)
+    if PASSWORD_REPEATED_PATTERN.search(password):
+        score = max(0, score - 10)
+        feedback.append("Avoid repeated characters")
+
+    # Determine strength level
+    if score < PASSWORD_SCORE_MEDIUM:
+        strength = "weak"
+    elif score < PASSWORD_SCORE_STRONG:
+        strength = "medium"
+    else:
+        strength = "strong"
+
+    return {
+        "strength": strength,
+        "score": min(100, score),  # Cap at 100
+        "requirements": {
+            "length": length >= PASSWORD_MIN_LENGTH,
+            "uppercase": has_upper,
+            "lowercase": has_lower,
+            "digits": has_digit,
+            "special_chars": has_special,
+        },
+        "feedback": feedback,
+    }

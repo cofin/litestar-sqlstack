@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from email.mime.multipart import MIMEMultipart
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from sqlstack import schemas as s
 from sqlstack.lib.email import EmailService
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @pytest.fixture
@@ -280,7 +283,8 @@ async def test_send_template_email_success(mock_send: MagicMock, email_service: 
     # Mock get_template to handle both text and HTML template calls
     def get_template_side_effect(name: str) -> MagicMock:
         if "txt.j2" in name:
-            raise Exception("Text template not found")  # Simulate text template not found
+            msg = "Text template not found"
+            raise FileNotFoundError(msg)  # Simulate text template not found
         return mock_template
 
     email_service.jinja_env.get_template = MagicMock(side_effect=get_template_side_effect)
@@ -313,7 +317,8 @@ async def test_send_template_email_with_text_template(mock_send: MagicMock, emai
             return mock_html_template
         if "txt" in name:
             return mock_text_template
-        raise Exception("Template not found")
+        msg = "Template not found"
+        raise FileNotFoundError(msg)
 
     email_service.jinja_env.get_template = MagicMock(side_effect=get_template_side_effect)
     mock_send.return_value = True
@@ -486,9 +491,10 @@ async def test_send_team_invitation_email_fallback(
 def test_email_service_with_missing_settings() -> None:
     """Test email service initialization with missing settings."""
     with patch("sqlstack.lib.email.get_settings") as mock_get_settings:
-        mock_get_settings.side_effect = Exception("Settings error")
+        msg = "Settings error"
+        mock_get_settings.side_effect = RuntimeError(msg)
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError, match="Settings error"):
             EmailService()
 
 
@@ -515,11 +521,14 @@ async def test_user_without_name_in_verification_email(email_service: EmailServi
         is_superuser=False,
     )
 
-    with patch.object(email_service, "send_template_email", side_effect=Exception("Template error")):
-        with patch.object(email_service, "send_email", return_value=True) as mock_send:
-            result = await email_service.send_verification_email(user_without_name, "token")
+    msg = "Template error"
+    with (
+        patch.object(email_service, "send_template_email", side_effect=RuntimeError(msg)),
+        patch.object(email_service, "send_email", return_value=True) as mock_send,
+    ):
+        result = await email_service.send_verification_email(user_without_name, "token")
 
-            assert result is True
-            call_args = mock_send.call_args
-            # Should handle None name gracefully
-            assert "there" in call_args[1]["html_content"]  # Fallback greeting
+        assert result is True
+        call_args = mock_send.call_args
+        # Should handle None name gracefully
+        assert "there" in call_args[1]["html_content"]  # Fallback greeting

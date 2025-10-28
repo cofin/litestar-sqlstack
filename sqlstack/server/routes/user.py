@@ -11,7 +11,7 @@ from litestar.params import Dependency, Parameter
 from sqlspec.extensions.litestar.providers import create_filter_dependencies
 
 from sqlstack.server import deps, security
-from sqlstack.services import FilterTypes
+from sqlstack.services import FilterTypes  # noqa: TC001 - used in Annotated[] runtime annotation
 
 if TYPE_CHECKING:
     from sqlstack import schemas as s

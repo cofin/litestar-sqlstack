@@ -238,7 +238,7 @@ def test_error_cause_in_detail() -> None:
     with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
         exception_to_http_response(mock_request, error)
 
-        args, kwargs = mock_create.call_args
+        args, _kwargs = mock_create.call_args
         http_exc = args[1]
         assert str(original_error) in http_exc.detail
 

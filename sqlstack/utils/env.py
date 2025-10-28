@@ -54,14 +54,14 @@ def get_env(key: str, default: None, type_hint: UnsetType = _UNSET) -> Callable[
 
 
 @overload
-def get_env[T](key: str, default: ParseTypes | None, type_hint: type[T]) -> Callable[[], T]: ...
+def get_env(key: str, default: ParseTypes | None, type_hint: type[T]) -> Callable[[], T]: ...  # noqa: UP047
 
 
 @overload
 def get_env(key: str, default: dict[str, Any], type_hint: UnsetType = _UNSET) -> Callable[[], dict[str, Any]]: ...
 
 
-def get_env[T](
+def get_env(  # noqa: UP047
     key: str,
     default: ParseTypes | None,
     type_hint: type[T] | UnsetType = _UNSET,
@@ -98,14 +98,14 @@ def get_config_val(key: str, default: None, type_hint: UnsetType = _UNSET) -> No
 
 
 @overload
-def get_config_val[T](key: str, default: ParseTypes | None, type_hint: type[T]) -> T: ...
+def get_config_val(key: str, default: ParseTypes | None, type_hint: type[T]) -> T: ...  # noqa: UP047
 
 
 @overload
 def get_config_val(key: str, default: dict[str, Any], type_hint: UnsetType = _UNSET) -> dict[str, Any]: ...
 
 
-def get_config_val[T](  # noqa: C901, PLR0911, PLR0915
+def get_config_val(  # noqa: C901, PLR0911, PLR0915, UP047
     key: str,
     default: ParseTypes | None,
     type_hint: type[T] | UnsetType = _UNSET,
@@ -204,7 +204,7 @@ def get_config_val[T](  # noqa: C901, PLR0911, PLR0915
     return value
 
 
-def _parse_list[T](key: str, value: str, item_constructor: Callable[[str], T]) -> list[T]:
+def _parse_list(key: str, value: str, item_constructor: Callable[[str], T]) -> list[T]:  # noqa: UP047
     if value.startswith("["):
         if not value.endswith("]"):
             msg = f"{key} is not a valid list representation."

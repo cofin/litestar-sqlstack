@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from sqlspec import sql
 
 from sqlstack import schemas as s
-from sqlstack.schemas._enums import TeamRoles
 from sqlstack.services._base import OffsetPagination, SQLSpecService, StatementFilter
 
 if TYPE_CHECKING:
@@ -21,7 +20,7 @@ class TeamMemberService(SQLSpecService):
         self,
         team_id: UUID,
         user_id: UUID,
-        role: TeamRoles = TeamRoles.MEMBER,
+        role: s.TeamRoles = s.TeamRoles.MEMBER,
     ) -> s.TeamMember:
         """Add a user as a member to a team."""
         # First insert the team member
@@ -55,7 +54,7 @@ class TeamMemberService(SQLSpecService):
         """Remove a user from a team."""
         await self.driver.execute(sql.delete("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id))
 
-    async def update_member_role(self, team_id: UUID, user_id: UUID, role: TeamRoles) -> s.TeamMember:
+    async def update_member_role(self, team_id: UUID, user_id: UUID, role: s.TeamRoles) -> s.TeamMember:
         """Update a team member's role."""
         # Update the member's role
         updated = await self.driver.select_one(
@@ -130,7 +129,7 @@ class TeamMemberService(SQLSpecService):
             sql.select("1").from_("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id),
         )
 
-    async def get_member_role(self, team_id: UUID, user_id: UUID) -> TeamRoles | None:
+    async def get_member_role(self, team_id: UUID, user_id: UUID) -> s.TeamRoles | None:
         """Get a user's role in a specific team."""
         result = await self.driver.select_one_or_none(
             sql.select("role").from_("team_member").where_eq("team_id", team_id).where_eq("user_id", user_id),
@@ -155,7 +154,7 @@ class TeamMemberService(SQLSpecService):
         # Then set the new owner
         updated = await self.driver.select_one(
             sql.update("team_member")
-            .set(is_owner=True, role=TeamRoles.ADMIN)
+            .set(is_owner=True, role=s.TeamRoles.ADMIN)
             .where_eq("team_id", team_id)
             .where_eq("user_id", user_id)
             .returning("id"),

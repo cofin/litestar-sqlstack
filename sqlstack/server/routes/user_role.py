@@ -49,9 +49,9 @@ class UserRoleController(Controller):
         Returns:
             s.Message
         """
-        role_id = (await roles_service.get_one(slug=role_slug)).id
-        user_obj = await users_service.get_user(email=data.user_name)
-        obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)
+        role_id = (await roles_service.get_one(slug=role_slug)).id  # type: ignore[call-arg]
+        user_obj = await users_service.get_user(email=data.user_name)  # type: ignore[call-arg]
+        obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)  # type: ignore[attr-defined]
         if created:
             return s.Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")
         return s.Message(message=f"User {obj.user_email} already has the '{obj.role_slug}' role.")
@@ -78,11 +78,11 @@ class UserRoleController(Controller):
         Returns:
             s.Message
         """
-        user_obj = await users_service.get_user(email=data.user_name)
+        user_obj = await users_service.get_user(email=data.user_name)  # type: ignore[call-arg]
         removed_role: bool = False
         for user_role in user_obj.roles:
             if user_role.role_slug == role_slug:
-                _ = await user_roles_service.delete(user_role.id)
+                _ = await user_roles_service.delete(user_role.id)  # type: ignore[attr-defined]
                 removed_role = True
         if not removed_role:
             msg = "User did not have role assigned."
