@@ -95,15 +95,15 @@ class TestSQLSpecService:
         search_filter = SearchFilter(field_name="name", value="test")
         filters = [limit_filter, search_filter]
 
-        # Test finding existing filter
-        found_limit = SQLSpecService.find_filter(LimitOffsetFilter, filters)
+        # Test finding existing filter via driver helper
+        found_limit = driver.find_filter(LimitOffsetFilter, filters)
         assert found_limit is limit_filter
 
-        found_search = SQLSpecService.find_filter(SearchFilter, filters)
+        found_search = driver.find_filter(SearchFilter, filters)
         assert found_search is search_filter
 
         # Test finding non-existent filter type
         from sqlspec.core.filters import BeforeAfterFilter
 
-        not_found = SQLSpecService.find_filter(BeforeAfterFilter, filters)
+        not_found = driver.find_filter(BeforeAfterFilter, filters)
         assert not_found is None

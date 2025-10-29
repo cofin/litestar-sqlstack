@@ -15,6 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
 
+from dotenv import load_dotenv
 from litestar.data_extractors import RequestExtractorField
 from litestar.utils.module_loader import module_to_os_path
 from sqlspec.utils.text import slugify
@@ -262,16 +263,16 @@ class Settings:
     @lru_cache(maxsize=1, typed=True)
     def from_env(cls, dotenv_filename: str = ".env") -> Settings:
         import structlog
-        from dotenv import load_dotenv
         from litestar.cli._utils import console  # pyright: ignore[reportPrivateImportUsage]
 
         logger = structlog.get_logger()
         _secret_id = os.environ.get("ENV_SECRETS", None)  # use this to load secrets in a container
         env_file = Path(f"{os.curdir}/{dotenv_filename}")
         env_file_exists = env_file.is_file()
+        original_env = os.environ.copy()
         if env_file_exists:
             console.print(f"[yellow]Loading environment configuration from {dotenv_filename}[/]")
-            load_dotenv(env_file, override=True)
+            load_dotenv(env_file, override=False)
         try:
             db: DatabaseSettings = DatabaseSettings()
             server: ServerSettings = ServerSettings()
@@ -282,6 +283,9 @@ class Settings:
         except Exception as e:  # noqa: BLE001
             logger.fatal("Could not load settings. %s", e)
             sys.exit(1)
+        finally:
+            os.environ.clear()
+            os.environ.update(original_env)
         return Settings(app=app, db=db, server=server, log=log, storage=storage, email=email)
 
 

@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pytest
-
-if TYPE_CHECKING:
-    from litestar import Litestar
-    from pytest import MonkeyPatch
 
 pytestmark = pytest.mark.anyio
 

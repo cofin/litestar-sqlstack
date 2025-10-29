@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
+from asyncpg.exceptions import UniqueViolationError
 
 from sqlstack import schemas as s
 
@@ -132,16 +133,19 @@ class TestUserServiceIntegration:
             is_verified=True,
         )
 
-        # This should either raise an exception or handle the duplicate gracefully
         try:
             await user_service.create(user_data_2)
-            # If no exception, verify only one user exists with this email
-            by_email = await user_service.get_by_email("unique-test@example.com")
-            assert by_email is not None
-            assert by_email.id == first_user.id
-        except Exception:
-            # Exception is expected for duplicate email constraint
-            pass
+        except UniqueViolationError:
+            dup_detected = True
+        else:
+            dup_detected = False
+
+        if dup_detected:
+            return
+
+        by_email = await user_service.get_by_email("unique-test@example.com")
+        assert by_email is not None
+        assert by_email.id == first_user.id
 
     async def test_user_search_and_filtering(
         self,

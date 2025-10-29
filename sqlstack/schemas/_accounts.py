@@ -72,15 +72,16 @@ class User(CamelizedBaseStruct):
 
     id: UUID
     email: str
-    joined_at: date
+    joined_at: date | None = None
     name: str | None = None
     avatar_url: str | None = None
     is_active: bool = False
     is_verified: bool = False
+    is_superuser: bool = False
     verified_at: date | None = None
     has_password: bool = False
-    teams: list[UserTeam] = []
-    roles: list[UserRole] = []
+    teams: list[UserTeam] = msgspec.field(default_factory=list)
+    roles: list[UserRole] = msgspec.field(default_factory=list)
 
 
 class UserCreate(CamelizedBaseStruct):
@@ -91,6 +92,7 @@ class UserCreate(CamelizedBaseStruct):
     is_verified: bool = False
     verified_at: date | None = None
     joined_at: date | None = None
+    is_superuser: bool = False
 
 
 class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
@@ -101,6 +103,7 @@ class UserUpdate(CamelizedBaseStruct, omit_defaults=True):
     is_verified: bool | msgspec.UnsetType | None = msgspec.UNSET
     verified_at: date | msgspec.UnsetType | None = msgspec.UNSET
     joined_at: date | msgspec.UnsetType | None = msgspec.UNSET
+    is_superuser: bool | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class AccountLogin(CamelizedBaseStruct):

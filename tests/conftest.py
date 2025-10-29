@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+# Set test environment before any other imports
+import inspect
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import anyio
 import pytest
 from litestar.testing import AsyncTestClient
 
-# Set test environment before any other imports
+os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+
 os.environ.update(
     {
         "SECRET_KEY": "test-secret-key-for-testing-only",
@@ -49,6 +53,66 @@ pytest_plugins = [
 ]
 
 
+def pytest_configure(config: pytest.Config) -> None:  # type: ignore[name-defined]
+    if config.pluginmanager.hasplugin("anyio"):
+        plugin = config.pluginmanager.get_plugin("anyio")
+        config.pluginmanager.unregister(plugin, name="anyio")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool:  # type: ignore[name-defined]
+    testfunction = pyfuncitem.obj
+    if not inspect.iscoroutinefunction(testfunction):
+        return False
+
+    backend = pyfuncitem.funcargs.get("anyio_backend", "asyncio")
+    backend_options = pyfuncitem.funcargs.get("anyio_backend_options") or {}
+    sig = inspect.signature(testfunction)
+    call_kwargs = {name: pyfuncitem.funcargs[name] for name in sig.parameters if name in pyfuncitem.funcargs}
+
+    async def _run_test() -> Any:
+        return await testfunction(**call_kwargs)
+
+    anyio.run(_run_test, backend=backend, backend_options=backend_options)
+    return True
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_fixture_setup(  # type: ignore[name-defined]
+    fixturedef: pytest.FixtureDef,
+    request: pytest.FixtureRequest,
+) -> Any:
+    func = fixturedef.func
+    if inspect.iscoroutinefunction(func):
+
+        async def _setup() -> Any:
+            kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
+            return await func(**kwargs)
+
+        return anyio.run(_setup)
+
+    if inspect.isasyncgenfunction(func):
+
+        async def _setup_gen() -> Any:
+            kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
+            agen = func(**kwargs)
+            try:
+                value = await agen.__anext__()
+            except StopAsyncIteration as exc:  # pragma: no cover - invalid fixture usage
+                error_msg = "Async generator fixture did not yield"
+                raise RuntimeError(error_msg) from exc
+
+            def _finalizer() -> None:
+                anyio.run(agen.aclose)
+
+            request.addfinalizer(_finalizer)
+            return value
+
+        return anyio.run(_setup_gen)
+
+    return None
+
+
 @pytest.fixture(scope="session")
 def anyio_backend() -> str:
     """Set async backend for tests."""
@@ -86,9 +150,6 @@ async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, Non
 
     yield config
 
-    # Cleanup: optionally downgrade migrations
-    # await migration_commands.downgrade("base")
-
 
 @pytest.fixture(autouse=True)
 async def clean_database(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[None, None]:
@@ -124,8 +185,44 @@ async def clean_database(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[None, 
 @pytest.fixture
 async def driver(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver, None]:
     """Function-scoped SQLSpec driver for tests."""
-    async with asyncpg_config.provide_session() as driver:
-        yield driver
+
+    class DriverProxy:
+        """Proxy that allows overriding driver methods in tests."""
+
+        __slots__ = ("_driver", "_overrides")
+
+        def __init__(self, wrapped: AsyncpgDriver) -> None:
+            object.__setattr__(self, "_driver", wrapped)
+            object.__setattr__(self, "_overrides", {})
+
+        def __getattr__(self, name: str) -> Any:
+            overrides: dict[str, Any] = object.__getattribute__(self, "_overrides")
+            if name in overrides:
+                return overrides[name]
+            wrapped: AsyncpgDriver = object.__getattribute__(self, "_driver")
+            return getattr(wrapped, name)
+
+        def __setattr__(self, name: str, value: Any) -> None:
+            if name in {"_driver", "_overrides"}:
+                object.__setattr__(self, name, value)
+                return
+            overrides: dict[str, Any] = object.__getattribute__(self, "_overrides")
+            overrides[name] = value
+
+        def __delattr__(self, name: str) -> None:
+            overrides: dict[str, Any] = object.__getattribute__(self, "_overrides")
+            if name in overrides:
+                del overrides[name]
+                return
+            wrapped: AsyncpgDriver = object.__getattribute__(self, "_driver")
+            delattr(wrapped, name)
+
+        @property
+        def __wrapped__(self) -> AsyncpgDriver:
+            return object.__getattribute__(self, "_driver")
+
+    async with asyncpg_config.provide_session() as raw_driver:
+        yield DriverProxy(raw_driver)
 
 
 @pytest.fixture
@@ -243,6 +340,12 @@ async def admin_user(user_service: UserService) -> s.User:
         is_superuser=True,
     )
     return await user_service.create_user(user_data)
+
+
+@pytest.fixture
+async def superuser(admin_user: s.User) -> s.User:
+    """Alias for admin user when a superuser is required."""
+    return admin_user
 
 
 @pytest.fixture

@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from click import Group
     from litestar.config.app import AppConfig
 
-
 T = TypeVar("T")
 
 
@@ -28,11 +27,19 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
     app_slug: str
 
     def on_cli_init(self, cli: Group) -> None:
-        from sqlstack.cli.commands import user_management_group
+        from sqlspec.extensions.litestar.cli import database_group
+
+        from sqlstack.cli.commands import export_fixtures_cmd, load_fixtures_cmd, user_management_group
         from sqlstack.lib.settings import get_settings
 
         settings = get_settings()
         self.app_slug = settings.app.slug
+        if load_fixtures_cmd.name not in database_group.commands:
+            database_group.add_command(load_fixtures_cmd)
+        if export_fixtures_cmd.name not in database_group.commands:
+            database_group.add_command(export_fixtures_cmd)
+        if database_group.name not in cli.commands:
+            cli.add_command(database_group)
         cli.add_command(user_management_group)
 
     def on_app_init(self, app_config: AppConfig) -> AppConfig:

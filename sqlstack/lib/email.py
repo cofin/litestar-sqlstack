@@ -245,38 +245,40 @@ class EmailService:
             "expires_in_hours": 24,
         }
 
-        # Try template first, fall back to simple email
+        subject = f"Verify your email address for {self.app_name}"
+        fallback_html = f"""
+        <html>
+        <body>
+            <h2>Welcome to {self.app_name}!</h2>
+            <p>Hi {user.name or "there"},</p>
+            <p>Please verify your email address by clicking the link below:</p>
+            <p><a href=\"{verification_url}\" style=\"display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;\">Verify Email</a></p>
+            <p>Or copy and paste this URL into your browser:</p>
+            <p>{verification_url}</p>
+            <p>This link will expire in 24 hours.</p>
+            <p>If you didn't create an account, please ignore this email.</p>
+            <p>Best regards,<br>{self.app_name} Team</p>
+        </body>
+        </html>
+        """
+
         try:
             return await self.send_template_email(
                 template_name="email_verification",
                 to_email=user.email,
-                subject=f"Verify your email address for {self.app_name}",
+                subject=subject,
                 context=context,
             )
         except FileNotFoundError:
             logger.debug("Email verification template not found, using fallback")
-            # Fallback to simple email
-            html_content = f"""
-            <html>
-            <body>
-                <h2>Welcome to {self.app_name}!</h2>
-                <p>Hi {user.name or "there"},</p>
-                <p>Please verify your email address by clicking the link below:</p>
-                <p><a href="{verification_url}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
-                <p>Or copy and paste this URL into your browser:</p>
-                <p>{verification_url}</p>
-                <p>This link will expire in 24 hours.</p>
-                <p>If you didn't create an account, please ignore this email.</p>
-                <p>Best regards,<br>{self.app_name} Team</p>
-            </body>
-            </html>
-            """
+        except Exception:  # pragma: no cover - logged for troubleshooting
+            logger.exception("Failed to render verification template, using fallback email")
 
-            return await self.send_email(
-                to_email=user.email,
-                subject=f"Verify your email address for {self.app_name}",
-                html_content=html_content,
-            )
+        return await self.send_email(
+            to_email=user.email,
+            subject=subject,
+            html_content=fallback_html,
+        )
 
     async def send_welcome_email(self, user: User) -> bool:
         """Send welcome email to newly verified user.
@@ -412,35 +414,38 @@ class EmailService:
             "invitation_url": invitation_url,
         }
 
+        subject = f"{inviter_name} invited you to join {team_name} on {self.app_name}"
+        fallback_html = f"""
+        <html>
+        <body>
+            <h2>You're invited to join {team_name}!</h2>
+            <p>{inviter_name} has invited you to join their team on {self.app_name}.</p>
+            <p><a href=\"{invitation_url}\" style=\"display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;\">Accept Invitation</a></p>
+            <p>Or copy and paste this URL into your browser:</p>
+            <p>{invitation_url}</p>
+            <p>If you don't want to join this team, you can safely ignore this email.</p>
+            <p>Best regards,<br>{self.app_name} Team</p>
+        </body>
+        </html>
+        """
+
         try:
             return await self.send_template_email(
                 template_name="team_invitation",
                 to_email=invitee_email,
-                subject=f"{inviter_name} invited you to join {team_name} on {self.app_name}",
+                subject=subject,
                 context=context,
             )
         except FileNotFoundError:
             logger.debug("Team invitation template not found, using fallback")
-            # Fallback to simple email
-            html_content = f"""
-            <html>
-            <body>
-                <h2>You're invited to join {team_name}!</h2>
-                <p>{inviter_name} has invited you to join their team on {self.app_name}.</p>
-                <p><a href="{invitation_url}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a></p>
-                <p>Or copy and paste this URL into your browser:</p>
-                <p>{invitation_url}</p>
-                <p>If you don't want to join this team, you can safely ignore this email.</p>
-                <p>Best regards,<br>{self.app_name} Team</p>
-            </body>
-            </html>
-            """
+        except Exception:  # pragma: no cover - logged for troubleshooting
+            logger.exception("Failed to render team invitation template, using fallback email")
 
-            return await self.send_email(
-                to_email=invitee_email,
-                subject=f"{inviter_name} invited you to join {team_name} on {self.app_name}",
-                html_content=html_content,
-            )
+        return await self.send_email(
+            to_email=invitee_email,
+            subject=subject,
+            html_content=fallback_html,
+        )
 
 
 # Global email service instance

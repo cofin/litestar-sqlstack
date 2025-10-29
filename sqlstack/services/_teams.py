@@ -82,7 +82,7 @@ class TeamService(SQLSpecService):
         teams = [await self._get_team_with_relationships(row["id"]) for row in data]
         return OffsetPagination(
             items=teams,
-            limit=limit_offset.limit if limit_offset else len(teams),
+            limit=limit_offset.limit if limit_offset else 20,
             offset=limit_offset.offset if limit_offset else 0,
             total=total,
         )

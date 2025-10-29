@@ -122,7 +122,7 @@ class TestPasswordHashing:
         """Test hashing passwords with special characters."""
         special_passwords = [
             "Password!@#$%^&*()",
-            "Пароль123!",  # Unicode (Cyrillic)
+            "\u041f\u0430\u0440\u043e\u043b\u044c123!",  # Unicode (Cyrillic)
             "密码123!",  # Unicode (Chinese)
             "🔒Password123!",  # Emoji
             "Pass\nword123!",  # Newline

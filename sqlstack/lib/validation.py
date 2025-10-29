@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from sqlstack.lib.exceptions import ApplicationClientError
 
 # Email patterns
-EMAIL_BASIC_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$")
+EMAIL_BASIC_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$")
 EMAIL_DOUBLE_DOT_PATTERN = re.compile(r"\.\.+")
 EMAIL_BLOCKED_PATTERNS = [
     re.compile(r".*\+.*test.*@.*"),  # +test emails
@@ -201,7 +201,10 @@ def validate_email(v: str) -> str:
         raise ValidationError(msg)
 
     if len(email) < EMAIL_MIN_LENGTH:
-        msg = "Email address too short"
+        if "@" in email:
+            msg = "Email address too short"
+            raise ValidationError(msg)
+        msg = "Invalid email format"
         raise ValidationError(msg)
 
     # Basic regex validation
@@ -574,6 +577,35 @@ def validate_password_strength(password: str) -> str:
         msg = f"Password must not exceed {PASSWORD_MAX_LENGTH} characters"
         raise PasswordValidationError(msg)
 
+    password_lower = password.lower()
+
+    # Common password checks before character requirements
+    if password_lower in COMMON_PASSWORDS:
+        msg = "Password is too common"
+        raise PasswordValidationError(msg)
+
+    for common in COMMON_PASSWORDS:
+        if password_lower.startswith(common):
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+
+    if PASSWORD_REPEATED_PATTERN.search(password_lower):
+        msg = "Password is too common"
+        raise PasswordValidationError(msg)
+
+    # Sequential pattern checks (case-insensitive, 4+ sequential chars)
+    for i in range(len(password_lower) - 3):
+        substring = password_lower[i : i + 4]
+        if substring in PASSWORD_SEQUENTIAL_123 or substring in PASSWORD_SEQUENTIAL_123[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+        if substring in PASSWORD_SEQUENTIAL_ABC or substring in PASSWORD_SEQUENTIAL_ABC[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+        if substring in PASSWORD_SEQUENTIAL_QWE or substring in PASSWORD_SEQUENTIAL_QWE[::-1]:
+            msg = "Password is too common"
+            raise PasswordValidationError(msg)
+
     # Character requirement checks
     if not any(c.isupper() for c in password):
         msg = "Password must contain at least one uppercase letter"
@@ -587,43 +619,9 @@ def validate_password_strength(password: str) -> str:
         msg = "Password must contain at least one digit"
         raise PasswordValidationError(msg)
 
-    # Special character check
     if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?/~`" for c in password):
         msg = "Password must contain at least one special character"
         raise PasswordValidationError(msg)
-
-    # Common password check (case-insensitive)
-    password_lower = password.lower()
-    if password_lower in COMMON_PASSWORDS:
-        msg = "Password is too common"
-        raise PasswordValidationError(msg)
-
-    # Check for common password patterns at start
-    for common in COMMON_PASSWORDS:
-        if password_lower.startswith(common):
-            msg = "Password is too common"
-            raise PasswordValidationError(msg)
-
-    # Repeated character check
-    if PASSWORD_REPEATED_PATTERN.search(password):
-        msg = "Password is too common"
-        raise PasswordValidationError(msg)
-
-    # Sequential pattern checks (case-insensitive, 4+ sequential chars)
-    for i in range(len(password_lower) - 3):
-        substring = password_lower[i : i + 4]
-        # Check numeric sequences
-        if substring in PASSWORD_SEQUENTIAL_123 or substring in PASSWORD_SEQUENTIAL_123[::-1]:
-            msg = "Password is too common"
-            raise PasswordValidationError(msg)
-        # Check alphabetic sequences
-        if substring in PASSWORD_SEQUENTIAL_ABC or substring in PASSWORD_SEQUENTIAL_ABC[::-1]:
-            msg = "Password is too common"
-            raise PasswordValidationError(msg)
-        # Check keyboard patterns
-        if substring in PASSWORD_SEQUENTIAL_QWE or substring in PASSWORD_SEQUENTIAL_QWE[::-1]:
-            msg = "Password is too common"
-            raise PasswordValidationError(msg)
 
     return password
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -124,9 +126,10 @@ class TestGetConfigValPath:
 
     def test_get_config_val_path_found(self) -> None:
         """Test getting Path value from environment."""
-        with patch.dict(os.environ, {"TEST_PATH": "/tmp/test"}):
+        test_path = Path(tempfile.gettempdir()) / "env-path-test"
+        with patch.dict(os.environ, {"TEST_PATH": str(test_path)}):
             result = get_config_val("TEST_PATH", default=Path("/default"))
-            assert result == Path("/tmp/test")
+            assert result == test_path
             assert isinstance(result, Path)
 
     def test_get_config_val_path_not_found(self) -> None:
@@ -160,15 +163,19 @@ class TestGetConfigValList:
 
     def test_get_config_val_list_path_comma_separated(self) -> None:
         """Test parsing comma-separated list of Paths."""
-        with patch.dict(os.environ, {"TEST_PATHS": "/tmp,/var,/usr"}):
+        root = Path(tempfile.gettempdir())
+        path_values = [root / "one", root / "two", root / "three"]
+        with patch.dict(os.environ, {"TEST_PATHS": ",".join(str(path) for path in path_values)}):
             result = get_config_val("TEST_PATHS", default=[Path("/default")])
-            assert result == [Path("/tmp"), Path("/var"), Path("/usr")]
+            assert result == path_values
 
     def test_get_config_val_list_path_json(self) -> None:
         """Test parsing JSON list of Paths."""
-        with patch.dict(os.environ, {"TEST_PATHS": '["/tmp", "/var", "/usr"]'}):
+        root = Path(tempfile.gettempdir())
+        path_values = [root / "a", root / "b", root / "c"]
+        with patch.dict(os.environ, {"TEST_PATHS": json.dumps([str(path) for path in path_values])}):
             result = get_config_val("TEST_PATHS", default=[Path("/default")])
-            assert result == [Path("/tmp"), Path("/var"), Path("/usr")]
+            assert result == path_values
 
     def test_get_config_val_list_empty(self) -> None:
         """Test getting empty list default."""
@@ -243,9 +250,10 @@ class TestGetConfigValTypeHint:
 
     def test_get_config_val_type_hint_path(self) -> None:
         """Test with explicit Path type hint."""
-        with patch.dict(os.environ, {"TEST_VAR": "/tmp"}):
+        temp_path = Path(tempfile.gettempdir()) / "explicit-path"
+        with patch.dict(os.environ, {"TEST_VAR": str(temp_path)}):
             result = get_config_val("TEST_VAR", default=None, type_hint=Path)
-            assert result == Path("/tmp")
+            assert result == temp_path
             assert isinstance(result, Path)
 
     def test_get_config_val_type_hint_list_str(self) -> None:
@@ -256,9 +264,11 @@ class TestGetConfigValTypeHint:
 
     def test_get_config_val_type_hint_list_path(self) -> None:
         """Test with explicit list[Path] type hint."""
-        with patch.dict(os.environ, {"TEST_VAR": "/tmp,/var"}):
+        root = Path(tempfile.gettempdir())
+        selected = [root / "first", root / "second"]
+        with patch.dict(os.environ, {"TEST_VAR": ",".join(str(path) for path in selected)}):
             result = get_config_val("TEST_VAR", default=None, type_hint=list[Path])
-            assert result == [Path("/tmp"), Path("/var")]
+            assert result == selected
 
     def test_get_config_val_type_hint_dict(self) -> None:
         """Test with explicit dict type hint."""
@@ -340,9 +350,8 @@ class TestEdgeCases:
 
     def test_get_config_val_dict_missing_equals(self) -> None:
         """Test parsing dict without = raises error."""
-        with patch.dict(os.environ, {"TEST_DICT": "key1:value1"}):
-            with pytest.raises(TypeError, match="missing '='"):
-                get_config_val("TEST_DICT", default={})
+        with patch.dict(os.environ, {"TEST_DICT": "key1:value1"}), pytest.raises(TypeError, match="missing '='"):
+            get_config_val("TEST_DICT", default={})
 
 
 class TestUnsetType:

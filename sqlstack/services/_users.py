@@ -22,6 +22,7 @@ class UserService(SQLSpecService):
     async def create_user(self, data: s.UserCreate | s.AccountRegister) -> s.User:
         """Create a new user account."""
         user_data = schema_dump(data, exclude_unset=True)
+        user_data.setdefault("is_superuser", False)
         if has_password := user_data.pop("password", None):
             user_data["hashed_password"] = await get_password_hash(has_password)
         initial_team = user_data.pop("initial_team_name", None)

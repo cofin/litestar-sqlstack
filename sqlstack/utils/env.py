@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeVar, cast, get_args, get_origi
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-BASE_DIR: Final[Path] = Path(__file__).parent.parent
+BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent
 TRUE_VALUES: Final[frozenset[str]] = frozenset({"True", "true", "1", "yes", "YES", "Y", "y", "T", "t"})
 
 T = TypeVar("T")
@@ -105,7 +105,7 @@ def get_config_val(key: str, default: ParseTypes | None, type_hint: type[T]) -> 
 def get_config_val(key: str, default: dict[str, Any], type_hint: UnsetType = _UNSET) -> dict[str, Any]: ...
 
 
-def get_config_val(  # noqa: C901, PLR0911, PLR0915, UP047
+def get_config_val(  # noqa: C901, PLR0911, UP047
     key: str,
     default: ParseTypes | None,
     type_hint: type[T] | UnsetType = _UNSET,
@@ -139,30 +139,24 @@ def get_config_val(  # noqa: C901, PLR0911, PLR0915, UP047
     parse_as_list = False
     parse_as_dict = False
 
-    if type_hint != _UNSET and isinstance(type_hint, type):
-        final_type = type_hint
+    if type_hint != _UNSET:
         origin = get_origin(type_hint)
         args = get_args(type_hint)
-        # Dict/TypedDict support
-        if origin is dict or is_typed_dict(type_hint):
-            parse_as_dict = True
-        # List support (existing)
-        elif "list[" in str(type_hint) and "Path" in str(type_hint):
+
+        if origin is list:
             parse_as_list = True
-            item_constructor = Path
-        elif origin is list and args:
-            parse_as_list = True
-            item_type_arg = args[0]
-            if item_type_arg is str:
+            item_type_arg = args[0] if args else str
+            if item_type_arg in {str, Any}:
                 item_constructor = str
             elif isinstance(item_type_arg, type) and issubclass(item_type_arg, Path):
                 item_constructor = item_type_arg
             else:
                 msg = f"Unsupported item type '{item_type_arg}' in list type hint for key '{key}'"
                 raise ValueError(msg)
-    elif type_hint != _UNSET and str(type_hint) == "list[pathlib._local.Path]":
-        parse_as_list = True
-        item_constructor = Path
+        elif origin is dict or is_typed_dict(type_hint):
+            parse_as_dict = True
+        elif isinstance(type_hint, type):
+            final_type = type_hint
     elif default is not None:
         final_type = type(default)
         if isinstance(default, Path):

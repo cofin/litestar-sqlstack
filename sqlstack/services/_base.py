@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from sqlspec.core.filters import (
     AnyCollectionFilter,
@@ -28,7 +28,7 @@ from sqlspec.driver import AsyncDriverAdapterBase
 from sqlspec.typing import SchemaT, StatementParameters
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Sequence
+    from collections.abc import AsyncIterator
 
     from sqlspec import QueryBuilder, Statement, StatementConfig
 
@@ -81,7 +81,7 @@ class SQLSpecService:
             statement_config=statement_config,
             **kwargs,
         )
-        limit_offset = self.find_filter(LimitOffsetFilter, parameters)
+        limit_offset = self.driver.find_filter(LimitOffsetFilter, parameters)
         offset = limit_offset.offset if limit_offset else 0
         limit = limit_offset.limit if limit_offset else 10
         return OffsetPagination[SchemaT](items=results, limit=limit, offset=offset, total=total)
@@ -150,25 +150,6 @@ class SQLSpecService:
         )
         return result is not None
 
-    @staticmethod
-    def find_filter(
-        filter_type: type[FilterTypeT],
-        filters: Sequence[StatementFilter | StatementParameters] | Sequence[StatementFilter],
-    ) -> FilterTypeT | None:
-        """Get the filter specified by filter type from the filters.
-
-        Args:
-            filter_type: The type of filter to find.
-            filters: filter types to apply to the query
-
-        Returns:
-            The match filter instance or None
-        """
-        return next(
-            (cast("FilterTypeT | None", filter_) for filter_ in filters if isinstance(filter_, filter_type)),
-            None,
-        )
-
     async def begin(self) -> None:
         """Begin a database transaction.
 
@@ -195,40 +176,13 @@ class SQLSpecService:
         await self.driver.rollback()
 
     @asynccontextmanager
-    async def begin_transaction(self) -> AsyncGenerator[None, None]:
-        """Async context manager for database transactions.
-
-        Provides a convenient way to execute multiple operations within a transaction.
-        Automatically commits on success or rolls back on error.
-
-        Usage:
-            # Automatic transaction management (recommended)
-            async with service.begin_transaction():
-                await service.create(data1)
-                await service.update(id, data2)
-                # Commits automatically if no exceptions
-            # Rolls back automatically if any exceptions occur
-
-            # Manual transaction management (if needed)
-            await service.begin()
-            try:
-                await service.create(data1)
-                await service.update(id, data2)
-                await service.commit()
-            except Exception:
-                await service.rollback()
-                raise
-
-        Yields:
-            None - The context manager handles transaction lifecycle
-
-        Raises:
-            Any exceptions from database operations are re-raised after rollback
-        """
+    async def begin_transaction(self) -> AsyncIterator[None]:
+        """Context manager for database transactions."""
+        await self.begin()
         try:
-            await self.begin()
             yield
-            await self.commit()
         except Exception:
             await self.rollback()
             raise
+        else:
+            await self.commit()

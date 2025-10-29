@@ -6,6 +6,7 @@ import datetime
 import json
 from uuid import UUID
 
+import msgspec
 import pytest
 from pydantic import BaseModel
 
@@ -233,7 +234,7 @@ class TestFromJson:
         """Test deserializing invalid JSON raises error."""
         data = b"{invalid json}"
 
-        with pytest.raises(Exception):  # msgspec raises its own exception
+        with pytest.raises(msgspec.DecodeError):
             from_json(data)
 
 
@@ -289,7 +290,7 @@ class TestConvertDatetimeToGmtIso:
 
     def test_convert_datetime_naive(self) -> None:
         """Test converting naive datetime (assumes UTC)."""
-        dt = datetime.datetime(2024, 1, 15, 10, 30, 0)
+        dt = datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
 
         result = convert_datetime_to_gmt_iso(dt)
 

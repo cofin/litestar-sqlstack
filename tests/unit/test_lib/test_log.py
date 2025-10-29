@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
-import pytest
 import structlog
 
 from sqlstack.lib.log import (
@@ -211,12 +214,9 @@ class TestSerializers:
 
     def test_structlog_json_serializer_complex_types(self) -> None:
         """Test structlog JSON serializer with complex types."""
-        from datetime import datetime
-        from uuid import UUID
-
         event_dict = {
             "message": "test",
-            "timestamp": datetime(2024, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
             "user_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
         }
 
@@ -239,12 +239,9 @@ class TestSerializers:
 
     def test_stdlib_json_serializer_complex_types(self) -> None:
         """Test stdlib JSON serializer with complex types."""
-        from datetime import datetime
-        from uuid import UUID
-
         event_dict = {
             "message": "test",
-            "timestamp": datetime(2024, 1, 1, 12, 0, 0),
+            "timestamp": datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
             "user_id": UUID("123e4567-e89b-12d3-a456-426614174000"),
         }
 
@@ -346,7 +343,11 @@ class TestStructlogMiddleware:
         from sqlstack.lib.log import StructlogMiddleware
 
         # Mock ASGI app
-        async def mock_app(scope, receive, send):
+        async def mock_app(
+            scope: dict[str, Any],
+            receive: Callable[[], Awaitable[Any]],
+            send: Callable[[dict[str, Any]], Awaitable[None]],
+        ) -> None:
             # Check that contextvars are cleared
             pass
 

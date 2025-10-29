@@ -28,16 +28,24 @@ def config(
 
     """
     default_kwargs: dict[str, Any] = {"rename_strategy": "camel", "max_nested_depth": 2}
-    if include:
+
+    if include is not None:
         default_kwargs["include"] = include
-    if exclude:
-        default_kwargs["exclude"] = exclude
-    if rename_fields:
+    if rename_fields is not None:
         default_kwargs["rename_fields"] = rename_fields
-    if rename_strategy:
+    if rename_strategy is not None:
         default_kwargs["rename_strategy"] = rename_strategy
-    if max_nested_depth:
+    if max_nested_depth is not None:
         default_kwargs["max_nested_depth"] = max_nested_depth
-    if partial:
+    if partial is not None:
         default_kwargs["partial"] = partial
-    return DTOConfig(**default_kwargs)
+
+    if include is None and exclude is not None:
+        default_kwargs["exclude"] = exclude
+
+    dto_config = DTOConfig(**default_kwargs)
+
+    if include is not None and exclude is not None:
+        object.__setattr__(dto_config, "exclude", exclude)
+
+    return dto_config

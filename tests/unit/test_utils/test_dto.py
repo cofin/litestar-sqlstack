@@ -84,7 +84,9 @@ class TestDTOConfig:
 
     def test_config_none_values(self) -> None:
         """Test config with None values uses defaults."""
-        result = config(include=None, exclude=None, rename_fields=None, rename_strategy=None, max_nested_depth=None, partial=None)
+        result = config(
+            include=None, exclude=None, rename_fields=None, rename_strategy=None, max_nested_depth=None, partial=None
+        )
 
         # Should use defaults when None
         assert result.rename_strategy == "camel"
