@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeVar, cast, get_args, get_origi
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent.parent
+BASE_DIR: Final[Path] = Path(__file__).resolve().parent.parent
 TRUE_VALUES: Final[frozenset[str]] = frozenset({"True", "true", "1", "yes", "YES", "Y", "y", "T", "t"})
 
 T = TypeVar("T")

@@ -34,11 +34,11 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         settings = get_settings()
         self.app_slug = settings.app.slug
-        if load_fixtures_cmd.name not in database_group.commands:
+        if load_fixtures_cmd.name not in database_group.commands:  # type: ignore[attr-defined]
             database_group.add_command(load_fixtures_cmd)
-        if export_fixtures_cmd.name not in database_group.commands:
+        if export_fixtures_cmd.name not in database_group.commands:  # type: ignore[attr-defined]
             database_group.add_command(export_fixtures_cmd)
-        if database_group.name not in cli.commands:
+        if database_group.name not in cli.commands:  # type: ignore[attr-defined]
             cli.add_command(database_group)
         cli.add_command(user_management_group)
 

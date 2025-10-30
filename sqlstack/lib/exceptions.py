@@ -28,6 +28,7 @@ __all__ = (
     "AuthorizationError",
     "HealthCheckConfigurationError",
     "MissingDependencyError",
+    "_HTTPConflictException",
     "after_exception_hook_handler",
 )
 
@@ -117,10 +118,13 @@ def exception_to_http_response(
     Returns:
         Exception response appropriate to the type of original exception.
     """
-    from litestar.exceptions.responses import create_debug_response, create_exception_response
+    from litestar.exceptions.responses import (
+        create_debug_response,  # pyright: ignore[reportUnknownVariableType]
+        create_exception_response,  # pyright: ignore[reportUnknownVariableType]
+    )
 
     http_exc = PermissionDeniedException if isinstance(exc, AuthorizationError) else InternalServerException
 
     if request.app.debug and http_exc not in {PermissionDeniedException, AuthorizationError}:
-        return create_debug_response(request, exc)
-    return create_exception_response(request, http_exc(detail=str(exc.__cause__)))
+        return create_debug_response(request, exc)  # pyright: ignore[reportUnknownVariableType]
+    return create_exception_response(request, http_exc(detail=str(exc.__cause__)))  # pyright: ignore[reportUnknownVariableType]

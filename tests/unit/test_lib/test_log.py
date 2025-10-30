@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
@@ -19,6 +18,9 @@ from sqlstack.lib.log import (
     structlog_json_serializer,
     structlog_processors,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 class TestStructlogConfiguration:

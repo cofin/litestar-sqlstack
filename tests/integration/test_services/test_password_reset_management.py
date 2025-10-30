@@ -32,7 +32,7 @@ class TestPasswordResetManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Generate password reset token
         reset_token = await password_reset_service.create_reset_token(user.id)
@@ -63,7 +63,7 @@ class TestPasswordResetManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Create a token
         token = await password_reset_service.create_reset_token(user.id)
@@ -87,7 +87,7 @@ class TestPasswordResetManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Generate first token
         token1 = await password_reset_service.create_reset_token(user.id)
@@ -126,7 +126,7 @@ class TestPasswordResetManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Create token
         token = await password_reset_service.create_reset_token(user.id)

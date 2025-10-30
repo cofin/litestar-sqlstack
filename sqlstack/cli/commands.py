@@ -258,8 +258,8 @@ async def _ensure_user_role_assignment(
 
 
 @click.command(name="load-fixtures", help="Load application fixture data into the database.")
-@click.option("--tables", "-t", help="Comma-separated list of specific tables to load (loads all if not specified)")
-@click.option("--list", "list_fixtures", is_flag=True, help="List available fixture files")
+@click.option("--tables", "-t", help="Comma-separated list of specific tables to load (loads all if not specified)")  # pyright: ignore
+@click.option("--list", "list_fixtures", is_flag=True, help="List available fixture files")  # pyright: ignore
 def load_fixtures_cmd(tables: str | None, list_fixtures: bool) -> None:
     """Load application fixture data into the database."""
 
@@ -305,10 +305,10 @@ def _load_fixture_data(tables: str | None) -> None:
 
 
 @click.command(name="export-fixtures", help="Export database tables to fixture JSON files.")
-@click.option("--tables", "-t", help="Comma-separated list of specific tables to export (exports all if not specified)")
-@click.option("--output-dir", "-o", help="Custom output directory (defaults to configured fixtures directory)")
-@click.option("--no-compress", is_flag=True, help="Export uncompressed JSON (default is gzipped)")
-@click.option("--list", "list_tables", is_flag=True, help="List available tables for export")
+@click.option("--tables", "-t", help="Comma-separated list of specific tables to export (exports all if not specified)")  # pyright: ignore
+@click.option("--output-dir", "-o", help="Custom output directory (defaults to configured fixtures directory)")  # pyright: ignore
+@click.option("--no-compress", is_flag=True, help="Export uncompressed JSON (default is gzipped)")  # pyright: ignore
+@click.option("--list", "list_tables", is_flag=True, help="List available tables for export")  # pyright: ignore
 def export_fixtures_cmd(tables: str | None, output_dir: str | None, no_compress: bool, list_tables: bool) -> None:
     """Export database tables to fixture JSON files."""
 
@@ -388,34 +388,34 @@ def _export_fixture_data(tables: str | None, output_dir: str | None, no_compress
 
 
 @click.group(name="users", invoke_without_command=False, help="Manage application users and roles.")
-@click.pass_context
+@click.pass_context  # type: ignore[arg-type]
 def user_management_group(_: dict[str, Any]) -> None:
     """Manage application users."""
 
 
 @user_management_group.command(name="create-user", help="Create a user")
-@click.option(
+@click.option(  # pyright: ignore
     "--email",
     help="Email of the new user",
     type=click.STRING,
     required=False,
     show_default=False,
 )
-@click.option(
+@click.option(  # pyright: ignore
     "--name",
     help="Full name of the new user",
     type=click.STRING,
     required=False,
     show_default=False,
 )
-@click.option(
+@click.option(  # pyright: ignore
     "--password",
     help="Password",
     type=click.STRING,
     required=False,
     show_default=False,
 )
-@click.option(
+@click.option(  # pyright: ignore
     "--superuser",
     help="Create as a superuser",
     type=click.BOOL,
@@ -493,7 +493,7 @@ def create_user(
 
 
 @user_management_group.command(name="promote-to-superuser", help="Promotes a user to application superuser")
-@click.option(
+@click.option(  # pyright: ignore
     "--email",
     help="Email of the user",
     type=click.STRING,

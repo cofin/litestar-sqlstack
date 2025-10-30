@@ -1,5 +1,5 @@
 -- name: create-user
-INSERT INTO user_account (id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at )
+INSERT INTO user_account (id, email, name, hashed_password, avatar_url, is_active, is_superuser, is_verified, verified_at, joined_at, created_at, updated_at)
 VALUES (
     :id,
     :email,
@@ -10,7 +10,9 @@ VALUES (
     :is_superuser,
     :is_verified,
     :verified_at,
-    :joined_at
+    COALESCE(:joined_at, CURRENT_DATE),
+    NOW(),
+    NOW()
 )
 RETURNING id;
 
@@ -28,31 +30,31 @@ WHERE id = :user_id;
 -- name: get-user-account-details
 SELECT
     u.id, u.email, u.name,
-    case when u.hashed_password is not null then 1 else 0 end as has_password,
+    (u.hashed_password IS NOT NULL) as has_password,
     u.avatar_url,
     u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
     u.created_at, u.updated_at,
     COALESCE(
-        json_agg(
-            DISTINCT json_build_object(
+        jsonb_agg(
+            DISTINCT jsonb_build_object(
                 'team_id', tm.team_id,
                 'team_name', t.name,
                 'role', tm.role,
                 'is_owner', tm.is_owner
             )
         ) FILTER (WHERE tm.team_id IS NOT NULL),
-        '[]'::json
+        '[]'::jsonb
     ) as teams,
     COALESCE(
-        json_agg(
-            DISTINCT json_build_object(
+        jsonb_agg(
+            DISTINCT jsonb_build_object(
                 'role_id', r.id,
                 'role_slug', r.slug,
                 'role_name', r.name,
                 'assigned_at', ur.assigned_at
             )
         ) FILTER (WHERE r.id IS NOT NULL),
-        '[]'::json
+        '[]'::jsonb
     ) as roles
 FROM user_account u
 LEFT JOIN team_member tm ON u.id = tm.user_id
@@ -60,7 +62,7 @@ LEFT JOIN team t ON tm.team_id = t.id
 LEFT JOIN user_account_role ur ON u.id = ur.user_id
 LEFT JOIN role r ON ur.role_id = r.id
 WHERE u.id = :user_id
-GROUP BY u.id, u.email, u.name, case when u.hashed_password is not null then 1 else 0 end, u.avatar_url,
+GROUP BY u.id, u.email, u.name, u.hashed_password, u.avatar_url,
          u.is_active, u.is_superuser, u.is_verified, u.verified_at, u.joined_at,
          u.created_at, u.updated_at;
 

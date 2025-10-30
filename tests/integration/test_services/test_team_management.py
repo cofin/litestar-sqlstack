@@ -35,7 +35,7 @@ class TestTeamManagement:
             is_active=True,
             is_verified=True,
         )
-        owner = await user_service.create(owner_data)
+        owner = await user_service.create_user(owner_data)
 
         # Create team
         team_data = s.TeamCreate(
@@ -115,7 +115,7 @@ class TestTeamManagement:
 
         users = []
         for user_data in users_data:
-            user = await user_service.create(user_data)
+            user = await user_service.create_user(user_data)
             users.append(user)
 
         # Add members with different roles
@@ -179,7 +179,7 @@ class TestTeamManagement:
             is_active=True,
             is_verified=True,
         )
-        inviter = await user_service.create(inviter_data)
+        inviter = await user_service.create_user(inviter_data)
 
         # Create invitation
         invitation_data = s.TeamInvitationCreate(
@@ -233,7 +233,7 @@ class TestTeamManagement:
             is_active=True,
             is_verified=True,
         )
-        inviter = await user_service.create(inviter_data)
+        inviter = await user_service.create_user(inviter_data)
 
         invitee_data = s.UserCreate(
             email="invite-receiver@example.com",
@@ -242,7 +242,7 @@ class TestTeamManagement:
             is_active=True,
             is_verified=True,
         )
-        invitee = await user_service.create(invitee_data)
+        invitee = await user_service.create_user(invitee_data)
 
         # Create invitation
         invitation_data = s.TeamInvitationCreate(
@@ -323,7 +323,7 @@ class TestTeamManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Create teams
         team1_data = s.TeamCreate(name="User Team 1", description="First user team")

@@ -58,7 +58,7 @@ class FixtureProcessor:
 
         data_list = from_json(data)
         if isinstance(data_list, list):
-            return [dict(item) if isinstance(item, Mapping) else item for item in data_list]
+            return [dict(item) if isinstance(item, Mapping) else item for item in data_list]  # type: ignore[misc]
         return []
 
     def prepare_record(self, record: dict[str, Any]) -> Mapping[str, Any]:
@@ -118,7 +118,7 @@ class FixtureProcessor:
 
         if isinstance(parsed, (list, tuple)):
             try:
-                return [float(value) for value in parsed]
+                return [float(value) for value in parsed]  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 return None
 
@@ -307,7 +307,7 @@ class FixtureExporter:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        results = {}
+        results: dict[str, str] = {}
 
         if tables is None:
             tables = self.table_order
@@ -339,9 +339,9 @@ class FixtureExporter:
             return "No data found"
 
         # Convert to JSON-serializable format
-        json_data = []
+        json_data: list[dict[str, Any]] = []
         for record in records:
-            record_dict = dict(record)
+            record_dict = dict(record)  # type: ignore[arg-type]
 
             # Handle special types
             for key, value in record_dict.items():

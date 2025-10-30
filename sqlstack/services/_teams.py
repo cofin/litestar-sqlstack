@@ -7,7 +7,6 @@ from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import schema_dump
 
 from sqlstack import schemas as s
-from sqlstack.config import sqlspec as db_manager
 from sqlstack.services._base import LimitOffsetFilter, OffsetPagination, SQLSpecService, StatementFilter
 
 # Constants that were in lib.constants
@@ -26,13 +25,36 @@ class TeamService(SQLSpecService):
             team_data["slug"] = await self.get_available_slug(team_data.get("name", ""))
         owner_id = team_data.pop("owner_id", None)
         tags = team_data.pop("tags", [])
-        await self.driver.select_one(
-            db_manager.get_sql("create-team"),
-            team_data,
-            schema_type=s.Team,
+
+        await self.driver.execute(
+            sql.insert("team")
+            .columns("id", "slug", "name", "description", "is_active", "created_at", "updated_at")
+            .values(
+                team_id,
+                team_data["slug"],
+                team_data["name"],
+                team_data.get("description"),
+                team_data.get("is_active", True),
+                sql.raw("NOW()"),
+                sql.raw("NOW()"),
+            ),
         )
+
         if owner_id:
-            await self.driver.execute(db_manager.get_sql("add-team-owner"), team_id=team_id, user_id=owner_id)
+            await self.driver.execute(
+                sql.insert("team_member")
+                .columns("id", "team_id", "user_id", "role", "is_owner", "joined_at", "created_at", "updated_at")
+                .values(
+                    sql.raw("gen_random_uuid()"),
+                    team_id,
+                    owner_id,
+                    "ADMIN",
+                    True,
+                    sql.raw("NOW()"),
+                    sql.raw("NOW()"),
+                    sql.raw("NOW()"),
+                ),
+            )
         await self._update_team_tags(team_id, tags)
         return await self._get_team_with_relationships(team_id)
 
@@ -42,12 +64,12 @@ class TeamService(SQLSpecService):
         if "name" in team_data and "slug" not in team_data:
             team_data["slug"] = await self.get_available_slug(team_data["name"])
         tags = team_data.pop("tags", None)
-        team_data["team_id"] = team_id
-        await self.driver.select_one(
-            db_manager.get_sql("update-team"),
-            team_data,
-            schema_type=s.Team,
-        )
+
+        if team_data:
+            await self.driver.execute(
+                sql.update("team").set(**team_data, updated_at=sql.raw("NOW()")).where_eq("id", team_id),
+            )
+
         if tags is not None:
             await self._update_team_tags(team_id, tags)
         return await self._get_team_with_relationships(team_id)
@@ -55,7 +77,7 @@ class TeamService(SQLSpecService):
     async def delete(self, team_id: UUID) -> s.Team:
         """Delete a team and all related data."""
         team = await self._get_team_with_relationships(team_id)
-        await self.driver.execute(db_manager.get_sql("delete-team"), team_id=team_id)
+        await self.driver.execute(sql.delete("team").where_eq("id", team_id))
         return team
 
     async def get_one(self, team_id: UUID) -> s.Team:
@@ -64,20 +86,18 @@ class TeamService(SQLSpecService):
 
     async def get_by_slug(self, slug: str) -> s.Team | None:
         """Get a team by slug."""
-        if row := (await self.driver.select_one_or_none(db_manager.get_sql("get-team-id-by-slug"), slug=slug)):
+        if row := await self.driver.select_one_or_none(sql.select("id").from_("team").where_eq("slug", slug)):
             return await self._get_team_with_relationships(row["id"])
         return None
 
     async def list_with_count(self, *filters: StatementFilter, user: s.User | None = None) -> OffsetPagination[s.Team]:
         """List teams with pagination and filtering."""
         if user and not self.can_view_all(user):
-            stmt = db_manager.get_sql("list-teams-for-user")
-            params = {"user_id": user.id}
+            stmt = sql.select("DISTINCT t.id").from_("team t").join("team_member tm", "t.id = tm.team_id").where_eq("tm.user_id", user.id)
         else:
-            stmt = db_manager.get_sql("list-all-teams")
-            params = {}
+            stmt = sql.select("id").from_("team")
 
-        data, total = await self.driver.select_with_total(stmt, params, *filters)
+        data, total = await self.driver.select_with_total(stmt, *filters)
         limit_offset = self.driver.find_filter(LimitOffsetFilter, filters)
         teams = [await self._get_team_with_relationships(row["id"]) for row in data]
         return OffsetPagination(
@@ -132,17 +152,21 @@ class TeamService(SQLSpecService):
     async def get_user_teams(self, user_id: UUID) -> list[s.Team]:
         """Get all teams for a user."""
         team_rows = await self.driver.select(
-            db_manager.get_sql("get-teams-for-user"),
-            user_id=user_id,
+            sql.select("DISTINCT t.id")
+            .from_("team t")
+            .join("team_member tm", "t.id = tm.team_id")
+            .where_eq("tm.user_id", user_id),
         )
         return [await self._get_team_with_relationships(row["id"]) for row in team_rows]
 
     async def search_teams(self, query: str, limit: int = 10) -> list[s.Team]:
         """Search teams by name or description."""
         team_rows = await self.driver.select(
-            db_manager.get_sql("search-teams"),
+            sql.select("id")
+            .from_("team")
+            .where("name ILIKE '%' || :query || '%' OR description ILIKE '%' || :query || '%'")
+            .limit(limit),
             query=query,
-            limit=limit,
         )
         return [await self._get_team_with_relationships(row["id"]) for row in team_rows]
 
@@ -167,22 +191,80 @@ class TeamService(SQLSpecService):
 
     async def _update_team_tags(self, team_id: UUID, tag_names: list[str]) -> None:
         """Update tags for a team."""
-        await self.driver.execute(db_manager.get_sql("clear-team-tags"), team_id=team_id)
+        # Clear existing team tags
+        await self.driver.execute(sql.delete("team_tag").where_eq("team_id", team_id))
+
         for tag_name in tag_names:
+            tag_slug = slugify(tag_name)
+            # Try to get or create tag
             tag_row = await self.driver.select_one_or_none(
-                db_manager.get_sql("upsert-tag"),
-                name=tag_name,
-                slug=slugify(tag_name),
+                sql.select("id").from_("tag").where_eq("name", tag_name),
             )
             if not tag_row:
-                tag_row = await self.driver.select_one(db_manager.get_sql("get-tag-id-by-name"), name=tag_name)
-            await self.driver.execute(db_manager.get_sql("add-team-tag"), team_id=team_id, tag_id=tag_row["id"])
+                # Create new tag
+                tag_row = await self.driver.select_one(
+                    sql.insert("tag")
+                    .columns("id", "name", "slug", "created_at", "updated_at")
+                    .values(sql.raw("gen_random_uuid()"), tag_name, tag_slug, sql.raw("NOW()"), sql.raw("NOW()"))
+                    .returning("id"),
+                )
+
+            # Add team_tag relationship
+            await self.driver.execute(
+                sql.insert("team_tag")
+                .columns("team_id", "tag_id")
+                .values(team_id, tag_row["id"])
+                .on_conflict_do_nothing(),
+            )
 
     async def _get_team_with_relationships(self, team_id: UUID) -> s.Team:
         """Get a team with all its relationships loaded."""
         return await self.get_or_404(
-            db_manager.get_sql("get-team-with-relationships"),
-            team_id=team_id,
+            sql.select(
+                "t.id",
+                "t.slug",
+                "t.name",
+                "t.description",
+                "t.is_active",
+                "t.created_at",
+                "t.updated_at",
+                sql.raw("""
+                    COALESCE(
+                        json_agg(
+                            DISTINCT jsonb_build_object(
+                                'id', tm.id,
+                                'userId', tm.user_id,
+                                'email', u.email,
+                                'name', u.name,
+                                'role', tm.role,
+                                'isOwner', tm.is_owner,
+                                'joinedAt', tm.joined_at
+                            )
+                        ) FILTER (WHERE tm.id IS NOT NULL),
+                        '[]'::json
+                    ) as members
+                """),
+                sql.raw("""
+                    COALESCE(
+                        json_agg(
+                            DISTINCT jsonb_build_object(
+                                'id', tag.id,
+                                'slug', tag.slug,
+                                'name', tag.name,
+                                'description', tag.description
+                            )
+                        ) FILTER (WHERE tag.id IS NOT NULL),
+                        '[]'::json
+                    ) as tags
+                """),
+            )
+            .from_("team t")
+            .left_join("team_member tm", "t.id = tm.team_id")
+            .left_join("user_account u", "tm.user_id = u.id")
+            .left_join("team_tag tt", "t.id = tt.team_id")
+            .left_join("tag", "tt.tag_id = tag.id")
+            .where_eq("t.id", team_id)
+            .group_by("t.id", "t.slug", "t.name", "t.description", "t.is_active", "t.created_at", "t.updated_at"),
             schema_type=s.Team,
             error_message=f"Team {team_id} not found",
         )

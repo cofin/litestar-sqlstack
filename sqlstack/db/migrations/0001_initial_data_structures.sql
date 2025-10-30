@@ -29,6 +29,7 @@ create table team (
     name varchar not null,
     description varchar(500),
     is_active boolean not null,
+    is_superuser boolean not null default false,
     created_at timestamp with time zone not null,
     updated_at timestamp with time zone not null
 );
@@ -41,6 +42,7 @@ create table user_account (
     hashed_password varchar(255),
     avatar_url varchar(500),
     is_active boolean not null,
+    is_superuser boolean not null default false,
     is_verified boolean not null,
     verified_at date,
     joined_at date not null,

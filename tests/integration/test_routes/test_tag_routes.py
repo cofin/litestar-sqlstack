@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from sqlstack import schemas as s
 
 
+@pytest.mark.anyio
 class TestTagRoutes:
     """Test Tag HTTP endpoints."""
 

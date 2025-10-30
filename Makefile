@@ -139,13 +139,13 @@ coverage:                                          ## Run the tests and generate
 .PHONY: test
 test:                                              ## Run the tests
 	@echo "${INFO} Running test cases... 🧪"
-	@uv run pytest tests -n 2 --quiet
+	@uv run pytest tests --quiet
 	@echo "${OK} Tests passed ✨"
 
 .PHONY: test-all
 test-all:                                          ## Run all tests
 	@echo "${INFO} Running all test cases... 🧪"
-	@uv run pytest tests -m '' -n 2 --quiet
+	@uv run pytest tests -m '' --quiet
 	@echo "${OK} All tests passed ✨"
 
 .PHONY: check-all

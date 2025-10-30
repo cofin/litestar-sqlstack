@@ -21,14 +21,20 @@ class UserService(SQLSpecService):
 
     async def create_user(self, data: s.UserCreate | s.AccountRegister) -> s.User:
         """Create a new user account."""
+        from uuid import uuid4
         user_data = schema_dump(data, exclude_unset=True)
+        user_data.setdefault("id", uuid4())
         user_data.setdefault("is_superuser", False)
+        user_data.setdefault("avatar_url", None)
+        user_data.setdefault("joined_at", None)  # Will use CURRENT_DATE in SQL if None
         if has_password := user_data.pop("password", None):
             user_data["hashed_password"] = await get_password_hash(has_password)
         initial_team = user_data.pop("initial_team_name", None)
         user_id = await self.driver.select_value(db_manager.get_sql("create-user"), user_data)
-        if role_id := await self.driver.select_value(sql.select("id").from_("role").where_eq("slug", "member")):
-            await self.driver.execute(sql.insert("user_role").values(user_id=user_id, role_id=role_id))
+        # Optionally assign default role if it exists
+        role_id = await self.driver.select_value_or_none(sql.select("id").from_("role").where_eq("slug", "member"))
+        if role_id:
+            await self.driver.execute(sql.insert("user_account_role").columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at").values(sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")))
         if initial_team:
             team_id = await self.driver.select_value(
                 sql.insert("team").values(name=initial_team, slug=slugify(initial_team))

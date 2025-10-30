@@ -18,16 +18,31 @@ class UserRoleService(SQLSpecService):
 
     async def assign_role_to_user(self, user_id: UUID, role_id: UUID) -> s.UserRole:
         """Assign a role to a user."""
+        # Insert the role assignment
+        await self.driver.execute(
+            sql.insert("user_account_role")
+            .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
+            .values(sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()"))
+        )
+        # Return the full UserRole with role details
         return await self.driver.select_one(
-            sql.insert("user_role")
-            .values(user_id=user_id, role_id=role_id, assigned_at=sql.raw("NOW()"))
-            .returning("user_id", "role_id", "assigned_at", "assigned_by_id"),
+            sql.select(
+                "ur.user_id",
+                "ur.role_id",
+                "ur.assigned_at",
+                "r.slug as role_slug",
+                "r.name as role_name",
+            )
+            .from_("user_account_role ur")
+            .join("role r", "ur.role_id = r.id")
+            .where_eq("ur.user_id", user_id)
+            .where_eq("ur.role_id", role_id),
             schema_type=s.UserRole,
         )
 
     async def revoke_role_from_user(self, user_id: UUID, role_id: UUID) -> None:
         """Revoke a role from a user."""
-        await self.driver.execute(sql.delete("user_role").where_eq("user_id", user_id).where_eq("role_id", role_id))
+        await self.driver.execute(sql.delete("user_account_role").where_eq("user_id", user_id).where_eq("role_id", role_id))
 
     async def get_user_roles(self, user_id: UUID) -> list[s.UserRole]:
         """Get all roles assigned to a user."""
@@ -40,7 +55,7 @@ class UserRoleService(SQLSpecService):
                 "r.slug as role_slug",
                 "r.name as role_name",
             )
-            .from_("user_role ur")
+            .from_("user_account_role ur")
             .join("role r", "ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
             .order_by("r.name"),
@@ -64,7 +79,7 @@ class UserRoleService(SQLSpecService):
                 "u.last_login",
             )
             .from_("user_account u")
-            .join("user_role ur", "u.id = ur.user_id")
+            .join("user_account_role ur", "u.id = ur.user_id")
             .where_eq("ur.role_id", role_id)
             .order_by("u.name"),
             schema_type=s.User,
@@ -73,14 +88,14 @@ class UserRoleService(SQLSpecService):
     async def user_has_role(self, user_id: UUID, role_id: UUID) -> bool:
         """Check if a user has a specific role."""
         return await self.exists(
-            sql.select("1").from_("user_role").where_eq("user_id", user_id).where_eq("role_id", role_id),
+            sql.select("1").from_("user_account_role").where_eq("user_id", user_id).where_eq("role_id", role_id),
         )
 
     async def user_has_role_by_slug(self, user_id: UUID, role_slug: str) -> bool:
         """Check if a user has a role by role slug."""
         return await self.exists(
             sql.select("1")
-            .from_("user_role ur")
+            .from_("user_account_role ur")
             .join("role r", "ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
             .where_eq("r.slug", role_slug),
@@ -103,7 +118,7 @@ class UserRoleService(SQLSpecService):
                 "u.last_login",
             )
             .from_("user_account u")
-            .join("user_role ur", "u.id = ur.user_id")
+            .join("user_account_role ur", "u.id = ur.user_id")
             .join("role r", "ur.role_id = r.id")
             .where_eq("r.slug", role_slug)
             .order_by("u.name"),
@@ -123,7 +138,7 @@ class UserRoleService(SQLSpecService):
                 "u.email",
                 "u.name as user_name",
             )
-            .from_("user_role ur")
+            .from_("user_account_role ur")
             .join("role r", "ur.role_id = r.id")
             .join("user_account u", "ur.user_id = u.id")
             .order_by("ur.assigned_at DESC"),
@@ -134,14 +149,14 @@ class UserRoleService(SQLSpecService):
     async def get_role_assignment_count(self, role_id: UUID) -> int:
         """Get the number of users assigned to a role."""
         result = await self.driver.select_one(
-            sql.select("COUNT(*) as count").from_("user_role").where_eq("role_id", role_id),
+            sql.select("COUNT(*) as count").from_("user_account_role").where_eq("role_id", role_id),
         )
         return int(result["count"])
 
     async def get_user_assignment_count(self, user_id: UUID) -> int:
         """Get the number of roles assigned to a user."""
         result = await self.driver.select_one(
-            sql.select("COUNT(*) as count").from_("user_role").where_eq("user_id", user_id),
+            sql.select("COUNT(*) as count").from_("user_account_role").where_eq("user_id", user_id),
         )
         return int(result["count"])
 

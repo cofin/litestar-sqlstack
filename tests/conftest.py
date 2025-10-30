@@ -3,27 +3,12 @@
 from __future__ import annotations
 
 # Set test environment before any other imports
-import inspect
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import anyio
 import pytest
 from litestar.testing import AsyncTestClient
-
-os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-
-os.environ.update(
-    {
-        "SECRET_KEY": "test-secret-key-for-testing-only",
-        "DATABASE_URL": "postgresql://test:test@localhost:5432/test_sqlstack",
-        "DATABASE_ECHO": "false",
-        "DATABASE_ECHO_POOL": "false",
-        "LOG_LEVEL": "40",  # WARNING level as integer
-        "EMAIL_ENABLED": "false",
-    }
-)
 
 from sqlstack import schemas as s
 from sqlstack.services import (
@@ -53,64 +38,16 @@ pytest_plugins = [
 ]
 
 
-def pytest_configure(config: pytest.Config) -> None:  # type: ignore[name-defined]
-    if config.pluginmanager.hasplugin("anyio"):
-        plugin = config.pluginmanager.get_plugin("anyio")
-        config.pluginmanager.unregister(plugin, name="anyio")
+os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
 
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool:  # type: ignore[name-defined]
-    testfunction = pyfuncitem.obj
-    if not inspect.iscoroutinefunction(testfunction):
-        return False
-
-    backend = pyfuncitem.funcargs.get("anyio_backend", "asyncio")
-    backend_options = pyfuncitem.funcargs.get("anyio_backend_options") or {}
-    sig = inspect.signature(testfunction)
-    call_kwargs = {name: pyfuncitem.funcargs[name] for name in sig.parameters if name in pyfuncitem.funcargs}
-
-    async def _run_test() -> Any:
-        return await testfunction(**call_kwargs)
-
-    anyio.run(_run_test, backend=backend, backend_options=backend_options)
-    return True
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_fixture_setup(  # type: ignore[name-defined]
-    fixturedef: pytest.FixtureDef,
-    request: pytest.FixtureRequest,
-) -> Any:
-    func = fixturedef.func
-    if inspect.iscoroutinefunction(func):
-
-        async def _setup() -> Any:
-            kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
-            return await func(**kwargs)
-
-        return anyio.run(_setup)
-
-    if inspect.isasyncgenfunction(func):
-
-        async def _setup_gen() -> Any:
-            kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
-            agen = func(**kwargs)
-            try:
-                value = await agen.__anext__()
-            except StopAsyncIteration as exc:  # pragma: no cover - invalid fixture usage
-                error_msg = "Async generator fixture did not yield"
-                raise RuntimeError(error_msg) from exc
-
-            def _finalizer() -> None:
-                anyio.run(agen.aclose)
-
-            request.addfinalizer(_finalizer)
-            return value
-
-        return anyio.run(_setup_gen)
-
-    return None
+os.environ.update({
+    "SECRET_KEY": "test-secret-key-for-testing-only",
+    "DATABASE_URL": "postgresql://test:test@localhost:5432/test_sqlstack",
+    "DATABASE_ECHO": "false",
+    "DATABASE_ECHO_POOL": "false",
+    "LOG_LEVEL": "40",  # WARNING level as integer
+    "EMAIL_ENABLED": "false",
+})
 
 
 @pytest.fixture(scope="session")
@@ -141,6 +78,7 @@ async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, Non
         migration_config={
             "script_location": str(migration_path),
             "version_table_name": "sqlspec_migrations_test",
+            "extensions": ["litestar"],
         },
     )
 
@@ -437,3 +375,37 @@ async def admin_client(client: AsyncTestClient, admin_user: s.User) -> AsyncTest
         client.headers.update({"Authorization": f"Bearer {token}"})
 
     return client
+
+
+@pytest.fixture
+async def authenticated_headers(
+    request: pytest.FixtureRequest, client: AsyncTestClient, test_user: s.User, admin_user: s.User
+) -> dict[str, str]:
+    """Create authentication headers for different user types.
+
+    Usage:
+        @pytest.mark.parametrize("authenticated_headers", ["user"], indirect=True)
+        async def test_something(client: AsyncTestClient, authenticated_headers: dict[str, str]):
+            response = await client.get("/api/endpoint", headers=authenticated_headers)
+    """
+    user_type = request.param if hasattr(request, "param") else "user"
+
+    if user_type == "superuser":
+        email = admin_user.email
+        password = "AdminPassword123!"
+    else:  # user
+        email = test_user.email
+        password = "TestPassword123!"
+
+    # Login and get token
+    login_response = await client.post(
+        "/api/access/login",
+        data={"username": email, "password": password},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+    if login_response.status_code == 200:
+        token = login_response.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    return {}

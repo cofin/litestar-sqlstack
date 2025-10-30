@@ -53,8 +53,8 @@ class UserRoleController(Controller):
         user_obj = await users_service.get_user(email=data.user_name)  # type: ignore[call-arg]
         obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)  # type: ignore[attr-defined]
         if created:
-            return s.Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")
-        return s.Message(message=f"User {obj.user_email} already has the '{obj.role_slug}' role.")
+            return s.Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")  # type: ignore[attr-defined]
+        return s.Message(message=f"User {obj.user_email} already has the '{obj.role_slug}' role.")  # type: ignore[attr-defined]
 
     @delete(operation_id="RevokeUserRole", path="/api/users/roles", status_code=HTTP_202_ACCEPTED)
     async def revoke_role(
@@ -80,11 +80,11 @@ class UserRoleController(Controller):
         """
         user_obj = await users_service.get_user(email=data.user_name)  # type: ignore[call-arg]
         removed_role: bool = False
-        for user_role in user_obj.roles:
-            if user_role.role_slug == role_slug:
+        for user_role in user_obj.roles:  # type: ignore[attr-defined]
+            if user_role.role_slug == role_slug:  # type: ignore[attr-defined]
                 _ = await user_roles_service.delete(user_role.id)  # type: ignore[attr-defined]
                 removed_role = True
         if not removed_role:
             msg = "User did not have role assigned."
             raise HTTPException(status_code=400, detail=msg)
-        return s.Message(message=f"Removed the '{role_slug}' role from User {user_obj.email}.")
+        return s.Message(message=f"Removed the '{role_slug}' role from User {user_obj.email}.")  # type: ignore[attr-defined]

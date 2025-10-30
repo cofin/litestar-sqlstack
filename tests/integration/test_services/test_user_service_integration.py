@@ -33,7 +33,7 @@ class TestUserServiceIntegration:
             is_verified=False,
         )
 
-        created_user = await user_service.create(user_data)
+        created_user = await user_service.create_user(user_data)
 
         assert created_user.email == "lifecycle@example.com"
         assert created_user.name == "Lifecycle User"
@@ -83,7 +83,7 @@ class TestUserServiceIntegration:
             is_verified=True,
         )
 
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Test successful authentication
         authenticated_user = await user_service.authenticate("auth-test@example.com", "AuthTestPassword123!")
@@ -121,7 +121,7 @@ class TestUserServiceIntegration:
             is_verified=True,
         )
 
-        first_user = await user_service.create(user_data_1)
+        first_user = await user_service.create_user(user_data_1)
         assert first_user.email == "unique-test@example.com"
 
         # Try to create second user with same email
@@ -134,7 +134,7 @@ class TestUserServiceIntegration:
         )
 
         try:
-            await user_service.create(user_data_2)
+            await user_service.create_user(user_data_2)
         except UniqueViolationError:
             dup_detected = True
         else:
@@ -179,7 +179,7 @@ class TestUserServiceIntegration:
 
         created_users = []
         for user_data in users_to_create:
-            created_user = await user_service.create(user_data)
+            created_user = await user_service.create_user(user_data)
             created_users.append(created_user)
 
         # Test basic listing
@@ -206,7 +206,7 @@ class TestUserServiceIntegration:
             is_verified=True,
         )
 
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Verify original password works
         auth_original = await user_service.authenticate("password-change@example.com", "OriginalPassword123!")
@@ -243,7 +243,7 @@ class TestUserServiceIntegration:
             is_verified=True,
         )
 
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Check existence by email
         exists_by_email = await user_service.exists_by_email("existence-check@example.com")

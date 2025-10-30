@@ -88,7 +88,7 @@ etl_config = sqlspec.add_config(
     )
 )
 
-sqlspec.load_sql_files(BASE_DIR / "db" / "sql")
+sqlspec.load_sql_files(BASE_DIR / "sqlstack" / "db" / "sql")
 
 
 session_store = AsyncpgStore(config=sqlspec.get_config(db_config))

@@ -80,8 +80,8 @@ class User(CamelizedBaseStruct):
     is_superuser: bool = False
     verified_at: date | None = None
     has_password: bool = False
-    teams: list[UserTeam] = msgspec.field(default_factory=list)
-    roles: list[UserRole] = msgspec.field(default_factory=list)
+    teams: list[UserTeam] = msgspec.field(default_factory=lambda: list[UserTeam]())
+    roles: list[UserRole] = msgspec.field(default_factory=lambda: list[UserRole]())
 
 
 class UserCreate(CamelizedBaseStruct):

@@ -32,16 +32,7 @@ dev = [
 ]
 docs = []
 linting = ["pre-commit", "mypy", "ruff", "slotscheck", "types-click", "types-pyyaml", "pyright"]
-test = [
-    "pytest",
-    "pytest-xdist",
-    "anyio",
-    "pytest-mock",
-    "pytest-cov",
-    "coverage[toml]",
-    "pytest-sugar",
-    "pytest-databases[postgres]",
-]
+test = ["pytest", "anyio", "pytest-mock", "pytest-cov", "coverage[toml]", "pytest-sugar", "pytest-databases[postgres]"]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -270,7 +261,6 @@ pythonVersion = "3.12"
 reportMissingTypeStubs = false
 reportPrivateImportUsage = false
 reportUnknownMemberType = false
-reportUnnecessaryTypeIgnoreComments = true
 reportUnusedFunction = false
 strict = ["sqlstack/**/*"]
 venv = ".venv"

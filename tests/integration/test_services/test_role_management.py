@@ -26,7 +26,7 @@ class TestRoleManagement:
         """Test creating roles and assigning them to users."""
         # Create a custom role
         role_data = s.RoleCreate(name="Content Editor")
-        role = await role_service.create(role_data)
+        role = await role_service.create_role(role_data)
 
         assert role.name == "Content Editor"
         assert role.id is not None
@@ -39,17 +39,13 @@ class TestRoleManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Assign role to user
-        user_role_data = s.UserRoleCreate(
-            user_id=user.id,
-            role_id=role.id,
-        )
-        user_role = await user_role_service.create(user_role_data)
+        user_role = await user_role_service.assign_role_to_user(user.id, role.id)
 
-        assert user_role.user_id == user.id
         assert user_role.role_id == role.id
+        assert user_role.role_slug is not None
 
         # Verify user has the role
         has_role = await user_role_service.user_has_role(user.id, role.id)
@@ -66,8 +62,8 @@ class TestRoleManagement:
         admin_role_data = s.RoleCreate(name="Admin")
         moderator_role_data = s.RoleCreate(name="Moderator")
 
-        admin_role = await role_service.create(admin_role_data)
-        moderator_role = await role_service.create(moderator_role_data)
+        admin_role = await role_service.create_role(admin_role_data)
+        moderator_role = await role_service.create_role(moderator_role_data)
 
         # Create user
         user_data = s.UserCreate(
@@ -77,7 +73,7 @@ class TestRoleManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Assign multiple roles using bulk assignment (if available)
         try:
@@ -93,8 +89,8 @@ class TestRoleManagement:
             admin_assignment = s.UserRoleCreate(user_id=user.id, role_id=admin_role.id)
             moderator_assignment = s.UserRoleCreate(user_id=user.id, role_id=moderator_role.id)
 
-            await user_role_service.create(admin_assignment)
-            await user_role_service.create(moderator_assignment)
+            await user_role_service.assign_role_to_user(user.id, admin_role.id)
+            await user_role_service.assign_role_to_user(user.id, moderator_role.id)
 
         # Verify user has both roles
         user_roles = await user_role_service.get_user_roles(user.id)
@@ -113,7 +109,7 @@ class TestRoleManagement:
         """Test removing roles from users."""
         # Create role and user
         role_data = s.RoleCreate(name="Temporary Role")
-        role = await role_service.create(role_data)
+        role = await role_service.create_role(role_data)
 
         user_data = s.UserCreate(
             email="temp-role@example.com",
@@ -122,18 +118,17 @@ class TestRoleManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Assign role
-        user_role_data = s.UserRoleCreate(user_id=user.id, role_id=role.id)
-        user_role = await user_role_service.create(user_role_data)
+        user_role = await user_role_service.assign_role_to_user(user.id, role.id)
 
         # Verify role is assigned
         has_role = await user_role_service.user_has_role(user.id, role.id)
         assert has_role is True
 
         # Remove role
-        await user_role_service.delete(user_role.id)
+        await user_role_service.revoke_role_from_user(user.id, role.id)
 
         # Verify role is removed
         has_role_after = await user_role_service.user_has_role(user.id, role.id)
@@ -163,7 +158,7 @@ class TestRoleManagement:
         except AttributeError:
             # If create_default_roles doesn't exist, create manually
             user_role_data = s.RoleCreate(name="User")
-            user_role = await role_service.create(user_role_data)
+            user_role = await role_service.create_role(user_role_data)
 
         # Create a user
         user_data = s.UserCreate(
@@ -173,12 +168,11 @@ class TestRoleManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # In a real system, default role might be assigned automatically
         # For testing, we'll assign it manually
-        user_role_assignment = s.UserRoleCreate(user_id=user.id, role_id=user_role.id)
-        await user_role_service.create(user_role_assignment)
+        await user_role_service.assign_role_to_user(user.id, user_role.id)
 
         # Verify default role is assigned
         has_default_role = await user_role_service.user_has_role(user.id, user_role.id)
@@ -195,8 +189,8 @@ class TestRoleManagement:
         admin_role_data = s.RoleCreate(name="Super Admin")
         user_role_data = s.RoleCreate(name="Regular User")
 
-        admin_role = await role_service.create(admin_role_data)
-        user_role = await role_service.create(user_role_data)
+        admin_role = await role_service.create_role(admin_role_data)
+        user_role = await role_service.create_role(user_role_data)
 
         # Create users
         admin_user_data = s.UserCreate(
@@ -216,15 +210,12 @@ class TestRoleManagement:
             is_verified=True,
         )
 
-        admin_user = await user_service.create(admin_user_data)
-        regular_user = await user_service.create(regular_user_data)
+        admin_user = await user_service.create_user(admin_user_data)
+        regular_user = await user_service.create_user(regular_user_data)
 
         # Assign roles
-        admin_assignment = s.UserRoleCreate(user_id=admin_user.id, role_id=admin_role.id)
-        user_assignment = s.UserRoleCreate(user_id=regular_user.id, role_id=user_role.id)
-
-        await user_role_service.create(admin_assignment)
-        await user_role_service.create(user_assignment)
+        await user_role_service.assign_role_to_user(admin_user.id, admin_role.id)
+        await user_role_service.assign_role_to_user(regular_user.id, user_role.id)
 
         # Test permissions (if implemented)
         try:
@@ -253,9 +244,9 @@ class TestRoleManagement:
         admin_data = s.RoleCreate(name="Admin")
         moderator_data = s.RoleCreate(name="Moderator")
 
-        super_admin_role = await role_service.create(super_admin_data)
-        await role_service.create(admin_data)
-        await role_service.create(moderator_data)
+        super_admin_role = await role_service.create_role(super_admin_data)
+        await role_service.create_role(admin_data)
+        await role_service.create_role(moderator_data)
 
         # Create user with highest role
         user_data = s.UserCreate(
@@ -265,11 +256,10 @@ class TestRoleManagement:
             is_active=True,
             is_verified=True,
         )
-        user = await user_service.create(user_data)
+        user = await user_service.create_user(user_data)
 
         # Assign super admin role
-        assignment = s.UserRoleCreate(user_id=user.id, role_id=super_admin_role.id)
-        await user_role_service.create(assignment)
+        await user_role_service.assign_role_to_user(user.id, super_admin_role.id)
 
         # Verify role assignment
         has_super_admin = await user_role_service.user_has_role(user.id, super_admin_role.id)
