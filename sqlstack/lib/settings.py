@@ -14,10 +14,12 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from litestar.data_extractors import RequestExtractorField
 from litestar.utils.module_loader import module_to_os_path
+from sqlspec.adapters.asyncpg import AsyncpgConfig
 from sqlspec.utils.text import slugify
 
 from sqlstack.__metadata__ import __version__ as current_version
@@ -32,70 +34,110 @@ DEFAULT_MODULE_NAME = "sqlstack"
 BASE_DIR: Final[Path] = module_to_os_path(DEFAULT_MODULE_NAME)
 STATIC_DIR = Path(BASE_DIR / "server" / "public")
 TEMPLATE_DIR = Path(BASE_DIR / "server" / "templates")
+TRUE_VALUES = {"True", "true", "1", "yes", "Y", "T"}
 
 
 @dataclass
 class DatabaseSettings:
-    ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", False))
-    """Enable SQLSpec query logs."""
-    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", False))
-    """Enable SQLSpec connection pool logs."""
-    POOL_DISABLED: bool = field(default_factory=get_env("DATABASE_POOL_DISABLED", False))
-    """Disable SQLSpec pool configuration."""
-    POOL_MIN_SIZE: int = field(default_factory=get_env("DATABASE_POOL_MIN_SIZE", 1))
-    """Min size for SQLSpec connection pool"""
-    POOL_MAX_SIZE: int = field(default_factory=get_env("DATABASE_POOL_MAX_SIZE", 10))
-    """Max size for SQLSpec connection pool"""
-    POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
-    """Time in seconds for timing connections out of the connection pool."""
-    POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
-    """Amount of time to wait before recycling connections."""
-    URL: str = field(default_factory=get_env("DATABASE_URL", "postgres://app:app@localhost:15432/app"))
-    """SQLSpec Database URL."""
-    MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations"))
-    """The path to database migrations."""
-    MIGRATION_DDL_VERSION_TABLE: str = field(
-        default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version"),
+    """PostgreSQL Database connection settings."""
+
+    # Database URL (optional, for connection string)
+    URL: str | None = field(default_factory=lambda: os.getenv("DATABASE_URL"))
+    """PostgreSQL Database URL. Format: postgresql://user:password@host:port/database"""
+
+    # Standard Database fields
+    USER: str = field(default_factory=lambda: os.getenv("DATABASE_USER", "app"))
+    """PostgreSQL Database User."""
+    PASSWORD: str = field(default_factory=lambda: os.getenv("DATABASE_PASSWORD", "super-secret"))
+    """PostgreSQL Database Password."""
+    HOST: str = field(default_factory=lambda: os.getenv("DATABASE_HOST", "localhost"))
+    """PostgreSQL Database Host."""
+    PORT: int = field(default_factory=lambda: int(os.getenv("DATABASE_PORT", "5432")))
+    """PostgreSQL Database Port."""
+    DATABASE: str = field(default_factory=lambda: os.getenv("DATABASE_NAME", "app"))
+    """PostgreSQL Database Name."""
+    POOL_MIN_SIZE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_MIN_SIZE", "5")))
+    """Minimum pool size."""
+    POOL_MAX_SIZE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_MAX_SIZE", "20")))
+    """Maximum pool size."""
+    POOL_TIMEOUT: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_TIMEOUT", "30")))
+    """Pool timeout in seconds."""
+    POOL_RECYCLE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_RECYCLE", "300")))
+    """Pool recycle time in seconds."""
+    MIGRATION_PATH: str = field(
+        default_factory=lambda: os.getenv("DATABASE_MIGRATION_PATH", str(BASE_DIR / "db" / "migrations"))
     )
-    """The name to use for the migrations versions table name."""
-    FIXTURE_PATH: str = field(default_factory=get_env("DATABASE_FIXTURE_PATH", f"{BASE_DIR}/db/fixtures"))
+    """Database migration path."""
+    FIXTURE_PATH: str = f"{BASE_DIR}/db/fixtures"
     """The path to JSON fixture files to load into tables."""
+
+    def get_connection_params(self) -> dict[str, Any]:
+        """Extract connection parameters for PostgreSQL."""
+        if self.URL:
+            parsed = urlparse(self.URL)
+            return {
+                "user": parsed.username or self.USER,
+                "password": parsed.password or self.PASSWORD,
+                "host": parsed.hostname or self.HOST,
+                "port": parsed.port or self.PORT,
+                "database": parsed.path.lstrip("/") if parsed.path else self.DATABASE,
+            }
+        return {
+            "user": self.USER,
+            "password": self.PASSWORD,
+            "host": self.HOST,
+            "port": self.PORT,
+            "database": self.DATABASE,
+        }
+
+    def create_config(self) -> AsyncpgConfig:
+        """Create PostgreSQL database configuration using asyncpg."""
+        conn_params = self.get_connection_params()
+
+        return AsyncpgConfig(
+            pool_config={
+                "user": conn_params["user"],
+                "password": conn_params["password"],
+                "host": conn_params["host"],
+                "port": conn_params["port"],
+                "database": conn_params["database"],
+                "min_size": self.POOL_MIN_SIZE,
+                "max_size": self.POOL_MAX_SIZE,
+                "timeout": self.POOL_TIMEOUT,
+                "command_timeout": 60,
+                "max_queries": 50000,
+                "max_inactive_connection_lifetime": float(self.POOL_RECYCLE),
+            },
+            migration_config={
+                "version_table_name": "ddl_version",
+                "script_location": self.MIGRATION_PATH,
+                "project_root": BASE_DIR,
+                "include_extensions": ["litestar"],
+            },
+            extension_config={"litestar": {"session_table": "app_session"}},
+        )
 
 
 @dataclass
 class ServerSettings:
     """Server configurations."""
 
-    APP_LOC: str = "sqlstack.asgi:create_app"
-    """Path to app executable or factory."""
-    HOST: str = field(default_factory=get_env("LITESTAR_HOST", "0.0.0.0"))  # noqa: S104
+    APP_LOC: str = "sqlspec.server.asgi:app"
+    """Path to app executable, or factory."""
+    HOST: str = field(default_factory=lambda: os.getenv("LITESTAR_HOST", "0.0.0.0"))  # noqa: S104
     """Server network host."""
-    PORT: int = field(default_factory=get_env("LITESTAR_PORT", 8000))
+    PORT: int = field(default_factory=lambda: int(os.getenv("LITESTAR_PORT", "8000")))
     """Server port."""
-    KEEPALIVE: int = field(default_factory=get_env("LITESTAR_KEEPALIVE", 65))
+    KEEPALIVE: int = field(default_factory=lambda: int(os.getenv("LITESTAR_KEEPALIVE", "65")))
     """Seconds to hold connections open (65 is > AWS lb idle timeout)."""
-    RELOAD: bool = field(default_factory=get_env("LITESTAR_RELOAD", False))
+    RELOAD: bool = field(default_factory=lambda: os.getenv("LITESTAR_RELOAD", "False") in TRUE_VALUES)
     """Turn on hot reloading."""
-    RELOAD_DIRS: list[str] = field(default_factory=get_env("LITESTAR_RELOAD_DIRS", [f"{BASE_DIR}"]))
+    RELOAD_DIRS: list[str] = field(default_factory=lambda: [f"{BASE_DIR}"])
     """Directories to watch for reloading."""
-
-
-@dataclass
-class StorageSettings:
-    """Storage configurations."""
-
-    PUBLIC_STORAGE_KEY: str = field(default_factory=get_env("PUBLIC_STORAGE_KEY", "public"))
-    """The key to the public storage directory."""
-    PUBLIC_STORAGE_URI: str = field(default_factory=get_env("PUBLIC_STORAGE_PATH_URI", f"{BASE_DIR}/storage/public"))
-    """The path to the public storage directory."""
-    PUBLIC_STORAGE_OPTIONS: dict[str, Any] = field(default_factory=get_env("PUBLIC_STORAGE_OPTIONS", {}))
-    """The options to use for the public storage directory."""
-    PRIVATE_STORAGE_KEY: str = field(default_factory=get_env("PRIVATE_STORAGE_KEY", "private"))
-    """The key to the private storage directory."""
-    PRIVATE_STORAGE_URI: str = field(default_factory=get_env("PRIVATE_STORAGE_PATH_URI", f"{BASE_DIR}/storage/private"))
-    """The path to the private storage directory."""
-    PRIVATE_STORAGE_OPTIONS: dict[str, Any] = field(default_factory=get_env("PRIVATE_STORAGE_OPTIONS", {}))
-    """The options to use for the private storage directory."""
+    HTTP_WORKERS: int | None = field(
+        default_factory=lambda: int(os.getenv("WEB_CONCURRENCY")) if os.getenv("WEB_CONCURRENCY") is not None else None  # type: ignore[arg-type]
+    )
+    """Number of HTTP Worker processes to be spawned by Uvicorn."""
 
 
 @dataclass
@@ -141,7 +183,7 @@ class AppSettings:
     DEBUG: bool = field(default_factory=get_env("LITESTAR_DEBUG", False))
     """Run `Litestar` with `debug=True`."""
     SECRET_KEY: str = field(
-        default_factory=get_env("SECRET_KEY", binascii.hexlify(os.urandom(32)).decode(encoding="utf-8")),
+        default_factory=get_env("SECRET_KEY", binascii.hexlify(os.urandom(32)).decode(encoding="utf-8"))
     )
     """Application secret key."""
     JWT_ENCRYPTION_ALGORITHM: str = "HS256"
@@ -162,8 +204,6 @@ class AppSettings:
     """Fully qualified path to optional use for URL generation."""
     DEV_MODE: bool = field(default_factory=get_env("DEV_MODE", False))
     """Toggle dev mode flag.  This can be used enable extra processes during development."""
-    ENABLE_INSTRUMENTATION: bool = False
-    """Enable OpenTelemetry instrumentation"""
     GOOGLE_OAUTH2_CLIENT_ID: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_ID", ""))
     """Google Client ID"""
     GOOGLE_OAUTH2_CLIENT_SECRET: str = field(default_factory=get_env("GOOGLE_OAUTH2_CLIENT_SECRET", ""))
@@ -217,32 +257,21 @@ class LogSettings:
     """Request header keys to obfuscate."""
     REQUEST_FIELDS: list[RequestExtractorField] = field(
         default_factory=get_env(
-            "LOG_REQUEST_FIELDS",
-            [
-                "path",
-                "method",
-                "query",
-                "path_params",
-            ],
-            list[RequestExtractorField],
-        ),
+            "LOG_REQUEST_FIELDS", ["path", "method", "query", "path_params"], list[RequestExtractorField]
+        )
     )
     """Attributes of the [Request][litestar.connection.request.Request] to be
     logged."""
     RESPONSE_FIELDS: list[ResponseExtractorField] = field(
         default_factory=cast(
-            "Callable[[],list[ResponseExtractorField]]",
-            get_env(
-                "LOG_RESPONSE_FIELDS",
-                ["status_code"],
-            ),
-        ),
+            "Callable[[],list[ResponseExtractorField]]", get_env("LOG_RESPONSE_FIELDS", ["status_code"])
+        )
     )
     """Attributes of the [Response][litestar.response.Response] to be
     logged."""
     SQLSPEC_LEVEL: int = field(default_factory=get_env("SQLSPEC_LOG_LEVEL", 30))
     """Level to log SQLSpec logs."""
-    SQLGLOT_LEVEL: int = field(default_factory=get_env("SQLGLOT_LOG_LEVEL", 40))
+    SQLGLOT_LEVEL: int = field(default_factory=get_env("SQLGLOT_LOG_LEVEL", 30))
     """Level to log SQLGlot logs."""
     ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 30))
     """Level to log uvicorn access logs."""
@@ -256,7 +285,6 @@ class Settings:
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
     server: ServerSettings = field(default_factory=ServerSettings)
     log: LogSettings = field(default_factory=LogSettings)
-    storage: StorageSettings = field(default_factory=StorageSettings)
     email: EmailSettings = field(default_factory=EmailSettings)
 
     @classmethod
@@ -278,7 +306,6 @@ class Settings:
             server: ServerSettings = ServerSettings()
             app: AppSettings = AppSettings()
             log: LogSettings = LogSettings()
-            storage: StorageSettings = StorageSettings()
             email: EmailSettings = EmailSettings()
         except Exception as e:  # noqa: BLE001
             logger.fatal("Could not load settings. %s", e)
@@ -286,7 +313,7 @@ class Settings:
         finally:
             os.environ.clear()
             os.environ.update(original_env)
-        return Settings(app=app, db=db, server=server, log=log, storage=storage, email=email)
+        return Settings(app=app, db=db, server=server, log=log, email=email)
 
 
 def get_settings(dotenv_filename: str = ".env") -> Settings:

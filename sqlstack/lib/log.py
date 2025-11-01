@@ -34,7 +34,7 @@ HTTP_RESPONSE_START: Literal["http.response.start"] = "http.response.start"
 HTTP_RESPONSE_BODY: Literal["http.response.body"] = "http.response.body"
 REQUEST_BODY_FIELD: Literal["body"] = "body"
 
-settings = get_settings()
+_settings = get_settings()
 
 
 @lru_cache
@@ -43,11 +43,11 @@ def is_tty() -> bool:
 
 
 def structlog_json_serializer(value: EventDict, **_: Any) -> bytes:
-    return serialization.to_json(value)
+    return serialization.to_json(value, as_bytes=True)
 
 
 def stdlib_json_serializer(value: EventDict, **_: Any) -> str:  # pragma: no cover
-    return serialization.to_json(value).decode("utf-8")
+    return serialization.to_json(value, as_bytes=False)
 
 
 def add_google_cloud_attributes(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
@@ -164,32 +164,32 @@ class BeforeSendHandler:
 
     def __init__(self) -> None:
         """Configure the handler."""
-        self.exclude_paths = re.compile(settings.log.EXCLUDE_PATHS)
-        self.do_log_request = bool(settings.log.REQUEST_FIELDS)
-        self.do_log_response = bool(settings.log.RESPONSE_FIELDS)
-        self.include_compressed_body = settings.log.INCLUDE_COMPRESSED_BODY
+        self.exclude_paths = re.compile(_settings.log.EXCLUDE_PATHS)
+        self.do_log_request = bool(_settings.log.REQUEST_FIELDS)
+        self.do_log_response = bool(_settings.log.RESPONSE_FIELDS)
+        self.include_compressed_body = _settings.log.INCLUDE_COMPRESSED_BODY
         self.request_extractor = ConnectionDataExtractor(
-            extract_body="body" in settings.log.REQUEST_FIELDS,
-            extract_client="client" in settings.log.REQUEST_FIELDS,
-            extract_content_type="content_type" in settings.log.REQUEST_FIELDS,
-            extract_cookies="cookies" in settings.log.REQUEST_FIELDS,
-            extract_headers="headers" in settings.log.REQUEST_FIELDS,
-            extract_method="method" in settings.log.REQUEST_FIELDS,
-            extract_path="path" in settings.log.REQUEST_FIELDS,
-            extract_path_params="path_params" in settings.log.REQUEST_FIELDS,
-            extract_query="query" in settings.log.REQUEST_FIELDS,
-            extract_scheme="scheme" in settings.log.REQUEST_FIELDS,
-            obfuscate_cookies=settings.log.OBFUSCATE_COOKIES,
-            obfuscate_headers=settings.log.OBFUSCATE_HEADERS,
+            extract_body="body" in _settings.log.REQUEST_FIELDS,
+            extract_client="client" in _settings.log.REQUEST_FIELDS,
+            extract_content_type="content_type" in _settings.log.REQUEST_FIELDS,
+            extract_cookies="cookies" in _settings.log.REQUEST_FIELDS,
+            extract_headers="headers" in _settings.log.REQUEST_FIELDS,
+            extract_method="method" in _settings.log.REQUEST_FIELDS,
+            extract_path="path" in _settings.log.REQUEST_FIELDS,
+            extract_path_params="path_params" in _settings.log.REQUEST_FIELDS,
+            extract_query="query" in _settings.log.REQUEST_FIELDS,
+            extract_scheme="scheme" in _settings.log.REQUEST_FIELDS,
+            obfuscate_cookies=_settings.log.OBFUSCATE_COOKIES,
+            obfuscate_headers=_settings.log.OBFUSCATE_HEADERS,
             parse_body=False,
             parse_query=False,
         )
         self.response_extractor = ResponseDataExtractor(
-            extract_body="body" in settings.log.RESPONSE_FIELDS,
-            extract_headers="headers" in settings.log.RESPONSE_FIELDS,
-            extract_status_code="status_code" in settings.log.RESPONSE_FIELDS,
-            obfuscate_cookies=settings.log.OBFUSCATE_COOKIES,
-            obfuscate_headers=settings.log.OBFUSCATE_HEADERS,
+            extract_body="body" in _settings.log.RESPONSE_FIELDS,
+            extract_headers="headers" in _settings.log.RESPONSE_FIELDS,
+            extract_status_code="status_code" in _settings.log.RESPONSE_FIELDS,
+            obfuscate_cookies=_settings.log.OBFUSCATE_COOKIES,
+            obfuscate_headers=_settings.log.OBFUSCATE_HEADERS,
         )
 
     async def __call__(self, message: Message, scope: Scope) -> None:
@@ -259,7 +259,7 @@ class BeforeSendHandler:
         data: dict[str, Any] = {}
         extracted_data = self.request_extractor(connection=request)
         missing = object()
-        for key in settings.log.REQUEST_FIELDS:
+        for key in _settings.log.REQUEST_FIELDS:
             value = extracted_data.get(key, missing)
             if value is missing:  # pragma: no cover
                 continue
@@ -286,12 +286,12 @@ class BeforeSendHandler:
         """
         data: dict[str, Any] = {}
         extracted_data = self.response_extractor(
-            messages=(scope["state"][HTTP_RESPONSE_START], scope["state"][HTTP_RESPONSE_BODY]),
+            messages=(scope["state"][HTTP_RESPONSE_START], scope["state"][HTTP_RESPONSE_BODY])
         )
         missing = object()
         connection_state = ScopeState.from_scope(scope)
         response_body_compressed = value_or_default(connection_state.response_compressed, False)
-        for key in settings.log.RESPONSE_FIELDS:
+        for key in _settings.log.RESPONSE_FIELDS:
             value = extracted_data.get(key, missing)
             if key == "body" and response_body_compressed and not self.include_compressed_body:
                 continue
@@ -325,8 +325,7 @@ def structlog_processors(as_json: bool) -> list[Processor]:
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.dev.ConsoleRenderer(
-                colors=True,
-                exception_formatter=RichTracebackFormatter(max_frames=1, show_locals=False, width=80),
+                colors=True, exception_formatter=RichTracebackFormatter(max_frames=1, show_locals=False, width=80)
             ),
         ]
     except ImportError:
@@ -362,8 +361,7 @@ def stdlib_logger_processors(as_json: bool) -> list[Processor]:
             EventFilter(["message"]),
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.dev.ConsoleRenderer(
-                colors=True,
-                exception_formatter=RichTracebackFormatter(max_frames=1, show_locals=False, width=80),
+                colors=True, exception_formatter=RichTracebackFormatter(max_frames=1, show_locals=False, width=80)
             ),
         ]
     except ImportError:

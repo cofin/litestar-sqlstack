@@ -72,14 +72,7 @@ def test_server_settings_default_values() -> None:
 
 def test_server_settings_env_override() -> None:
     """Test server settings environment variable overrides."""
-    with patch.dict(
-        os.environ,
-        {
-            "LITESTAR_HOST": "127.0.0.1",
-            "LITESTAR_PORT": "3000",
-            "LITESTAR_RELOAD": "true",
-        },
-    ):
+    with patch.dict(os.environ, {"LITESTAR_HOST": "127.0.0.1", "LITESTAR_PORT": "3000", "LITESTAR_RELOAD": "true"}):
         server_settings = ServerSettings()
 
         assert server_settings.HOST == "127.0.0.1"
@@ -276,13 +269,7 @@ def test_settings_initialization() -> None:
 
 def test_settings_from_env() -> None:
     """Test settings creation from environment."""
-    with patch.dict(
-        os.environ,
-        {
-            "SECRET_KEY": "test-from-env",
-            "DATABASE_ECHO": "true",
-        },
-    ):
+    with patch.dict(os.environ, {"SECRET_KEY": "test-from-env", "DATABASE_ECHO": "true"}):
         settings = Settings.from_env()
 
         assert settings.app.SECRET_KEY == "test-from-env"

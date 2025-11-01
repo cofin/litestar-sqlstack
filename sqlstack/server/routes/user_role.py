@@ -73,14 +73,14 @@ class UserRoleController(Controller):
             role_slug: Role Slug
 
         Raises:
-            IntegrityError: If the user does not have the role assigned.
+            HTTPException: If the user does not have the role assigned.
 
         Returns:
             s.Message
         """
         user_obj = await users_service.get_user(email=data.user_name)  # type: ignore[call-arg]
         removed_role: bool = False
-        for user_role in user_obj.roles:  # type: ignore[attr-defined]
+        for user_role in user_obj.roles:
             if user_role.role_slug == role_slug:  # type: ignore[attr-defined]
                 _ = await user_roles_service.delete(user_role.id)  # type: ignore[attr-defined]
                 removed_role = True

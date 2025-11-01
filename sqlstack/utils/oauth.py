@@ -38,13 +38,7 @@ class OAuth2AuthorizeCallbackError(OAuth2Error, HTTPException):
         extra: dict[str, Any] | list[Any] | None = None,
     ) -> None:
         super().__init__(message=detail)
-        HTTPException.__init__(
-            self,
-            detail=detail,
-            status_code=status_code,
-            extra=extra,
-            headers=headers,
-        )
+        HTTPException.__init__(self, detail=detail, status_code=status_code, extra=extra, headers=headers)
         self.response = response
 
 
@@ -72,10 +66,7 @@ class OAuth2AuthorizeCallback:
     redirect_url: str | None
 
     def __init__(
-        self,
-        client: BaseOAuth2[OAuth2Token],
-        route_name: str | None = None,
-        redirect_url: str | None = None,
+        self, client: BaseOAuth2[OAuth2Token], route_name: str | None = None, redirect_url: str | None = None
     ) -> None:
         """Args:
         client: An [OAuth2][httpx_oauth.oauth2.BaseOAuth2] client.
@@ -99,17 +90,12 @@ class OAuth2AuthorizeCallback:
     ) -> AccessTokenState:
         if code is None or error is not None:
             raise OAuth2AuthorizeCallbackError(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error if error is not None else None,
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error if error is not None else None
             )
 
         redirect_url = str(request.url_for(self.route_name)) if self.route_name else self.redirect_url
         try:
-            access_token = await self.client.get_access_token(
-                code,
-                cast("str", redirect_url),
-                code_verifier,
-            )
+            access_token = await self.client.get_access_token(code, cast("str", redirect_url), code_verifier)
         except GetAccessTokenError as e:
             raise OAuth2AuthorizeCallbackError(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -133,12 +119,10 @@ class OAuth2ProviderPlugin(InitPluginProtocol):
         Returns:
             AppConfig: The configured :class:`AppConfig <.config.app.AppConfig>` instance.
         """
-        app_config.signature_namespace.update(
-            {
-                "OAuth2AuthorizeCallback": OAuth2AuthorizeCallback,
-                "AccessTokenState": AccessTokenState,
-                "OAuth2Token": OAuth2Token,
-            },
-        )
+        app_config.signature_namespace.update({
+            "OAuth2AuthorizeCallback": OAuth2AuthorizeCallback,
+            "AccessTokenState": AccessTokenState,
+            "OAuth2Token": OAuth2Token,
+        })
 
         return app_config

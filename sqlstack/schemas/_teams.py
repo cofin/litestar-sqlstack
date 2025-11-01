@@ -3,8 +3,8 @@ from uuid import UUID
 
 import msgspec
 
+from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.schemas._enums import TeamRoles
-from sqlstack.schemas.base import CamelizedBaseStruct
 
 __all__ = (
     "Team",

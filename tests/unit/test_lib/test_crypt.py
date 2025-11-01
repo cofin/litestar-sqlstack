@@ -266,12 +266,7 @@ class TestEncryptionKey:
 
     def test_get_encryption_key_special_characters(self) -> None:
         """Test encryption key with special characters in secret."""
-        secrets = [
-            "secret!@#$%^&*()",
-            "secret\nwith\nnewlines",
-            "secret\twith\ttabs",
-            "secret with spaces",
-        ]
+        secrets = ["secret!@#$%^&*()", "secret\nwith\nnewlines", "secret\twith\ttabs", "secret with spaces"]
 
         for secret in secrets:
             key = get_encryption_key(secret)

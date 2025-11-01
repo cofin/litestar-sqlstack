@@ -5,6 +5,7 @@ dependencies = [
     "litestar-granian[uvloop]>=0.12.2",
     "litestar[structlog,jwt,jinja]>=2.15.2",
     "pwdlib[argon2]>=0.2.1",
+    "dishka",
     "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@main",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
@@ -138,6 +139,12 @@ line-length = 120
 src = ["sqlstack", "tests"]
 target-version = "py312"
 
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 60
+preview = true
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint]
 fixable = ["ALL"]
 ignore = [
@@ -193,19 +200,28 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 "sqlstack/db/migrations/*.py" = ['D104', 'D103', 'D205', 'D212']
 "tests/*.py" = ['D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
 "tools/*.py" = ["INP001", "ERA001", "N999"]
-"tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT", "INP001", "S603", "S404", "PLR0915"]
+"tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT", "INP001", "S603", "S404", "S607", "PLR0915"]
+
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.mccabe]
-max-complexity = 16
+max-complexity = 25
+
+[tool.ruff.lint.pylint]
+max-bool-expr = 10
+max-branches = 20
+max-locals = 20
+max-nested-blocks = 7
+max-returns = 15
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["classmethod"]
 
 [tool.ruff.lint.isort]
 known-first-party = ['tests', 'sqlstack', 'docs', 'tools']
+split-on-trailing-comma = false
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -265,6 +281,3 @@ reportUnusedFunction = false
 strict = ["sqlstack/**/*"]
 venv = ".venv"
 venvPath = "."
-
-[tool.uv.sources]
-sqlspec = { path = ".sqlspec", editable = true }

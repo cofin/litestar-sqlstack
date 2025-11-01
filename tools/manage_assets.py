@@ -38,10 +38,10 @@ def manage_resources(setup_kwargs: Any) -> Any:
         kwargs["shell"] = True
     if install_packages is not None:
         logger.info("Installing NPM packages.")
-        subprocess.run(["npm", "install"], **kwargs, cwd=PROJECT_ROOT / "src/js")  # noqa: S607, PLW1510
+        subprocess.run(["npm", "install"], **kwargs, cwd=PROJECT_ROOT / "src/js")  # noqa: PLW1510
     if build_assets is not None:
         logger.info("Building NPM static assets.")
-        subprocess.run(["npm", "run", "build"], **kwargs, cwd=PROJECT_ROOT / "src/js")  # noqa: S607, PLW1510
+        subprocess.run(["npm", "run", "build"], **kwargs, cwd=PROJECT_ROOT / "src/js")  # noqa: PLW1510
     return setup_kwargs
 
 

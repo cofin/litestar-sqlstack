@@ -5,7 +5,7 @@ from uuid import UUID
 
 import msgspec
 
-from sqlstack.schemas.base import CamelizedBaseStruct
+from sqlstack.lib.schema import CamelizedBaseStruct
 
 
 # Properties to receive via API on creation

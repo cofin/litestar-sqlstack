@@ -23,18 +23,12 @@ class TeamController(Controller):
     """Teams."""
 
     tags = ["Teams"]
-    dependencies = {
-        "teams_service": Provide(deps.provide_team_service, sync_to_thread=False),
-    }
+    dependencies = {"teams_service": Provide(deps.provide_team_service, sync_to_thread=False)}
 
     guards = [security.requires_active_user]
 
     @get(component="team/list", operation_id="ListTeams", path="/api/teams")
-    async def list_teams(
-        self,
-        teams_service: TeamService,
-        current_user: s.User,
-    ) -> OffsetPagination[s.Team]:
+    async def list_teams(self, teams_service: TeamService, current_user: s.User) -> OffsetPagination[s.Team]:
         """List teams that your account can access.
 
         Args:

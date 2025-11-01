@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 # Set test environment before any other imports
-import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from litestar.testing import AsyncTestClient
+from sqlspec.adapters.asyncpg import AsyncpgConfig
 
 from sqlstack import schemas as s
+from sqlstack.config import get_settings
 from sqlstack.services import (
     EmailVerificationService,
     PasswordService,
@@ -28,26 +29,10 @@ if TYPE_CHECKING:
     from litestar import Litestar
     from pytest import MonkeyPatch
     from pytest_databases.docker.postgres import PostgresService
-    from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver
+    from sqlspec.adapters.asyncpg import AsyncpgDriver
 
 pytestmark = pytest.mark.anyio
-pytest_plugins = [
-    "tests.data_fixtures",
-    "pytest_databases.docker",
-    "pytest_databases.docker.postgres",
-]
-
-
-os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-
-os.environ.update({
-    "SECRET_KEY": "test-secret-key-for-testing-only",
-    "DATABASE_URL": "postgresql://test:test@localhost:5432/test_sqlstack",
-    "DATABASE_ECHO": "false",
-    "DATABASE_ECHO_POOL": "false",
-    "LOG_LEVEL": "40",  # WARNING level as integer
-    "EMAIL_ENABLED": "false",
-})
+pytest_plugins = ["tests.data_fixtures", "pytest_databases.docker", "pytest_databases.docker.postgres"]
 
 
 @pytest.fixture(scope="session")
@@ -56,35 +41,57 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-@pytest.fixture(scope="session")
-def database_url(postgres_service: PostgresService) -> str:
-    """PostgreSQL URL for testing."""
-    return (
+@pytest.fixture(scope="session", autouse=True)
+def patch_settings(postgres_service: PostgresService, monkeypatch: MonkeyPatch) -> str:
+    """Monkey patch settings to use test database URL.
+
+    This fixture runs before any other fixtures and patches the cached settings
+    object to use the test database connection details instead of loading from .env.
+    """
+    url = (
         f"postgresql://{postgres_service.user}:{postgres_service.password}"
         f"@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
     )
+
+    # Clear the settings cache to force reload
+    get_settings.cache_clear()  # type: ignore[attr-defined]
+
+    # Set environment variables before settings are loaded
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-testing-only")
+    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setenv("EMAIL_ENABLED", "false")
+
+    # Force settings to reload with test environment
+    settings = get_settings()
+
+    # Verify the settings are using the test database
+    assert url == settings.db.URL
+
+    return url
+
+
+@pytest.fixture(scope="session")
+def database_url(patch_settings: str) -> str:
+    """PostgreSQL URL for testing."""
+    return patch_settings
 
 
 @pytest.fixture(scope="session")
 async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, None]:
     """Session-scoped test database configuration that runs migrations."""
-    from sqlspec.adapters.asyncpg import AsyncpgConfig
-    from sqlspec.migrations.commands import AsyncMigrationCommands
 
     migration_path = Path(__file__).parent.parent / "sqlstack" / "db" / "migrations"
 
     config = AsyncpgConfig(
         pool_config={"dsn": database_url, "max_size": 15, "min_size": 5},
+        extension_config={"litestar": {"commit_mode": "autocommit"}},
         migration_config={
             "script_location": str(migration_path),
             "version_table_name": "sqlspec_migrations_test",
             "extensions": ["litestar"],
         },
     )
-
-    # Run migrations to set up schema
-    migration_commands = AsyncMigrationCommands(config)
-    await migration_commands.upgrade("head")
+    await config.migrate_up()
 
     yield config
 
@@ -157,43 +164,23 @@ async def driver(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver,
 
         @property
         def __wrapped__(self) -> AsyncpgDriver:
-            return object.__getattribute__(self, "_driver")
+            return cast("AsyncpgDriver", object.__getattribute__(self, "_driver"))
 
     async with asyncpg_config.provide_session() as raw_driver:
-        yield DriverProxy(raw_driver)
+        yield cast("AsyncpgDriver", DriverProxy(raw_driver))
 
 
 @pytest.fixture
-def app(asyncpg_config: AsyncpgConfig, database_url: str, monkeypatch: MonkeyPatch) -> Litestar:
+def app(asyncpg_config: AsyncpgConfig, monkeypatch: MonkeyPatch) -> Litestar:
     """Litestar app fixture with test database configuration.
 
     Recreates the SQLSpec config to point to test database.
     The asyncpg_config fixture already ran migrations on the test database.
     """
-    import os
-    import sys
 
-    # Remove app config module to force reload
-    if "sqlstack.config" in sys.modules:
-        del sys.modules["sqlstack.config"]
-    if "sqlstack.server.asgi" in sys.modules:
-        del sys.modules["sqlstack.server.asgi"]
+    from sqlstack.server.asgi import create_app
 
-    # Temporarily set env vars for config initialization
-    original_url = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = database_url
-    os.environ["POOL_MIN_SIZE"] = "5"
-    os.environ["POOL_MAX_SIZE"] = "15"
-    os.environ["MIGRATION_DDL_VERSION_TABLE"] = "sqlspec_migrations_test"
-
-    try:
-        from sqlstack.server.asgi import create_app
-
-        return create_app()
-    finally:
-        # Restore original env
-        if original_url:
-            os.environ["DATABASE_URL"] = original_url
+    return create_app()
 
 
 @pytest.fixture
@@ -257,11 +244,7 @@ def user_role_service(driver: AsyncpgDriver) -> UserRoleService:
 async def test_user(user_service: UserService) -> s.User:
     """Create a test user."""
     user_data = s.UserCreate(
-        email="test@example.com",
-        password="TestPassword123!",
-        name="Test User",
-        is_active=True,
-        is_verified=True,
+        email="test@example.com", password="TestPassword123!", name="Test User", is_active=True, is_verified=True
     )
     return await user_service.create_user(user_data)
 
@@ -302,30 +285,21 @@ async def unverified_user(user_service: UserService) -> s.User:
 @pytest.fixture
 async def test_role(role_service: RoleService) -> s.Role:
     """Create a test role."""
-    role_data = s.RoleCreate(
-        name="Test Role",
-        description="A test role for testing",
-    )
+    role_data = s.RoleCreate(name="Test Role", description="A test role for testing")
     return await role_service.create_role(role_data)
 
 
 @pytest.fixture
 async def test_tag(tag_service: TagService) -> s.Tag:
     """Create a test tag."""
-    tag_data = s.TagCreate(
-        name="Test Tag",
-        description="A test tag for testing",
-    )
+    tag_data = s.TagCreate(name="Test Tag", description="A test tag for testing")
     return await tag_service.create_tag(tag_data)
 
 
 @pytest.fixture
 async def test_team(team_service: TeamService, test_user: s.User) -> s.Team:
     """Create a test team with owner."""
-    team_data = s.TeamCreate(
-        name="Test Team",
-        description="A test team for integration testing",
-    )
+    team_data = s.TeamCreate(name="Test Team", description="A test team for integration testing")
     return await team_service.create(team_data)
 
 

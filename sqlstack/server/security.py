@@ -172,11 +172,7 @@ async def current_user_from_token(token: Token, connection: ASGIConnection[Any, 
 
 
 def create_access_token(
-    user_id: str,
-    email: str,
-    is_superuser: bool = False,
-    is_verified: bool = False,
-    auth_method: str = "password",
+    user_id: str, email: str, is_superuser: bool = False, is_verified: bool = False, auth_method: str = "password"
 ) -> str:
     """Create a JWT access token.
 
@@ -208,12 +204,6 @@ auth = OAuth2PasswordBearerAuth[s.User](
     retrieve_user_handler=current_user_from_token,
     token_secret=settings.app.SECRET_KEY,
     token_url="/api/access/login",  # noqa: S106
-    exclude=[
-        "/api/health",
-        "/api/access/login",
-        "/api/access/signup",
-        "^/schema",
-        "^/public/",
-    ],
+    exclude=["/api/health", "/api/access/login", "/api/access/signup", "^/schema", "^/public/"],
 )
 """OAuth2 JWT Authentication."""

@@ -133,13 +133,7 @@ class TestEventFilter:
         filter_keys = ["key1", "key2", "key3"]
         event_filter = EventFilter(filter_keys)
 
-        event_dict = {
-            "message": "Test",
-            "key1": "remove",
-            "key2": "remove",
-            "key3": "remove",
-            "keep": "stay",
-        }
+        event_dict = {"message": "Test", "key1": "remove", "key2": "remove", "key3": "remove", "keep": "stay"}
 
         result = event_filter(MagicMock(), "info", event_dict)
 
@@ -186,12 +180,7 @@ class TestGoogleCloudAttributes:
 
     def test_add_google_cloud_attributes_preserves_other_fields(self) -> None:
         """Test that other fields are preserved."""
-        event_dict = {
-            "level": "debug",
-            "event": "debug message",
-            "user_id": "123",
-            "request_id": "abc",
-        }
+        event_dict = {"level": "debug", "event": "debug message", "user_id": "123", "request_id": "abc"}
 
         result = add_google_cloud_attributes(MagicMock(), "debug", event_dict)
 

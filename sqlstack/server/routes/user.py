@@ -26,19 +26,17 @@ class UserController(Controller):
     tags = ["User Accounts"]
     guards = [security.requires_superuser]
     dependencies = {
-        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
-    } | create_filter_dependencies(
-        {
-            "id_filter": UUID,
-            "search": "name,email",
-            "pagination_type": "limit_offset",
-            "pagination_size": 20,
-            "created_at": True,
-            "updated_at": True,
-            "sort_field": "name",
-            "sort_order": "asc",
-        },
-    )
+        "users_service": Provide(deps.provide_users_service, sync_to_thread=False)
+    } | create_filter_dependencies({
+        "id_filter": UUID,
+        "search": "name,email",
+        "pagination_type": "limit_offset",
+        "pagination_size": 20,
+        "created_at": True,
+        "updated_at": True,
+        "sort_field": "name",
+        "sort_order": "asc",
+    })
 
     @get(operation_id="ListUsers")
     async def list_users(

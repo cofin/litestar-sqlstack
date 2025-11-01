@@ -23,16 +23,11 @@ class RoleController(Controller):
 
     path = "/api/roles"
     guards = [requires_active_user, requires_superuser]
-    dependencies = {
-        "roles_service": Provide(deps.provide_role_service, sync_to_thread=False),
-    }
+    dependencies = {"roles_service": Provide(deps.provide_role_service, sync_to_thread=False)}
     tags = ["Roles"]
 
     @get(operation_id="ListRoles")
-    async def list_roles(
-        self,
-        roles_service: RoleService,
-    ) -> OffsetPagination[s.Role]:
+    async def list_roles(self, roles_service: RoleService) -> OffsetPagination[s.Role]:
         """List roles.
 
         Args:

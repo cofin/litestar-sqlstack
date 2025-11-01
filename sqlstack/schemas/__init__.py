@@ -25,6 +25,7 @@ from sqlstack.schemas._email_verification import (
     EmailVerificationToken,
 )
 from sqlstack.schemas._enums import TeamRoles
+from sqlstack.schemas._messages import Message
 from sqlstack.schemas._password import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
@@ -49,15 +50,10 @@ from sqlstack.schemas._teams import (
     TeamTag,
     TeamUpdate,
 )
-from sqlstack.schemas.base import BaseSchema, BaseStruct, CamelizedBaseSchema, CamelizedBaseStruct, Message
 
 __all__ = (
     "AccountLogin",
     "AccountRegister",
-    "BaseSchema",
-    "BaseStruct",
-    "CamelizedBaseSchema",
-    "CamelizedBaseStruct",
     "EmailVerificationConfirm",
     "EmailVerificationRequest",
     "EmailVerificationResponse",

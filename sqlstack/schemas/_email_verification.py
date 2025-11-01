@@ -1,12 +1,7 @@
-from __future__ import annotations
+from datetime import datetime
+from uuid import UUID
 
-from typing import TYPE_CHECKING
-
-from sqlstack.schemas.base import CamelizedBaseStruct
-
-if TYPE_CHECKING:
-    from datetime import datetime
-    from uuid import UUID
+from sqlstack.lib.schema import CamelizedBaseStruct
 
 __all__ = (
     "EmailVerificationConfirm",

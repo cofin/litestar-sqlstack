@@ -95,54 +95,43 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.stores = config.stores
         app_config.middleware.append(config.session_config.middleware)
         # plugins
-        app_config.plugins.extend(
-            [
-                plugins.structlog,
-                plugins.granian,
-                plugins.sqlspec,
-                plugins.problem_details,
-            ],
-        )
+        app_config.plugins.extend([plugins.structlog, plugins.granian, plugins.sqlspec, plugins.problem_details])
 
         # routes
-        app_config.route_handlers.extend(
-            [
-                routes.AccessController,
-                routes.ProfileController,
-                routes.RoleController,
-                routes.SystemController,
-                routes.TagController,
-                routes.TeamController,
-                routes.TeamMemberController,
-                routes.UserController,
-                routes.UserRoleController,
-                routes.WebController,
-            ],
-        )
+        app_config.route_handlers.extend([
+            routes.AccessController,
+            routes.ProfileController,
+            routes.RoleController,
+            routes.SystemController,
+            routes.TagController,
+            routes.TeamController,
+            routes.TeamMemberController,
+            routes.UserController,
+            routes.UserRoleController,
+            routes.WebController,
+        ])
         # signatures
-        app_config.signature_namespace.update(
-            {
-                "Token": Token,
-                "OAuth2Login": OAuth2Login,
-                "RequestEncodingType": RequestEncodingType,
-                "Body": Body,
-                "Parameter": Parameter,
-                "s": s,
-                "UUID": UUID,
-                "EmailVerificationService": EmailVerificationService,
-                "FilterTypes": FilterTypes,
-                "PasswordService": PasswordService,
-                "RoleService": RoleService,
-                "TagService": TagService,
-                "TeamMemberService": TeamMemberService,
-                "TeamService": TeamService,
-                "UserRoleService": UserRoleService,
-                "UserService": UserService,
-                "OffsetPagination": OffsetPagination,
-                "SQLSpecService": SQLSpecService,
-                "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
-            },
-        )
+        app_config.signature_namespace.update({
+            "Token": Token,
+            "OAuth2Login": OAuth2Login,
+            "RequestEncodingType": RequestEncodingType,
+            "Body": Body,
+            "Parameter": Parameter,
+            "s": s,
+            "UUID": UUID,
+            "EmailVerificationService": EmailVerificationService,
+            "FilterTypes": FilterTypes,
+            "PasswordService": PasswordService,
+            "RoleService": RoleService,
+            "TagService": TagService,
+            "TeamMemberService": TeamMemberService,
+            "TeamService": TeamService,
+            "UserRoleService": UserRoleService,
+            "UserService": UserService,
+            "OffsetPagination": OffsetPagination,
+            "SQLSpecService": SQLSpecService,
+            "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
+        })
         # dependencies
         dependencies = {"current_user": Provide(security.provide_user, sync_to_thread=False)}
         app_config.dependencies.update(dependencies)

@@ -12,14 +12,8 @@ from sqlspec import sql
 from sqlspec.utils.sync_tools import run_
 from sqlspec.utils.text import slugify
 
-from sqlstack.config import (
-    DEFAULT_ACCESS_ROLE,
-    SUPERUSER_ACCESS_ROLE,
-    db_config,
-)
-from sqlstack.config import (
-    sqlspec as sqlspec_manager,
-)
+from sqlstack.config import DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE, db_config
+from sqlstack.config import sqlspec as sqlspec_manager
 from sqlstack.lib.settings import get_settings
 from sqlstack.schemas import UserCreate
 from sqlstack.services import UserRoleService, UserService
@@ -110,13 +104,7 @@ def _display_fixture_list() -> None:
             status = f"[red]error: {exc!s}[/red]"
 
         size_bytes = fixture_file.stat().st_size
-        table.add_row(
-            table_name,
-            fixture_file.name,
-            str(record_count),
-            _format_size(size_bytes),
-            status,
-        )
+        table.add_row(table_name, fixture_file.name, str(record_count), _format_size(size_bytes), status)
 
     console.print(table)
     console.print()
@@ -149,13 +137,7 @@ def _display_fixture_results(results: ConsoleResult) -> None:
         total_failed += failed
         total_records += total
 
-        table.add_row(
-            table_name,
-            str(upserted),
-            str(failed),
-            str(total),
-            status,
-        )
+        table.add_row(table_name, str(upserted), str(failed), str(total), status)
 
     console.print(table)
     console.print()
@@ -219,11 +201,7 @@ def _print_export_summary(total_success: int, total_failed: int) -> None:
 
 
 async def _ensure_role(
-    driver: AsyncDriverAdapterBase,
-    *,
-    name: str,
-    slug: str,
-    description: str | None = None,
+    driver: AsyncDriverAdapterBase, *, name: str, slug: str, description: str | None = None
 ) -> tuple[UUID, bool]:
     existing = await driver.select_one_or_none(sql.select("id").from_("role").where_eq("slug", slug))
     if existing:
@@ -239,17 +217,13 @@ async def _ensure_role(
             created_at=sql.raw("NOW()"),
             updated_at=sql.raw("NOW()"),
         )
-        .returning("id"),
+        .returning("id")
     )
     return cast("UUID", result["id"]), True
 
 
 async def _ensure_user_role_assignment(
-    service: UserRoleService,
-    *,
-    user_id: UUID,
-    role_id: UUID,
-    role_slug: str,
+    service: UserRoleService, *, user_id: UUID, role_id: UUID, role_slug: str
 ) -> bool:
     if await service.user_has_role_by_slug(user_id, role_slug):
         return False
@@ -395,25 +369,13 @@ def user_management_group(_: dict[str, Any]) -> None:
 
 @user_management_group.command(name="create-user", help="Create a user")
 @click.option(  # pyright: ignore
-    "--email",
-    help="Email of the new user",
-    type=click.STRING,
-    required=False,
-    show_default=False,
+    "--email", help="Email of the new user", type=click.STRING, required=False, show_default=False
 )
 @click.option(  # pyright: ignore
-    "--name",
-    help="Full name of the new user",
-    type=click.STRING,
-    required=False,
-    show_default=False,
+    "--name", help="Full name of the new user", type=click.STRING, required=False, show_default=False
 )
 @click.option(  # pyright: ignore
-    "--password",
-    help="Password",
-    type=click.STRING,
-    required=False,
-    show_default=False,
+    "--password", help="Password", type=click.STRING, required=False, show_default=False
 )
 @click.option(  # pyright: ignore
     "--superuser",
@@ -424,12 +386,7 @@ def user_management_group(_: dict[str, Any]) -> None:
     show_default=False,
     is_flag=True,
 )
-def create_user(
-    email: str | None,
-    name: str | None,
-    password: str | None,
-    superuser: bool | None,
-) -> None:
+def create_user(email: str | None, name: str | None, password: str | None, superuser: bool | None) -> None:
     """Create a user."""
     from typing import cast as typing_cast
 
@@ -437,12 +394,7 @@ def create_user(
 
     console = get_console()
 
-    async def _create_user(
-        email: str,
-        password: str,
-        name: str | None = None,
-        superuser: bool = False,
-    ) -> None:
+    async def _create_user(email: str, password: str, name: str | None = None, superuser: bool = False) -> None:
         async with _provide_driver() as driver:
             user_service = UserService(driver)
             role_service = UserRoleService(driver)
@@ -465,10 +417,7 @@ def create_user(
                         driver, name=SUPERUSER_ACCESS_ROLE, slug=SUPERUSER_ROLE_SLUG
                     )
                     assigned_role = await _ensure_user_role_assignment(
-                        role_service,
-                        user_id=user.id,
-                        role_id=role_id,
-                        role_slug=SUPERUSER_ROLE_SLUG,
+                        role_service, user_id=user.id, role_id=role_id, role_slug=SUPERUSER_ROLE_SLUG
                     )
                     if created_role:
                         console.print(f"[green]created role: {SUPERUSER_ACCESS_ROLE}[/green]")
@@ -484,21 +433,13 @@ def create_user(
     superuser = superuser or click.prompt("Create as superuser?", show_default=True, type=click.BOOL)
 
     anyio.run(
-        _create_user,
-        typing_cast("str", email),
-        typing_cast("str", password),
-        name,
-        typing_cast("bool", superuser),
+        _create_user, typing_cast("str", email), typing_cast("str", password), name, typing_cast("bool", superuser)
     )
 
 
 @user_management_group.command(name="promote-to-superuser", help="Promotes a user to application superuser")
 @click.option(  # pyright: ignore
-    "--email",
-    help="Email of the user",
-    type=click.STRING,
-    required=False,
-    show_default=False,
+    "--email", help="Email of the user", type=click.STRING, required=False, show_default=False
 )
 def promote_to_superuser(email: str | None) -> None:
     """Promote a user to superuser."""
@@ -524,10 +465,7 @@ def promote_to_superuser(email: str | None) -> None:
 
             role_id, created_role = await _ensure_role(driver, name=SUPERUSER_ACCESS_ROLE, slug=SUPERUSER_ROLE_SLUG)
             assigned_role = await _ensure_user_role_assignment(
-                role_service,
-                user_id=user_id,
-                role_id=role_id,
-                role_slug=SUPERUSER_ROLE_SLUG,
+                role_service, user_id=user_id, role_id=role_id, role_slug=SUPERUSER_ROLE_SLUG
             )
 
             await driver.execute(
@@ -548,10 +486,7 @@ def promote_to_superuser(email: str | None) -> None:
     anyio.run(_promote_to_superuser, typing_cast("str", email))
 
 
-@user_management_group.command(
-    name="create-roles",
-    help="Create pre-configured application roles and assign to users.",
-)
+@user_management_group.command(name="create-roles", help="Create pre-configured application roles and assign to users.")
 def create_default_roles() -> None:
     """Create the default roles for the system."""
     import anyio

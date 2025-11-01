@@ -41,9 +41,7 @@ class RoleService(SQLSpecService):
         """Update an existing role."""
         update_data = schema_dump(data, exclude_unset=True)
         if update_data:
-            await self.driver.execute(
-                sql.update("role").set(**update_data).where_eq("id", role_id),
-            )
+            await self.driver.execute(sql.update("role").set(**update_data).where_eq("id", role_id))
         return await self.driver.select_one(
             sql.select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
@@ -78,7 +76,11 @@ class RoleService(SQLSpecService):
 
     async def fetch_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.Role]:
         """List roles with pagination and filtering."""
-        base_query = sql.select("id", "slug", "name", "description", "created_at", "updated_at").from_("role").order_by("created_at", "DESC")
+        base_query = (
+            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            .from_("role")
+            .order_by("created_at", "DESC")
+        )
         return await self.paginate(base_query, *filters, schema_type=s.Role)
 
     async def exists_by_name(self, name: str) -> bool:
@@ -100,14 +102,16 @@ class RoleService(SQLSpecService):
         await self.driver.execute(
             sql.insert("user_account_role")
             .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
-            .values(sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()"))
-            .on_conflict_do_nothing(),
+            .values(
+                sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
+            )
+            .on_conflict_do_nothing()
         )
 
     async def remove_role_from_user(self, user_id: UUID, role_id: UUID) -> None:
         """Remove a role from a user."""
         await self.driver.execute(
-            sql.delete("user_account_role").where_eq("user_id", user_id).where_eq("role_id", role_id),
+            sql.delete("user_account_role").where_eq("user_id", user_id).where_eq("role_id", role_id)
         )
 
     async def get_user_roles(self, user_id: UUID) -> list[s.Role]:

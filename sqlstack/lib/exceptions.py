@@ -9,11 +9,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, Any
 
-from litestar.exceptions import (
-    HTTPException,
-    InternalServerException,
-    PermissionDeniedException,
-)
+from litestar.exceptions import HTTPException, InternalServerException, PermissionDeniedException
 from litestar.status_codes import HTTP_409_CONFLICT, HTTP_500_INTERNAL_SERVER_ERROR
 from structlog.contextvars import bind_contextvars
 
@@ -105,10 +101,7 @@ def after_exception_hook_handler(exc: Exception, _scope: Scope) -> None:
     bind_contextvars(exc_info=sys.exc_info())
 
 
-def exception_to_http_response(
-    request: Request[Any, Any, Any],
-    exc: ApplicationError,
-) -> Response[Any]:
+def exception_to_http_response(request: Request[Any, Any, Any], exc: ApplicationError) -> Response[Any]:
     """Transform application exceptions to HTTP exceptions.
 
     Args:

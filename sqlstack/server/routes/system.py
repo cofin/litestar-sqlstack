@@ -19,16 +19,9 @@ OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
 
 class SystemController(Controller):
     tags = ["System"]
-    dependencies = {
-        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
-    }
+    dependencies = {"users_service": Provide(deps.provide_users_service, sync_to_thread=False)}
 
-    @get(
-        operation_id="SystemHealth",
-        name="system:health",
-        path="/health",
-        summary="Health Check",
-    )
+    @get(operation_id="SystemHealth", name="system:health", path="/health", summary="Health Check")
     async def check_system_health(self, users_service: SQLSpecService) -> Response[s.SystemHealth]:
         """Check database available and returns app config info.
 
@@ -47,15 +40,9 @@ class SystemController(Controller):
 
         healthy = db_status == "online"
         if healthy:
-            await logger.adebug(
-                "System Health",
-                database_status=db_status,
-            )
+            await logger.adebug("System Health", database_status=db_status)
         else:
-            await logger.awarn(
-                "System Health Check",
-                database_status=db_status,
-            )
+            await logger.awarn("System Health Check", database_status=db_status)
 
         return Response(
             content=s.SystemHealth(database_status=db_status),

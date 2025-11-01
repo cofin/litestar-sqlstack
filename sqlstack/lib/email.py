@@ -58,8 +58,7 @@ class EmailService:
 
         self.template_dir = TEMPLATE_DIR
         self.jinja_env = Environment(
-            loader=FileSystemLoader(self.template_dir),
-            autoescape=select_autoescape(["html", "xml"]),
+            loader=FileSystemLoader(self.template_dir), autoescape=select_autoescape(["html", "xml"])
         )
 
     def _create_smtp_connection(self) -> smtplib.SMTP | smtplib.SMTP_SSL | None:
@@ -264,21 +263,14 @@ class EmailService:
 
         try:
             return await self.send_template_email(
-                template_name="email_verification",
-                to_email=user.email,
-                subject=subject,
-                context=context,
+                template_name="email_verification", to_email=user.email, subject=subject, context=context
             )
         except FileNotFoundError:
             logger.debug("Email verification template not found, using fallback")
         except Exception:  # pragma: no cover - logged for troubleshooting
             logger.exception("Failed to render verification template, using fallback email")
 
-        return await self.send_email(
-            to_email=user.email,
-            subject=subject,
-            html_content=fallback_html,
-        )
+        return await self.send_email(to_email=user.email, subject=subject, html_content=fallback_html)
 
     async def send_welcome_email(self, user: User) -> bool:
         """Send welcome email to newly verified user.
@@ -289,18 +281,11 @@ class EmailService:
         Returns:
             True if email was sent successfully
         """
-        context = {
-            "app_name": self.app_name,
-            "user": user,
-            "login_url": f"{self.base_url}/login",
-        }
+        context = {"app_name": self.app_name, "user": user, "login_url": f"{self.base_url}/login"}
 
         try:
             return await self.send_template_email(
-                template_name="welcome",
-                to_email=user.email,
-                subject=f"Welcome to {self.app_name}!",
-                context=context,
+                template_name="welcome", to_email=user.email, subject=f"Welcome to {self.app_name}!", context=context
             )
         except FileNotFoundError:
             logger.debug("Welcome email template not found, using fallback")
@@ -320,17 +305,11 @@ class EmailService:
             """
 
             return await self.send_email(
-                to_email=user.email,
-                subject=f"Welcome to {self.app_name}!",
-                html_content=html_content,
+                to_email=user.email, subject=f"Welcome to {self.app_name}!", html_content=html_content
             )
 
     async def send_password_reset_email(
-        self,
-        user: User,
-        token: str,
-        expires_in_minutes: int = 60,
-        ip_address: str = "unknown",
+        self, user: User, token: str, expires_in_minutes: int = 60, ip_address: str = "unknown"
     ) -> bool:
         """Send password reset email to user.
 
@@ -390,11 +369,7 @@ class EmailService:
         )
 
     async def send_team_invitation_email(
-        self,
-        invitee_email: str,
-        inviter_name: str,
-        team_name: str,
-        invitation_url: str,
+        self, invitee_email: str, inviter_name: str, team_name: str, invitation_url: str
     ) -> bool:
         """Send team invitation email.
 
@@ -431,21 +406,14 @@ class EmailService:
 
         try:
             return await self.send_template_email(
-                template_name="team_invitation",
-                to_email=invitee_email,
-                subject=subject,
-                context=context,
+                template_name="team_invitation", to_email=invitee_email, subject=subject, context=context
             )
         except FileNotFoundError:
             logger.debug("Team invitation template not found, using fallback")
         except Exception:  # pragma: no cover - logged for troubleshooting
             logger.exception("Failed to render team invitation template, using fallback email")
 
-        return await self.send_email(
-            to_email=invitee_email,
-            subject=subject,
-            html_content=fallback_html,
-        )
+        return await self.send_email(to_email=invitee_email, subject=subject, html_content=fallback_html)
 
 
 # Global email service instance

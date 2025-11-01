@@ -3,9 +3,9 @@ from uuid import UUID
 
 import msgspec
 
+from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.lib.types import Email, Name, Password, Slug
 from sqlstack.schemas._enums import TeamRoles
-from sqlstack.schemas.base import CamelizedBaseStruct
 
 __all__ = (
     "AccountLogin",

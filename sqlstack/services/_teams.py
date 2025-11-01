@@ -37,7 +37,7 @@ class TeamService(SQLSpecService):
                 team_data.get("is_active", True),
                 sql.raw("NOW()"),
                 sql.raw("NOW()"),
-            ),
+            )
         )
 
         if owner_id:
@@ -53,7 +53,7 @@ class TeamService(SQLSpecService):
                     sql.raw("NOW()"),
                     sql.raw("NOW()"),
                     sql.raw("NOW()"),
-                ),
+                )
             )
         await self._update_team_tags(team_id, tags)
         return await self._get_team_with_relationships(team_id)
@@ -67,7 +67,7 @@ class TeamService(SQLSpecService):
 
         if team_data:
             await self.driver.execute(
-                sql.update("team").set(**team_data, updated_at=sql.raw("NOW()")).where_eq("id", team_id),
+                sql.update("team").set(**team_data, updated_at=sql.raw("NOW()")).where_eq("id", team_id)
             )
 
         if tags is not None:
@@ -93,7 +93,12 @@ class TeamService(SQLSpecService):
     async def list_with_count(self, *filters: StatementFilter, user: s.User | None = None) -> OffsetPagination[s.Team]:
         """List teams with pagination and filtering."""
         if user and not self.can_view_all(user):
-            stmt = sql.select("DISTINCT t.id").from_("team t").join("team_member tm", "t.id = tm.team_id").where_eq("tm.user_id", user.id)
+            stmt = (
+                sql.select("DISTINCT t.id")
+                .from_("team t")
+                .join("team_member tm", "t.id = tm.team_id")
+                .where_eq("tm.user_id", user.id)
+            )
         else:
             stmt = sql.select("id").from_("team")
 
@@ -130,14 +135,7 @@ class TeamService(SQLSpecService):
         # Then fetch with user details for complete TeamMember schema
         return await self.driver.select_one(
             sql.select(
-                "tm.id",
-                "tm.team_id",
-                "tm.user_id",
-                "u.email",
-                "u.name",
-                "tm.role",
-                "tm.is_owner",
-                "tm.joined_at",
+                "tm.id", "tm.team_id", "tm.user_id", "u.email", "u.name", "tm.role", "tm.is_owner", "tm.joined_at"
             )
             .from_("team_member tm")
             .join("user_account u", "tm.user_id = u.id")
@@ -155,7 +153,7 @@ class TeamService(SQLSpecService):
             sql.select("DISTINCT t.id")
             .from_("team t")
             .join("team_member tm", "t.id = tm.team_id")
-            .where_eq("tm.user_id", user_id),
+            .where_eq("tm.user_id", user_id)
         )
         return [await self._get_team_with_relationships(row["id"]) for row in team_rows]
 
@@ -197,16 +195,14 @@ class TeamService(SQLSpecService):
         for tag_name in tag_names:
             tag_slug = slugify(tag_name)
             # Try to get or create tag
-            tag_row = await self.driver.select_one_or_none(
-                sql.select("id").from_("tag").where_eq("name", tag_name),
-            )
+            tag_row = await self.driver.select_one_or_none(sql.select("id").from_("tag").where_eq("name", tag_name))
             if not tag_row:
                 # Create new tag
                 tag_row = await self.driver.select_one(
                     sql.insert("tag")
                     .columns("id", "name", "slug", "created_at", "updated_at")
                     .values(sql.raw("gen_random_uuid()"), tag_name, tag_slug, sql.raw("NOW()"), sql.raw("NOW()"))
-                    .returning("id"),
+                    .returning("id")
                 )
 
             # Add team_tag relationship
@@ -214,7 +210,7 @@ class TeamService(SQLSpecService):
                 sql.insert("team_tag")
                 .columns("team_id", "tag_id")
                 .values(team_id, tag_row["id"])
-                .on_conflict_do_nothing(),
+                .on_conflict_do_nothing()
             )
 
     async def _get_team_with_relationships(self, team_id: UUID) -> s.Team:

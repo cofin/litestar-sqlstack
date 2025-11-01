@@ -64,11 +64,7 @@ def test_invalid_email_formats() -> None:
 
 def test_blocked_email_domains() -> None:
     """Test blocked email domains."""
-    blocked_emails = [
-        "user@10minutemail.com",
-        "user@tempmail.org",
-        "fake@guerrillamail.com",
-    ]
+    blocked_emails = ["user@10minutemail.com", "user@tempmail.org", "fake@guerrillamail.com"]
 
     for email in blocked_emails:
         with pytest.raises(ValidationError, match="Email domain not allowed"):
@@ -332,13 +328,7 @@ def test_non_string_name() -> None:
 # Username validation tests
 def test_valid_usernames() -> None:
     """Test valid usernames."""
-    valid_usernames = [
-        "john_doe",
-        "user123",
-        "test-user",
-        "user_name_123",
-        "a1b2c3",
-    ]
+    valid_usernames = ["john_doe", "user123", "test-user", "user_name_123", "a1b2c3"]
 
     for username in valid_usernames:
         result = validate_username(username)
@@ -454,11 +444,7 @@ def test_missing_url_hostname() -> None:
 
 def test_blocked_url_domains() -> None:
     """Test blocked domains."""
-    blocked_urls = [
-        "http://localhost/path",
-        "https://127.0.0.1/",
-        "http://0.0.0.0/",
-    ]
+    blocked_urls = ["http://localhost/path", "https://127.0.0.1/", "http://0.0.0.0/"]
 
     for url in blocked_urls:
         with pytest.raises(ValidationError, match="URL domain not allowed"):
@@ -494,13 +480,7 @@ def test_non_string_url() -> None:
 # Slug validation tests
 def test_valid_slugs() -> None:
     """Test valid slugs."""
-    valid_slugs = [
-        "my-slug",
-        "another-slug-123",
-        "simple",
-        "slug-with-numbers-123",
-        "a",
-    ]
+    valid_slugs = ["my-slug", "another-slug-123", "simple", "slug-with-numbers-123", "a"]
 
     for slug in valid_slugs:
         result = validate_slug(slug)
@@ -527,11 +507,7 @@ def test_invalid_slug_characters() -> None:
 
 def test_slug_hyphen_rules() -> None:
     """Test slug hyphen placement rules."""
-    invalid_slugs = [
-        "-starts-with-hyphen",
-        "ends-with-hyphen-",
-        "has--double-hyphens",
-    ]
+    invalid_slugs = ["-starts-with-hyphen", "ends-with-hyphen-", "has--double-hyphens"]
 
     for slug in invalid_slugs:
         with pytest.raises(ValidationError):

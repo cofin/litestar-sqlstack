@@ -1,32 +1,20 @@
 """Generic fixture management utilities for database operations.
 
 This module provides a clean, generic approach to loading and exporting fixtures
-without table-specific logic. Uses SQLSpec for database operations with PostgreSQL.
+without table-specific logic. Uses SQLSpec for database operations.
 """
 
 from __future__ import annotations
 
-import ast
 import gzip
-import re
 from collections.abc import Mapping
-from datetime import date, datetime, time
-from decimal import Decimal
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from sqlspec import sql
 
 from sqlstack.utils.serialization import from_json, to_json
-
-_EMBEDDING_WHITESPACE_PATTERN = re.compile(r"\s+")
-_DATETIME_FIELDS = {
-    "created_at",
-    "updated_at",
-    "last_activity",
-    "expires_at",
-    "last_accessed",
-}
 
 
 class FixtureProcessor:
@@ -57,9 +45,10 @@ class FixtureProcessor:
                 data = f.read()
 
         data_list = from_json(data)
+        # Convert to list of dicts if needed
         if isinstance(data_list, list):
-            return [dict(item) if isinstance(item, Mapping) else item for item in data_list]  # type: ignore[misc]
-        return []
+            return [dict(item) if isinstance(item, Mapping) else item for item in data_list]  # pyright: ignore
+        return []  # Return empty list if data is not a list
 
     def prepare_record(self, record: dict[str, Any]) -> Mapping[str, Any]:
         """Prepare a record for insertion by handling None values and data types properly.
@@ -73,56 +62,16 @@ class FixtureProcessor:
         prepared: dict[str, Any] = {}
         for key, value in record.items():
             if value is None:
-                continue
-
-            if key == "price" and isinstance(value, str):
-                prepared[key] = Decimal(value)
-                continue
-
-            if key == "embedding" and isinstance(value, str):
-                embedding = self._parse_embedding(value)
-                if embedding is not None:
-                    prepared[key] = embedding
-                continue
-
-            if key in _DATETIME_FIELDS and isinstance(value, str):
+                continue  # Exclude None values to let database handle defaults
+            if key in {"created_at", "updated_at", "last_activity", "expires_at", "last_accessed"} and isinstance(
+                value, str
+            ):
+                # Convert ISO timestamp strings to datetime objects
                 prepared[key] = datetime.fromisoformat(value)
-                continue
-
-            prepared[key] = value
+            else:
+                prepared[key] = value
 
         return prepared
-
-    @staticmethod
-    def _parse_embedding(raw_value: str) -> list[float] | None:
-        """Parse embedding vectors stored as whitespace-delimited strings."""
-
-        cleaned = _EMBEDDING_WHITESPACE_PATTERN.sub(" ", raw_value.replace("\n", " ")).strip()
-        if not cleaned:
-            return None
-
-        if cleaned.startswith("[") and cleaned.endswith("]"):
-            cleaned = cleaned[1:-1].strip()
-
-        candidate_tokens = [token for token in cleaned.replace(",", " ").split(" ") if token]
-        if candidate_tokens:
-            try:
-                return [float(token) for token in candidate_tokens]
-            except ValueError:
-                pass
-
-        try:
-            parsed = ast.literal_eval(raw_value)
-        except (ValueError, SyntaxError):
-            return None
-
-        if isinstance(parsed, (list, tuple)):
-            try:
-                return [float(value) for value in parsed]  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                return None
-
-        return None
 
     def get_fixture_files(self, table_order: list[str] | None = None) -> list[Path]:
         """Get all available fixture files sorted by dependency order.
@@ -201,16 +150,15 @@ class FixtureLoader:
             try:
                 result = await self._load_table_fixtures(table_name, fixture_file)
                 results[table_name] = result
-            except Exception as exc:  # noqa: BLE001
-                results[table_name] = f"error loading {table_name}: {exc!s}"
+            except Exception as e:  # noqa: BLE001
+                results[table_name] = f"Error: {e!s}"
 
         return results
 
     async def _load_table_fixtures(self, table_name: str, fixture_file: Path) -> dict[str, Any]:
-        """Load fixtures using PostgreSQL INSERT ... ON CONFLICT for bulk upsert.
+        """Load fixtures for a table using an idempotent upsert strategy.
 
-        Uses PostgreSQL's native upsert capability to efficiently load fixtures
-        with proper conflict resolution on the id column.
+        For PostgreSQL, this uses `INSERT ... ON CONFLICT ... DO UPDATE`.
 
         Args:
             table_name: Name of the table
@@ -218,6 +166,9 @@ class FixtureLoader:
 
         Returns:
             Loading result statistics with keys: upserted, failed, total
+
+        Raises:
+            ValueError: If fixture records lack an 'id' column
         """
         fixture_data = self.processor.load_fixture_data(fixture_file)
 
@@ -225,41 +176,52 @@ class FixtureLoader:
             return {"upserted": 0, "failed": 0, "total": 0}
 
         total = len(fixture_data)
-
-        # Process all records
+        # `prepare_record` removes None values, so records can have different keys.
         processed_records = [dict(self.processor.prepare_record(record)) for record in fixture_data]
 
         if not processed_records:
             return {"upserted": 0, "failed": 0, "total": 0}
 
-        # Get column information from first record
-        # Note: We include 'id' in all operations to preserve fixture IDs for idempotent loading
-        first_record = processed_records[0]
-        all_columns = [col for col in first_record if first_record[col] is not None]
-        update_columns = [col for col in all_columns if col != "id"]  # UPDATE doesn't change id
+        # Collect all columns from all records to handle schemas where some records have nulls
+        # (and thus missing keys after prepare_record)
+        all_columns_set: set[str] = set()
+        for record in processed_records:
+            all_columns_set.update(record.keys())
 
-        # Build INSERT ... ON CONFLICT statement for PostgreSQL
-        # table_name is from internal table list, not user input
-        placeholders = ", ".join([f"%({col})s" for col in all_columns])
-        insert_sql = f"""
-            INSERT INTO {table_name} ({", ".join(all_columns)})
-            VALUES ({placeholders})
-            ON CONFLICT (id) DO UPDATE SET
-                {", ".join([f"{col} = EXCLUDED.{col}" for col in update_columns])}
+        all_columns = sorted(all_columns_set)
+
+        if "id" not in all_columns:
+            msg = "Fixture records must have an 'id' column for upserting."
+            raise ValueError(msg)
+
+        update_columns = [col for col in all_columns if col != "id"]
+
+        insert_cols_str = ", ".join(f'"{c}"' for c in all_columns)
+        # asyncpg uses $1, $2, etc for placeholders
+        insert_vals_str = ", ".join(f"${i + 1}" for i in range(len(all_columns)))
+        # for the update set, we need to reference the values from the proposed insertion
+        update_set_str = ", ".join(f'"{col}" = EXCLUDED."{col}"' for col in update_columns)
+
+        # The sqlspec.sql query builder does not appear to support the PostgreSQL-specific
+        # `ON CONFLICT DO UPDATE` clause needed for an idempotent bulk upsert.
+        # Therefore, we construct the raw SQL string here and use it with `executemany`
+        # for efficient bulk loading.
+        # The conflict target is 'id'.
+        # table_name is not from user input, so it should be safe.
+        upsert_sql = f"""
+            INSERT INTO {table_name} ({insert_cols_str})
+            VALUES ({insert_vals_str})
+            ON CONFLICT (id) DO UPDATE SET {update_set_str}
         """  # noqa: S608
 
-        # Execute upsert for each record
-        # PostgreSQL handles batch operations efficiently with executemany
-        upserted = 0
-        async with self.driver.with_cursor(self.driver.connection) as cursor:
-            # Use executemany for efficient batch processing
-            await cursor.executemany(insert_sql.strip(), processed_records)
-            upserted = cursor.rowcount if cursor.rowcount > 0 else total
+        # Convert list of dicts to list of tuples for executemany, ensuring all tuples have the same length
+        data_to_insert = [tuple(record.get(col) for col in all_columns) for record in processed_records]
 
-        # Commit the transaction to persist the changes
-        await self.driver.commit()
+        async with self.driver.connection.transaction():
+            await self.driver.execute_many(upsert_sql, data_to_insert)
 
-        return {"upserted": upserted, "failed": 0, "total": total}
+        # executemany doesn't return row count, so we assume all were successful if no exception was raised.
+        return {"upserted": total, "failed": 0, "total": total}
 
     def _generate_missing_fixtures_results(self) -> dict[str, dict[str, Any] | str]:
         """Generate error results for missing fixture files.
@@ -267,7 +229,7 @@ class FixtureLoader:
         Returns:
             Dictionary with error messages for default tables
         """
-        return {table_name: f"missing fixture for {table_name}" for table_name in self.table_order}
+        return {table_name: f"Error: Could not find the {table_name} fixture" for table_name in self.table_order}
 
 
 class FixtureExporter:
@@ -286,10 +248,7 @@ class FixtureExporter:
         self.table_order = table_order or []
 
     async def export_all_fixtures(
-        self,
-        tables: list[str] | None = None,
-        output_dir: Path | None = None,
-        compress: bool = True,
+        self, tables: list[str] | None = None, output_dir: Path | None = None, compress: bool = True
     ) -> dict[str, str]:
         """Export database tables to fixture files.
 
@@ -307,7 +266,7 @@ class FixtureExporter:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        results: dict[str, str] = {}
+        results = {}
 
         if tables is None:
             tables = self.table_order
@@ -316,10 +275,10 @@ class FixtureExporter:
             try:
                 result = await self._export_table(table_name, output_dir, compress)
                 results[table_name] = result
-            except Exception as exc:  # noqa: BLE001
-                results[table_name] = f"error exporting {table_name}: {exc!s}"
+            except Exception as e:  # noqa: BLE001
+                results[table_name] = f"Error: {e!s}"
 
-        return results
+        return results  # pyright: ignore
 
     async def _export_table(self, table_name: str, output_dir: Path, compress: bool) -> str:
         """Export a specific table to fixture file.
@@ -339,13 +298,13 @@ class FixtureExporter:
             return "No data found"
 
         # Convert to JSON-serializable format
-        json_data: list[dict[str, Any]] = []
+        json_data = []
         for record in records:
-            record_dict = dict(record)  # type: ignore[arg-type]
+            record_dict = dict(record)
 
             # Handle special types
             for key, value in record_dict.items():
-                if isinstance(value, (datetime, date, time)):
+                if hasattr(value, "isoformat"):
                     record_dict[key] = value.isoformat()
                 elif isinstance(value, bytes):
                     try:
@@ -353,7 +312,7 @@ class FixtureExporter:
                     except UnicodeDecodeError:
                         record_dict[key] = value.hex()
 
-            json_data.append(record_dict)
+            json_data.append(record_dict)  # pyright: ignore
 
         # Write to file
         filename = f"{table_name}.json"
@@ -362,7 +321,7 @@ class FixtureExporter:
 
         output_file = output_dir / filename
 
-        json_bytes = to_json(json_data)
+        json_bytes = to_json(json_data, as_bytes=True)
 
         if compress:
             with gzip.open(output_file, "wb") as f:

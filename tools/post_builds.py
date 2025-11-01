@@ -11,11 +11,7 @@ from pathlib import Path
 PYAPP_VERSION = "v0.14.0"
 PYAPP_URL = f"https://github.com/ofek/pyapp/releases/download/{PYAPP_VERSION}/source.tar.gz"
 PROJECT_ROOT = Path(__file__).parent.parent
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)8s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)8s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger("post-build")
 
 
@@ -63,12 +59,7 @@ def package_standalone_app(options: argparse.Namespace) -> None:
         )
 
         subprocess.run(
-            [
-                "/usr/bin/env",
-                "cargo",
-                "build",
-                "--release",
-            ],
+            ["/usr/bin/env", "cargo", "build", "--release"],
             check=False,
             cwd=app_temp_dir,
             # env=pyapp_configuration,

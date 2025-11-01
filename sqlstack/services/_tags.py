@@ -37,9 +37,7 @@ class TagService(SQLSpecService):
             tag_data["slug"] = await self.get_available_slug(tag_data["name"])
 
         if tag_data:
-            await self.driver.execute(
-                sql.update("tag").set(**tag_data).where_eq("id", tag_id),
-            )
+            await self.driver.execute(sql.update("tag").set(**tag_data).where_eq("id", tag_id))
 
         return await self.driver.select_one(
             sql.select("id", "slug", "name", "description", "created_at", "updated_at")
@@ -65,11 +63,7 @@ class TagService(SQLSpecService):
     async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.Tag]:
         """List tags with pagination and filtering."""
         base_query = sql.select("id", "slug", "name", "description", "created_at", "updated_at").from_("tag")
-        return await self.paginate(
-            base_query,
-            *filters,
-            schema_type=s.Tag,
-        )
+        return await self.paginate(base_query, *filters, schema_type=s.Tag)
 
     async def get_available_slug(self, name: str) -> str:
         """Generate a unique slug for the given name."""

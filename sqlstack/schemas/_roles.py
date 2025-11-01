@@ -3,13 +3,9 @@ from uuid import UUID
 
 import msgspec
 
-from sqlstack.schemas.base import CamelizedBaseStruct
+from sqlstack.lib.schema import CamelizedBaseStruct
 
-__all__ = (
-    "Role",
-    "RoleCreate",
-    "RoleUpdate",
-)
+__all__ = ("Role", "RoleCreate", "RoleUpdate")
 
 
 class Role(CamelizedBaseStruct):

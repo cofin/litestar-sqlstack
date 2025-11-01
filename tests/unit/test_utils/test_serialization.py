@@ -10,12 +10,7 @@ import msgspec
 import pytest
 from pydantic import BaseModel
 
-from sqlstack.utils.serialization import (
-    convert_date_to_iso,
-    convert_datetime_to_gmt_iso,
-    from_json,
-    to_json,
-)
+from sqlstack.utils.serialization import convert_date_to_iso, convert_datetime_to_gmt_iso, from_json, to_json
 
 
 class TestToJson:

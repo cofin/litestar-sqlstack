@@ -327,7 +327,7 @@ class PasswordService(SQLSpecService):
         await self.driver.execute(
             sql.update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
-            .where_eq("id", token_record.id),
+            .where_eq("id", token_record.id)
         )
         return await self.driver.select_one(
             sql.select("id", "user_id", "token", "expires_at", "used")
@@ -342,7 +342,7 @@ class PasswordService(SQLSpecService):
             sql.update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
             .where_eq("user_id", user_id)
-            .where_eq("used", False),
+            .where_eq("used", False)
         )
 
     async def cleanup_expired_tokens(self) -> int:
@@ -366,7 +366,7 @@ class PasswordService(SQLSpecService):
             sql.select("COUNT(1) as count")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
-            .where_gte("created_at", one_hour_ago),
+            .where_gte("created_at", one_hour_ago)
         )
         if token_count >= self.MAX_RESET_REQUESTS_PER_HOUR:
             msg = f"Rate limit exceeded. Maximum {self.MAX_RESET_REQUESTS_PER_HOUR} password reset requests per hour."
@@ -379,7 +379,7 @@ class PasswordService(SQLSpecService):
             sql.select("COUNT(1) as count")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
-            .where_gte("created_at", time_ago),
+            .where_gte("created_at", time_ago)
         )
         return int(token_count)
 
@@ -402,7 +402,7 @@ class PasswordService(SQLSpecService):
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
             .where_eq("used", False)
-            .where_gte("expires_at", sql.raw("NOW()")),
+            .where_gte("expires_at", sql.raw("NOW()"))
         )
         return result is not None
 
@@ -433,5 +433,5 @@ class PasswordService(SQLSpecService):
                 "COUNT(CASE WHEN used = true THEN 1 END) as used_tokens",
                 "COUNT(CASE WHEN used = false AND expires_at > NOW() THEN 1 END) as active_tokens",
                 "COUNT(CASE WHEN used = false AND expires_at <= NOW() THEN 1 END) as expired_tokens",
-            ).from_("password_reset_token"),
+            ).from_("password_reset_token")
         )

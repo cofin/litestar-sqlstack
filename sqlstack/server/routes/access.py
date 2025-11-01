@@ -63,10 +63,7 @@ class AccessController(Controller):
 
     @post(operation_id="AccountRegister", path="/api/access/signup")
     async def signup(
-        self,
-        request: Request[s.User, Token, Any],
-        users_service: UserService,
-        data: s.AccountRegister,
+        self, request: Request[s.User, Token, Any], users_service: UserService, data: s.AccountRegister
     ) -> s.User:
         """User Signup.
 

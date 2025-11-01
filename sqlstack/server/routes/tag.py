@@ -25,23 +25,19 @@ class TagController(Controller):
     path = "/api/tags"
     guards = [requires_active_user]
     dependencies = {
-        "tags_service": Provide(deps.provide_tag_service, sync_to_thread=False),
-    } | create_filter_dependencies(
-        {
-            "id_filter": UUID,
-            "created_at": True,
-            "updated_at": True,
-            "sort_field": "name",
-            "search": ["name", "slug", "description"],
-        }
-    )
+        "tags_service": Provide(deps.provide_tag_service, sync_to_thread=False)
+    } | create_filter_dependencies({
+        "id_filter": UUID,
+        "created_at": True,
+        "updated_at": True,
+        "sort_field": "name",
+        "search": ["name", "slug", "description"],
+    })
     tags = ["Tags"]
 
     @get(operation_id="ListTags")
     async def list_tags(
-        self,
-        tags_service: TagService,
-        filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)],
+        self, tags_service: TagService, filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)]
     ) -> OffsetPagination[s.Tag]:
         """List tags.
 

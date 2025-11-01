@@ -22,6 +22,7 @@ class UserService(SQLSpecService):
     async def create_user(self, data: s.UserCreate | s.AccountRegister) -> s.User:
         """Create a new user account."""
         from uuid import uuid4
+
         user_data = schema_dump(data, exclude_unset=True)
         user_data.setdefault("id", uuid4())
         user_data.setdefault("is_superuser", False)
@@ -34,7 +35,13 @@ class UserService(SQLSpecService):
         # Optionally assign default role if it exists
         role_id = await self.driver.select_value_or_none(sql.select("id").from_("role").where_eq("slug", "member"))
         if role_id:
-            await self.driver.execute(sql.insert("user_account_role").columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at").values(sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")))
+            await self.driver.execute(
+                sql.insert("user_account_role")
+                .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
+                .values(
+                    sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
+                )
+            )
         if initial_team:
             team_id = await self.driver.select_value(
                 sql.insert("team").values(name=initial_team, slug=slugify(initial_team))
@@ -163,7 +170,7 @@ class UserService(SQLSpecService):
     @staticmethod
     def is_superuser(user: s.User) -> bool:
         return bool(
-            any(assigned_role.role_name for assigned_role in user.roles if assigned_role.role_name == "superuser"),
+            any(assigned_role.role_name for assigned_role in user.roles if assigned_role.role_name == "superuser")
         )
 
     async def get_available_team_slug(self, name: str) -> str:

@@ -25,10 +25,7 @@ from rich.panel import Panel
 
 # --- Configuration ---
 
-REQUIRED_SECRETS = [
-    "SECRET_KEY",
-    "DATABASE_PASSWORD",
-]
+REQUIRED_SECRETS = ["SECRET_KEY", "DATABASE_PASSWORD"]
 
 BASE_DIR = Path(__file__).parent
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -365,18 +362,16 @@ def deploy(
     if not skip_db_wait:
         console.print(f"\n[cyan]Waiting for database pod in namespace '{namespace}'...[/cyan]")
         try:
-            run_kubectl(
-                [
-                    "wait",
-                    "--for=condition=ready",
-                    "pod",
-                    "-l",
-                    "app=postgres",
-                    "-n",
-                    namespace,
-                    "--timeout=300s",
-                ]
-            )
+            run_kubectl([
+                "wait",
+                "--for=condition=ready",
+                "pod",
+                "-l",
+                "app=postgres",
+                "-n",
+                namespace,
+                "--timeout=300s",
+            ])
             console.print("[green]Database pod is ready.[/green]")
         except subprocess.CalledProcessError:
             console.print(
@@ -437,12 +432,7 @@ def deploy(
     help="Optional: Enable a scratch volume and mount it at this path (e.g. /tmp/app).",
 )
 def delete(
-    env: str,
-    delete_namespace: bool,
-    delete_pvc: bool,
-    image_repo: str,
-    env_file: str,
-    scratch_path: str | None,
+    env: str, delete_namespace: bool, delete_pvc: bool, image_repo: str, env_file: str, scratch_path: str | None
 ) -> None:
     """Deletes application resources from the specified environment."""
     check_kubectl()
