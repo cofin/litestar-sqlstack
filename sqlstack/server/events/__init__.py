@@ -1,3 +1,3 @@
-from sqlstack.server.events import team, user
+from sqlstack.server.events import user
 
-__all__ = ("team", "user")
+__all__ = ("user",)

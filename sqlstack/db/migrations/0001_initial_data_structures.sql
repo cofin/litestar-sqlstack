@@ -14,27 +14,6 @@ create table role (
     updated_at timestamp with time zone not null
 );
 create unique index ix_role_slug_unique on role (slug);
-create table tag (
-    id uuid not null constraint pk_tag primary key,
-    slug varchar(100) not null constraint uq_tag_slug unique,
-    name varchar not null,
-    description varchar(255),
-    created_at timestamp with time zone not null,
-    updated_at timestamp with time zone not null
-);
-create unique index ix_tag_slug_unique on tag (slug);
-create table team (
-    id uuid not null constraint pk_team primary key,
-    slug varchar(100) not null constraint uq_team_slug unique,
-    name varchar not null,
-    description varchar(500),
-    is_active boolean not null,
-    is_superuser boolean not null default false,
-    created_at timestamp with time zone not null,
-    updated_at timestamp with time zone not null
-);
-create index ix_team_name on team (name);
-create unique index ix_team_slug_unique on team (slug);
 create table user_account (
     id uuid not null constraint pk_user_account primary key,
     email varchar not null,
@@ -51,36 +30,6 @@ create table user_account (
 );
 comment on table user_account is 'User accounts for application access';
 create unique index ix_user_account_email on user_account (email);
-create table team_invitation (
-    id uuid not null constraint pk_team_invitation primary key,
-    team_id uuid not null constraint fk_team_invitation_team_id_team references team on delete cascade,
-    email varchar not null,
-    role varchar(50) not null,
-    is_accepted boolean not null,
-    invited_by_id uuid constraint fk_team_invitation_invited_by_id_user_account references user_account on delete
-    set null,
-        invited_by_email varchar not null,
-        created_at timestamp with time zone not null,
-        updated_at timestamp with time zone not null
-);
-create index ix_team_invitation_email on team_invitation (email);
-create table team_member (
-    id uuid not null constraint pk_team_member primary key,
-    user_id uuid not null constraint fk_team_member_user_id_user_account references user_account on delete cascade,
-    team_id uuid not null constraint fk_team_member_team_id_team references team on delete cascade,
-    role varchar(50) not null,
-    is_owner boolean not null,
-    joined_at timestamp with time zone not null,
-    created_at timestamp with time zone not null,
-    updated_at timestamp with time zone not null,
-    constraint uq_team_member_user_id unique (user_id, team_id)
-);
-create index ix_team_member_role on team_member (role);
-create table team_tag (
-    team_id uuid not null constraint fk_team_tag_team_id_team references team on delete cascade,
-    tag_id uuid not null constraint fk_team_tag_tag_id_tag references tag on delete cascade,
-    constraint pk_team_tag primary key (team_id, tag_id)
-);
 create table user_account_role (
     id uuid not null constraint pk_user_account_role primary key,
     user_id uuid not null constraint fk_user_account_role_user_id_user_account references user_account on delete cascade,
@@ -115,10 +64,5 @@ create index ix_password_reset_token_token on password_reset_token (token);
 DROP TABLE IF EXISTS password_reset_token CASCADE;
 DROP TABLE IF EXISTS email_verification_token CASCADE;
 DROP TABLE IF EXISTS user_account_role CASCADE;
-DROP TABLE IF EXISTS team_tag CASCADE;
-DROP TABLE IF EXISTS team_member CASCADE;
-DROP TABLE IF EXISTS team_invitation CASCADE;
 DROP TABLE IF EXISTS user_account CASCADE;
-DROP TABLE IF EXISTS team CASCADE;
-DROP TABLE IF EXISTS tag CASCADE;
 DROP TABLE IF EXISTS role CASCADE;

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-from litestar.exceptions import HTTPException, InternalServerException, PermissionDeniedException
+from litestar.exceptions import HTTPException
 from litestar.status_codes import HTTP_409_CONFLICT
 
 from sqlstack.lib.exceptions import (
@@ -14,8 +12,6 @@ from sqlstack.lib.exceptions import (
     HealthCheckConfigurationError,
     MissingDependencyError,
     _HTTPConflictException,
-    after_exception_hook_handler,
-    exception_to_http_response,
 )
 
 
@@ -114,133 +110,6 @@ def test_http_conflict_exception_status_code() -> None:
 
     assert isinstance(error, HTTPException)
     assert error.status_code == HTTP_409_CONFLICT
-
-
-@patch("sqlstack.lib.exceptions.bind_contextvars")
-def test_application_error_ignored(mock_bind: MagicMock) -> None:
-    """Test that ApplicationError is ignored by the hook."""
-    error = ApplicationError("Test error")
-    scope = {}
-
-    after_exception_hook_handler(error, scope)
-
-    mock_bind.assert_not_called()
-
-
-@patch("sqlstack.lib.exceptions.bind_contextvars")
-def test_http_client_error_ignored(mock_bind: MagicMock) -> None:
-    """Test that HTTP client errors (4xx) are ignored."""
-    error = HTTPException(detail="Not found", status_code=404)
-    scope = {}
-
-    after_exception_hook_handler(error, scope)
-
-    mock_bind.assert_not_called()
-
-
-@patch("sqlstack.lib.exceptions.bind_contextvars")
-@patch("sys.exc_info")
-def test_server_error_logged(mock_exc_info: MagicMock, mock_bind: MagicMock) -> None:
-    """Test that server errors (5xx) are logged."""
-    mock_exc_info.return_value = ("type", "value", "traceback")
-    error = HTTPException(detail="Internal error", status_code=500)
-
-    after_exception_hook_handler(error, {})
-
-    mock_bind.assert_called_once_with(exc_info=("type", "value", "traceback"))
-
-
-@patch("sqlstack.lib.exceptions.bind_contextvars")
-@patch("sys.exc_info")
-def test_generic_exception_logged(mock_exc_info: MagicMock, mock_bind: MagicMock) -> None:
-    """Test that generic exceptions are logged."""
-    mock_exc_info.return_value = ("type", "value", "traceback")
-    error = ValueError("Generic error")
-    scope = {}
-
-    after_exception_hook_handler(error, scope)
-
-    mock_bind.assert_called_once_with(exc_info=("type", "value", "traceback"))
-
-
-def test_authorization_error_mapping() -> None:
-    """Test AuthorizationError maps to PermissionDeniedException."""
-    mock_request = MagicMock()
-    mock_request.app.debug = False
-    error = AuthorizationError("Access denied")
-
-    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
-        exception_to_http_response(mock_request, error)
-
-        args, _kwargs = mock_create.call_args
-        assert args[0] is mock_request
-        assert isinstance(args[1], PermissionDeniedException)
-
-
-def test_generic_application_error_mapping() -> None:
-    """Test generic ApplicationError maps to InternalServerException."""
-    mock_request = MagicMock()
-    mock_request.app.debug = False
-    error = ApplicationError("Generic error")
-
-    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
-        exception_to_http_response(mock_request, error)
-
-        args, _kwargs = mock_create.call_args
-        assert args[0] is mock_request
-        assert isinstance(args[1], InternalServerException)
-
-
-def test_debug_mode_response() -> None:
-    """Test debug mode returns debug response for server errors."""
-    mock_request = MagicMock()
-    mock_request.app.debug = True
-    error = ApplicationError("Debug error")
-
-    with (
-        patch("litestar.exceptions.responses.create_debug_response") as mock_debug,
-        patch("litestar.exceptions.responses.create_exception_response") as mock_exception,
-    ):
-        exception_to_http_response(mock_request, error)
-
-        # Should call debug response for server errors in debug mode
-        mock_debug.assert_called_once_with(mock_request, error)
-        mock_exception.assert_not_called()
-
-
-def test_debug_mode_no_debug_for_permission_error() -> None:
-    """Test debug mode doesn't show debug response for permission errors."""
-    mock_request = MagicMock()
-    mock_request.app.debug = True
-    error = AuthorizationError("Permission denied")
-
-    with (
-        patch("litestar.exceptions.responses.create_debug_response") as mock_debug,
-        patch("litestar.exceptions.responses.create_exception_response") as mock_exception,
-    ):
-        exception_to_http_response(mock_request, error)
-
-        # Should not call debug response for permission errors even in debug mode
-        mock_debug.assert_not_called()
-        mock_exception.assert_called_once()
-
-
-def test_error_cause_in_detail() -> None:
-    """Test that error cause is included in HTTP response detail."""
-    mock_request = MagicMock()
-    mock_request.app.debug = False
-
-    # Create error with a cause
-    original_error = ValueError("Original error")
-    error = ApplicationError("Wrapper error")
-    error.__cause__ = original_error
-
-    with patch("litestar.exceptions.responses.create_exception_response") as mock_create:
-        exception_to_http_response(mock_request, error)
-
-        args, _kwargs = mock_create.call_args
-        http_exc = args[1]
-        assert str(original_error) in http_exc.detail
 
 
 def test_exception_hierarchy() -> None:

@@ -11,7 +11,7 @@ import pytest
 from sqlstack.utils.fixtures import FixtureExporter, FixtureLoader, FixtureProcessor
 
 if TYPE_CHECKING:
-    from inspect import Traceback
+    from types import TracebackType
 
 
 def write_fixture(path: Path, payload: list[dict[str, Any]], compress: bool = False) -> Path:
@@ -52,24 +52,24 @@ def test_get_fixture_files_respects_table_order(tmp_path: Path) -> None:
     fixtures_dir = tmp_path / "fixtures"
     fixtures_dir.mkdir()
 
-    write_fixture(fixtures_dir / "teams.json", [])
+    write_fixture(fixtures_dir / "roles.json", [])
     write_fixture(fixtures_dir / "users.json", [])
 
     processor = FixtureProcessor(fixtures_dir)
-    ordered_files = processor.get_fixture_files(["users", "teams"])
+    ordered_files = processor.get_fixture_files(["users", "roles"])
 
-    assert [f.name for f in ordered_files] == ["users.json", "teams.json"]
+    assert [f.name for f in ordered_files] == ["users.json", "roles.json"]
 
 
 def test_generate_missing_fixture_results(tmp_path: Path) -> None:
     _processor = FixtureProcessor(tmp_path)
-    loader = FixtureLoader(tmp_path, driver=object(), table_order=["users", "teams"])
+    loader = FixtureLoader(tmp_path, driver=object(), table_order=["users", "roles"])
 
     missing = loader._generate_missing_fixtures_results()
 
     assert missing == {
         "users": "Error: Could not find the users fixture",
-        "teams": "Error: Could not find the teams fixture",
+        "roles": "Error: Could not find the roles fixture",
     }
 
 
@@ -78,7 +78,7 @@ class DummyTransaction:
         return self
 
     async def __aexit__(
-        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: Traceback | None
+        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
     ) -> None:
         return None
 

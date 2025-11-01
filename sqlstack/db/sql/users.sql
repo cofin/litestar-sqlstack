@@ -37,17 +37,6 @@ SELECT
     COALESCE(
         jsonb_agg(
             DISTINCT jsonb_build_object(
-                'team_id', tm.team_id,
-                'team_name', t.name,
-                'role', tm.role,
-                'is_owner', tm.is_owner
-            )
-        ) FILTER (WHERE tm.team_id IS NOT NULL),
-        '[]'::jsonb
-    ) as teams,
-    COALESCE(
-        jsonb_agg(
-            DISTINCT jsonb_build_object(
                 'role_id', r.id,
                 'role_slug', r.slug,
                 'role_name', r.name,
@@ -57,8 +46,6 @@ SELECT
         '[]'::jsonb
     ) as roles
 FROM user_account u
-LEFT JOIN team_member tm ON u.id = tm.user_id
-LEFT JOIN team t ON tm.team_id = t.id
 LEFT JOIN user_account_role ur ON u.id = ur.user_id
 LEFT JOIN role r ON ur.role_id = r.id
 WHERE u.id = :user_id

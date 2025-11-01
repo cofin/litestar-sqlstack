@@ -5,7 +5,6 @@ import msgspec
 
 from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.lib.types import Email, Name, Password, Slug
-from sqlstack.schemas._enums import TeamRoles
 
 __all__ = (
     "AccountLogin",
@@ -23,21 +22,8 @@ __all__ = (
     "UserRoleAdd",
     "UserRoleCreate",
     "UserRoleRevoke",
-    "UserTeam",
     "UserUpdate",
 )
-
-
-class UserTeam(CamelizedBaseStruct):
-    """Holds team details for a user.
-
-    This is nested in the User Model for 'team'
-    """
-
-    team_id: UUID
-    team_name: str
-    is_owner: bool = False
-    role: TeamRoles = TeamRoles.MEMBER
 
 
 class UserRole(CamelizedBaseStruct):
@@ -80,7 +66,6 @@ class User(CamelizedBaseStruct):
     is_superuser: bool = False
     verified_at: date | None = None
     has_password: bool = False
-    teams: list[UserTeam] = msgspec.field(default_factory=lambda: list[UserTeam]())
     roles: list[UserRole] = msgspec.field(default_factory=lambda: list[UserRole]())
 
 
@@ -128,7 +113,6 @@ class AccountRegister(CamelizedBaseStruct):
     email: Email
     password: Password
     name: Name | None = None
-    initial_team_name: str | msgspec.UnsetType | None = msgspec.UNSET
 
 
 class UserRoleAdd(CamelizedBaseStruct):

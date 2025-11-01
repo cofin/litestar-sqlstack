@@ -12,16 +12,7 @@ from sqlspec.adapters.asyncpg import AsyncpgConfig
 from sqlstack import schemas as s
 from sqlstack.config import get_settings
 from sqlstack.lib.settings import Settings
-from sqlstack.services import (
-    EmailVerificationService,
-    PasswordService,
-    RoleService,
-    TagService,
-    TeamMemberService,
-    TeamService,
-    UserRoleService,
-    UserService,
-)
+from sqlstack.services import EmailVerificationService, PasswordService, RoleService, UserRoleService, UserService
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
@@ -191,11 +182,6 @@ def user_service(driver: AsyncpgDriver) -> UserService:
 
 
 @pytest.fixture
-def team_service(driver: AsyncpgDriver) -> TeamService:
-    return TeamService(driver)
-
-
-@pytest.fixture
 def email_verification_service(driver: AsyncpgDriver) -> EmailVerificationService:
     return EmailVerificationService(driver)
 
@@ -208,16 +194,6 @@ def password_service(driver: AsyncpgDriver) -> PasswordService:
 @pytest.fixture
 def role_service(driver: AsyncpgDriver) -> RoleService:
     return RoleService(driver)
-
-
-@pytest.fixture
-def tag_service(driver: AsyncpgDriver) -> TagService:
-    return TagService(driver)
-
-
-@pytest.fixture
-def team_member_service(driver: AsyncpgDriver) -> TeamMemberService:
-    return TeamMemberService(driver)
 
 
 @pytest.fixture
@@ -267,18 +243,6 @@ async def unverified_user(user_service: UserService) -> s.User:
 async def test_role(role_service: RoleService) -> s.Role:
     role_data = s.RoleCreate(name="Test Role", description="A test role for testing")
     return await role_service.create_role(role_data)
-
-
-@pytest.fixture
-async def test_tag(tag_service: TagService) -> s.Tag:
-    tag_data = s.TagCreate(name="Test Tag", description="A test tag for testing")
-    return await tag_service.create_tag(tag_data)
-
-
-@pytest.fixture
-async def test_team(team_service: TeamService, test_user: s.User) -> s.Team:
-    team_data = s.TeamCreate(name="Test Team", description="A test team for integration testing")
-    return await team_service.create_team(team_data, owner_id=test_user.id)
 
 
 @pytest.fixture

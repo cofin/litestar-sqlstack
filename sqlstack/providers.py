@@ -37,16 +37,7 @@ from sqlspec.driver import AsyncDriverAdapterBase
 
 from sqlstack.config import db_config, sqlspec
 from sqlstack.lib.di import LitestarProvider, QueryContext, query_id_var
-from sqlstack.services import (
-    EmailVerificationService,
-    PasswordService,
-    RoleService,
-    TagService,
-    TeamMemberService,
-    TeamService,
-    UserRoleService,
-    UserService,
-)
+from sqlstack.services import EmailVerificationService, PasswordService, RoleService, UserRoleService, UserService
 
 _request_container: ContextVar[AsyncContainer | None] = ContextVar("_request_container", default=None)
 
@@ -112,16 +103,8 @@ class CoreServiceProvider(Provider):
         return UserService(driver)
 
     @provide
-    def get_team_service(self, driver: AsyncDriverAdapterBase) -> TeamService:
-        return TeamService(driver)
-
-    @provide
     def get_role_service(self, driver: AsyncDriverAdapterBase) -> RoleService:
         return RoleService(driver)
-
-    @provide
-    def get_tag_service(self, driver: AsyncDriverAdapterBase) -> TagService:
-        return TagService(driver)
 
     @provide
     def get_password_service(self, driver: AsyncDriverAdapterBase) -> PasswordService:
@@ -130,10 +113,6 @@ class CoreServiceProvider(Provider):
     @provide
     def get_email_verification_service(self, driver: AsyncDriverAdapterBase) -> EmailVerificationService:
         return EmailVerificationService(driver)
-
-    @provide
-    def get_team_member_service(self, driver: AsyncDriverAdapterBase) -> TeamMemberService:
-        return TeamMemberService(driver)
 
     @provide
     def get_user_role_service(self, driver: AsyncDriverAdapterBase) -> UserRoleService:

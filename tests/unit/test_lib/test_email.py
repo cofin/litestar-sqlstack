@@ -442,52 +442,6 @@ async def test_send_password_reset_confirmation_email(
     assert call_args[1]["to_email"] == test_user.email
 
 
-@patch.object(EmailService, "send_template_email")
-async def test_send_team_invitation_email(mock_send_template: MagicMock, email_service: EmailService) -> None:
-    """Test team invitation email."""
-    mock_send_template.return_value = True
-
-    result = await email_service.send_team_invitation_email(
-        invitee_email="invitee@example.com",
-        inviter_name="John Doe",
-        team_name="Awesome Team",
-        invitation_url="http://localhost:8000/invite/abc123",
-    )
-
-    assert result is True
-    mock_send_template.assert_called_once()
-
-    call_args = mock_send_template.call_args
-    assert call_args[1]["template_name"] == "team_invitation"
-    assert call_args[1]["to_email"] == "invitee@example.com"
-    assert call_args[1]["context"]["inviter_name"] == "John Doe"
-    assert call_args[1]["context"]["team_name"] == "Awesome Team"
-
-
-@patch.object(EmailService, "send_template_email")
-@patch.object(EmailService, "send_email")
-async def test_send_team_invitation_email_fallback(
-    mock_send: MagicMock, mock_send_template: MagicMock, email_service: EmailService
-) -> None:
-    """Test team invitation email fallback."""
-    mock_send_template.side_effect = Exception("Template error")
-    mock_send.return_value = True
-
-    result = await email_service.send_team_invitation_email(
-        invitee_email="invitee@example.com",
-        inviter_name="John Doe",
-        team_name="Awesome Team",
-        invitation_url="http://localhost:8000/invite/abc123",
-    )
-
-    assert result is True
-    mock_send.assert_called_once()
-
-    call_args = mock_send.call_args
-    assert "John Doe" in call_args[1]["html_content"]
-    assert "Awesome Team" in call_args[1]["html_content"]
-
-
 def test_email_service_with_missing_settings() -> None:
     """Test email service initialization with missing settings."""
     with patch("sqlstack.lib.email.get_settings") as mock_get_settings:

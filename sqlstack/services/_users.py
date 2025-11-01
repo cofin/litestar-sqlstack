@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 from litestar.exceptions import PermissionDeniedException
 from sqlspec import sql
-from sqlspec.utils.text import slugify
 from sqlspec.utils.type_guards import is_dict_without_field, schema_dump
 
 from sqlstack import schemas as s
@@ -30,7 +29,6 @@ class UserService(SQLSpecService):
         user_data.setdefault("joined_at", None)  # Will use CURRENT_DATE in SQL if None
         if has_password := user_data.pop("password", None):
             user_data["hashed_password"] = await get_password_hash(has_password)
-        initial_team = user_data.pop("initial_team_name", None)
         user_id = await self.driver.select_value(db_manager.get_sql("create-user"), user_data)
         # Optionally assign default role if it exists
         role_id = await self.driver.select_value_or_none(sql.select("id").from_("role").where_eq("slug", "member"))
@@ -42,11 +40,6 @@ class UserService(SQLSpecService):
                     sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
                 )
             )
-        if initial_team:
-            team_id = await self.driver.select_value(
-                sql.insert("team").values(name=initial_team, slug=slugify(initial_team))
-            )
-            await self.driver.execute(sql.insert("user_team").values(user_id=user_id, team_id=team_id))
         return await self.driver.select_one(
             db_manager.get_sql("get-user-account-details"), user_id=user_id, schema_type=s.User
         )
@@ -173,16 +166,6 @@ class UserService(SQLSpecService):
             any(assigned_role.role_name for assigned_role in user.roles if assigned_role.role_name == "superuser")
         )
 
-    async def get_available_team_slug(self, name: str) -> str:
-        """Generate a unique slug for the given name."""
-        base_slug = slugify(name)
-        slug = base_slug
-        counter = 1
-        while await self._slug_exists(slug):
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-        return slug
-
     async def deactivate_user(self, user_id: UUID) -> None:
         """Deactivate a user account."""
         await self.driver.execute(
@@ -200,7 +183,3 @@ class UserService(SQLSpecService):
         await self.driver.execute(
             sql.update("user_account").set(is_verified=True, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
         )
-
-    async def _slug_exists(self, slug: str) -> bool:
-        """Check if a slug already exists."""
-        return await self.exists(sql.select("id").from_("team").where_eq("slug", slug))

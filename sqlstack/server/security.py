@@ -9,7 +9,6 @@ from litestar.security.jwt import OAuth2PasswordBearerAuth, Token
 from sqlstack import schemas as s
 from sqlstack.config import sqlspec
 from sqlstack.lib.settings import get_settings
-from sqlstack.schemas import TeamRoles
 from sqlstack.server import plugins
 from sqlstack.services import UserService
 
@@ -84,73 +83,6 @@ def requires_superuser(connection: ASGIConnection[Any, s.User, Token, Any], _: B
     raise PermissionDeniedException(detail="Insufficient privileges")
 
 
-def requires_team_membership(connection: ASGIConnection[Any, s.User, Token, Any], _: BaseRouteHandler) -> None:
-    """Verify the connection user is a member of the team.
-
-    Args:
-        connection (ASGIConnection): Request/Connection object.
-        _ (BaseRouteHandler): Route handler.
-
-    Raises:
-        PermissionDeniedException: Not authorized
-
-    """
-    team_id = connection.path_params["team_id"]
-    has_system_role = any(
-        assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
-    )
-    has_team_role = any(membership.team_id == team_id for membership in connection.user.teams)
-    if has_system_role or has_team_role:
-        return
-    raise PermissionDeniedException(detail="Insufficient permissions to access team.")
-
-
-def requires_team_admin(connection: ASGIConnection[Any, s.User, Token, Any], _: BaseRouteHandler) -> None:
-    """Verify the connection user is a team admin.
-
-    Args:
-        connection (ASGIConnection): Request/Connection object.
-        _ (BaseRouteHandler): Route handler.
-
-    Raises:
-        PermissionDeniedException: Not authorized
-
-    """
-    team_id = connection.path_params["team_id"]
-    has_system_role = any(
-        assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
-    )
-    has_team_role = any(
-        membership.team_id == team_id and membership.role == TeamRoles.ADMIN for membership in connection.user.teams
-    )
-    if has_system_role or has_team_role:
-        return
-    raise PermissionDeniedException(detail="Insufficient permissions to access team.")
-
-
-def requires_team_ownership(connection: ASGIConnection[Any, s.User, Token, Any], _: BaseRouteHandler) -> None:
-    """Verify that the connection user is the team owner.
-
-    Args:
-        connection (ASGIConnection): Request/Connection object.
-        _ (BaseRouteHandler): Route handler.
-
-    Raises:
-        PermissionDeniedException: Not authorized
-
-    """
-    team_id = connection.path_params["team_id"]
-    has_system_role = any(
-        assigned_role.role_name for assigned_role in connection.user.roles if assigned_role.role_slug == "superuser"
-    )
-    has_team_role = any(membership.team_id == team_id and membership.is_owner for membership in connection.user.teams)
-    if has_system_role or has_team_role:
-        return
-
-    msg = "Insufficient permissions to access team."
-    raise PermissionDeniedException(msg)
-
-
 async def current_user_from_token(token: Token, connection: ASGIConnection[Any, Any, Any, Any]) -> s.User | None:
     """Lookup current user from local JWT token.
 
@@ -204,6 +136,6 @@ auth = OAuth2PasswordBearerAuth[s.User](
     retrieve_user_handler=current_user_from_token,
     token_secret=settings.app.SECRET_KEY,
     token_url="/api/access/login",  # noqa: S106
-    exclude=["/api/health", "/api/access/login", "/api/access/signup", "^/schema", "^/public/"],
+    exclude=["/health", "/api/health", "/api/access/login", "/api/access/signup", "^/schema", "^/public/"],
 )
 """OAuth2 JWT Authentication."""

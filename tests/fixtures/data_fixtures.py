@@ -43,25 +43,6 @@ def fx_raw_users() -> list[dict[str, Any]]:
     ]
 
 
-@pytest.fixture(name="raw_teams")
-def fx_raw_teams() -> list[dict[str, Any]]:
-    """Unstructured team representations."""
-    return [
-        {
-            "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "name": "Test Team Alpha",
-            "slug": "test-team-alpha",
-            "description": "First test team for integration testing",
-        },
-        {
-            "id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
-            "name": "Test Team Beta",
-            "slug": "test-team-beta",
-            "description": "Second test team for integration testing",
-        },
-    ]
-
-
 @pytest.fixture(name="raw_roles")
 def fx_raw_roles() -> list[dict[str, Any]]:
     """Unstructured role representations."""
@@ -83,30 +64,5 @@ def fx_raw_roles() -> list[dict[str, Any]]:
             "name": "Viewer",
             "slug": "viewer",
             "description": "Read-only access role",
-        },
-    ]
-
-
-@pytest.fixture(name="raw_tags")
-def fx_raw_tags() -> list[dict[str, Any]]:
-    """Unstructured tag representations."""
-    return [
-        {
-            "id": "d47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "name": "Frontend",
-            "slug": "frontend",
-            "description": "Frontend development related",
-        },
-        {
-            "id": "e47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "name": "Backend",
-            "slug": "backend",
-            "description": "Backend development related",
-        },
-        {
-            "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "name": "Testing",
-            "slug": "testing",
-            "description": "Testing and QA related",
         },
     ]
