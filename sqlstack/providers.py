@@ -156,7 +156,9 @@ class ContextProvider(Provider):
 def build_container() -> AsyncContainer:
     """Construct the Dishka container used by the application."""
 
-    return make_async_container(SQLSpecProvider(), CoreServiceProvider(), ContextProvider(), LitestarProvider())
+    return make_async_container(
+        SQLSpecProvider(), CoreServiceProvider(), ContextProvider(), LitestarProvider(), skip_validation=True
+    )
 
 
 __all__ = (

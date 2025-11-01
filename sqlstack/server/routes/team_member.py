@@ -1,4 +1,4 @@
-"""User Account Controllers."""
+"""Team member routes."""
 
 from __future__ import annotations
 
@@ -11,20 +11,21 @@ from litestar.status_codes import HTTP_202_ACCEPTED
 
 from sqlstack import schemas as s
 from sqlstack.lib.di import Inject, inject
-from sqlstack.services import TeamService, UserService
+from sqlstack.services import TeamMemberService, TeamService, UserService
 
 
 class TeamMemberController(Controller):
     """Team Members."""
 
     tags = ["Team Members"]
-    signature_types = [TeamService, UserService, s, UUID]
+    signature_types = [TeamService, TeamMemberService, UserService, s, UUID]
 
     @post(operation_id="AddMemberToTeam", path="/api/teams/{team_id:uuid}/members")
     @inject
     async def add_member_to_team(
         self,
         teams_service: Inject[TeamService],
+        team_members_service: Inject[TeamMemberService],
         users_service: Inject[UserService],
         data: s.TeamMemberCreate,
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to update.")],
@@ -40,14 +41,13 @@ class TeamMemberController(Controller):
         Returns:
             TeamMember
         """
-        # Validate team exists
-        await teams_service.get_one(team_id)
+        await teams_service.get_team(team_id)
 
         # Validate user exists
         await users_service.get_user(data.user_id)
 
-        # Add member to team using team service
-        return await teams_service.add_member(team_id, data.user_id, data.role or "MEMBER")
+        role_value = s.TeamRoles(data.role.upper()) if isinstance(data.role, str) else s.TeamRoles.MEMBER
+        return await team_members_service.add_member_to_team(team_id, data.user_id, role_value)
 
     @delete(
         operation_id="RemoveMemberFromTeam",
@@ -58,6 +58,7 @@ class TeamMemberController(Controller):
     async def remove_member_from_team(
         self,
         teams_service: Inject[TeamService],
+        team_members_service: Inject[TeamMemberService],
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to update.")],
         user_id: Annotated[UUID, Parameter(title="User ID", description="The user to remove from the team.")],
     ) -> None:
@@ -68,8 +69,6 @@ class TeamMemberController(Controller):
             team_id: Team ID
             user_id: User ID
         """
-        # Validate team exists
-        await teams_service.get_one(team_id)
+        await teams_service.get_team(team_id)
 
-        # Remove member from team using team service
-        await teams_service.remove_member(team_id, user_id)
+        await team_members_service.remove_member_from_team(team_id, user_id)

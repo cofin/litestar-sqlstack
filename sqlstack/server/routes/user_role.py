@@ -1,13 +1,14 @@
-"""User Routes."""
+"""User role routes."""
 
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from litestar import Controller, delete, post
 from litestar.exceptions import HTTPException
 from litestar.params import Parameter
-from litestar.status_codes import HTTP_202_ACCEPTED
+from litestar.status_codes import HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
 from sqlstack import schemas as s
 from sqlstack.lib.di import Inject, inject
@@ -18,69 +19,49 @@ from sqlstack.services import RoleService, UserRoleService, UserService
 class UserRoleController(Controller):
     """Handles the adding and removing of User Role records."""
 
-    tags = ["User Account Roles"]
+    path = "/api/user-roles"
+    tags = ["User Roles"]
     guards = [security.requires_superuser]
-    signature_types = [RoleService, UserRoleService, UserService]
+    signature_types = [RoleService, UserRoleService, UserService, s, UUID]
 
-    @post(operation_id="AssignUserRole", path="/api/users/roles")
+    @post(operation_id="AssignUserRole")
     @inject
     async def assign_role(
         self,
         roles_service: Inject[RoleService],
         users_service: Inject[UserService],
         user_roles_service: Inject[UserRoleService],
-        data: s.UserRoleAdd,
-        role_slug: str = Parameter(title="Role Slug", description="The role to grant."),
-    ) -> s.Message:
-        """Create a new migration role.
+        data: s.UserRoleCreate,
+    ) -> s.UserRole:
+        """Assign a role to a user."""
 
-        Args:
-            roles_service: Role Service
-            users_service: User Service
-            user_roles_service: User Role Service
-            data: User Role Add
-            role_slug: Role Slug
+        user = await users_service.get_user(data.user_id)
+        role = await roles_service.get_one(data.role_id)
 
-        Returns:
-            s.Message
-        """
-        role_id = (await roles_service.get_one(slug=role_slug)).id
-        user_obj = await users_service.get_user(email=data.user_name)
-        obj, created = await user_roles_service.get_or_upsert(role_id=role_id, user_id=user_obj.id)
-        if created:
-            return s.Message(message=f"Successfully assigned the '{obj.role_slug}' role to {obj.user_email}.")
-        return s.Message(message=f"User {obj.user_email} already has the '{obj.role_slug}' role.")
+        if await user_roles_service.user_has_role(data.user_id, data.role_id):
+            msg = f"{user.email} already has the '{role.slug}' role"
+            raise HTTPException(status_code=HTTP_409_CONFLICT, detail=msg)
 
-    @delete(operation_id="RevokeUserRole", path="/api/users/roles", status_code=HTTP_202_ACCEPTED)
+        return await user_roles_service.assign_role_to_user(data.user_id, data.role_id)
+
+    @delete(operation_id="RevokeUserRole", path="/{user_id:uuid}/{role_id:uuid}", status_code=HTTP_202_ACCEPTED)
     @inject
     async def revoke_role(
         self,
         users_service: Inject[UserService],
         user_roles_service: Inject[UserRoleService],
-        data: s.UserRoleRevoke,
-        role_slug: Annotated[str, Parameter(title="Role Slug", description="The role to revoke.")],
+        roles_service: Inject[RoleService],
+        user_id: Annotated[UUID, Parameter(title="User ID", description="The user to modify.")],
+        role_id: Annotated[UUID, Parameter(title="Role ID", description="The role to revoke.")],
     ) -> s.Message:
-        """Delete a role from the system.
+        """Revoke a role from a user."""
 
-        Args:
-            users_service: User Service
-            user_roles_service: User Role Service
-            data: User Role Revoke
-            role_slug: Role Slug
+        user = await users_service.get_user(user_id)
+        role = await roles_service.get_one(role_id)
 
-        Raises:
-            HTTPException: If the user does not have the role assigned.
+        if not await user_roles_service.user_has_role(user_id, role_id):
+            msg = "role assignment not found"
+            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=msg)
 
-        Returns:
-            s.Message
-        """
-        user_obj = await users_service.get_user(user_id=data.user_name)
-        removed_role: bool = False
-        for user_role in user_obj.roles:
-            if user_role.role_slug == role_slug:
-                _ = await user_roles_service.delete(user_role.id)  # type: ignore[attr-defined]
-                removed_role = True
-        if not removed_role:
-            msg = "User did not have role assigned."
-            raise HTTPException(status_code=400, detail=msg)
-        return s.Message(message=f"Removed the '{role_slug}' role from User {user_obj.email}.")  # type: ignore[attr-defined]
+        await user_roles_service.revoke_role_from_user(user_id, role_id)
+        return s.Message(message=f"Removed the '{role.slug}' role from {user.email}.")

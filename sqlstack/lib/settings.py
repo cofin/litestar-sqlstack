@@ -65,7 +65,7 @@ class DatabaseSettings:
     POOL_RECYCLE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_RECYCLE", "300")))
     """Pool recycle time in seconds."""
     MIGRATION_PATH: str = field(
-        default_factory=lambda: os.getenv("DATABASE_MIGRATION_PATH", str(BASE_DIR / "db" / "migrations"))
+        default_factory=lambda: os.getenv("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations")
     )
     """Database migration path."""
     FIXTURE_PATH: str = f"{BASE_DIR}/db/fixtures"

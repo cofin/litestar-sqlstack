@@ -278,7 +278,7 @@ async def test_tag(tag_service: TagService) -> s.Tag:
 @pytest.fixture
 async def test_team(team_service: TeamService, test_user: s.User) -> s.Team:
     team_data = s.TeamCreate(name="Test Team", description="A test team for integration testing")
-    return await team_service.create(team_data)
+    return await team_service.create_team(team_data, owner_id=test_user.id)
 
 
 @pytest.fixture

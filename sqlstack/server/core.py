@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar
 
+from litestar import Request
 from litestar.di import Provide
 from litestar.enums import RequestEncodingType
 from litestar.openapi.config import OpenAPIConfig
@@ -31,22 +32,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
     __slots__ = ("app_slug",)
     app_slug: str
 
-    def on_cli_init(self, cli: Group) -> None:
-        from sqlspec.extensions.litestar.cli import database_group
-
-        from sqlstack.cli.commands import export_fixtures_cmd, load_fixtures_cmd, user_management_group
-        from sqlstack.lib.settings import get_settings
-
-        settings = get_settings()
-        self.app_slug = settings.app.slug
-        if load_fixtures_cmd.name not in database_group.commands:  # pyright: ignore
-            database_group.add_command(load_fixtures_cmd)
-        if export_fixtures_cmd.name not in database_group.commands:  # pyright: ignore
-            database_group.add_command(export_fixtures_cmd)
-        if database_group.name not in cli.commands:  # pyright: ignore
-            cli.add_command(database_group)
-        cli.add_command(user_management_group)
-
     def on_app_init(self, app_config: AppConfig) -> AppConfig:
         """Configure application for use with SQLAlchemy.
 
@@ -58,6 +43,10 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         """
         from uuid import UUID
 
+        from litestar import WebSocket
+        from litestar.channels import ChannelsPlugin
+        from litestar.datastructures import State
+        from sqlspec.adapters.asyncpg import AsyncpgDriver
         from sqlspec.driver import AsyncDriverAdapterBase
 
         from sqlstack import config
@@ -97,13 +86,18 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.signature_namespace.update({
             "RequestEncodingType": RequestEncodingType,
             "Body": Body,
+            "State": State,
+            "ChannelsPlugin": ChannelsPlugin,
+            "WebSocket": WebSocket,
             "Parameter": Parameter,
+            "Request": Request,
             "s": s,
             "UUID": UUID,
             "FilterTypes": FilterTypes,
             "OffsetPagination": OffsetPagination,
             "SQLSpecService": SQLSpecService,
             "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
+            "AsyncpgDriver": AsyncpgDriver,
         })
         # dependencies
         dependencies = {"current_user": Provide(security.provide_user, sync_to_thread=False)}
@@ -122,3 +116,17 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.on_shutdown.append(_shutdown_di)
 
         return app_config
+
+    def on_cli_init(self, cli: Group) -> None:
+        from sqlspec.extensions.litestar.cli import database_group
+
+        from sqlstack.cli.commands import export_fixtures_cmd, load_fixtures_cmd, user_management_group
+        from sqlstack.lib.settings import get_settings
+
+        settings = get_settings()
+        self.app_slug = settings.app.slug
+        database_group.add_command(load_fixtures_cmd)
+        database_group.add_command(export_fixtures_cmd)
+
+        cli.add_command(database_group)
+        cli.add_command(user_management_group)
