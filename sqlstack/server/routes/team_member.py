@@ -43,9 +43,6 @@ class TeamMemberController(Controller):
             data: Team Member Create
             team_id: Team ID
 
-        Raises:
-            HTTPException: If the team or user is not found.
-
         Returns:
             TeamMember
         """

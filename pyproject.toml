@@ -96,6 +96,7 @@ relative_files = true
 
 [tool.pytest.ini_options]
 addopts = ["-q", "-ra"]
+anyio_mode = "auto"
 filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources",
     "ignore::DeprecationWarning:google.*",
@@ -108,7 +109,6 @@ filterwarnings = [
 ]
 markers = ["unit: Execute unit tests", "integration: Execute integration tests"]
 testpaths = ["tests"]
-
 
 [tool.ruff]
 exclude = [

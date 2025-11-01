@@ -7,11 +7,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+from faker import Generator
 from litestar.testing import AsyncTestClient
 from sqlspec.adapters.asyncpg import AsyncpgConfig
 
 from sqlstack import schemas as s
 from sqlstack.config import get_settings
+from sqlstack.lib.settings import Settings
 from sqlstack.services import (
     EmailVerificationService,
     PasswordService,
@@ -27,12 +29,11 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
     from litestar import Litestar
-    from pytest import MonkeyPatch
     from pytest_databases.docker.postgres import PostgresService
     from sqlspec.adapters.asyncpg import AsyncpgDriver
 
 pytestmark = pytest.mark.anyio
-pytest_plugins = ["tests.data_fixtures", "pytest_databases.docker", "pytest_databases.docker.postgres"]
+pytest_plugins = ["tests.fixtures.data_fixtures", "pytest_databases.docker", "pytest_databases.docker.postgres"]
 
 
 @pytest.fixture(scope="session")
@@ -42,24 +43,34 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def patch_settings(postgres_service: PostgresService, monkeypatch: MonkeyPatch) -> str:
+def patch_settings(postgres_service: PostgresService) -> Generator[str, None, None]:
     """Monkey patch settings to use test database URL.
 
     This fixture runs before any other fixtures and patches the cached settings
     object to use the test database connection details instead of loading from .env.
     """
+    import os
+
     url = (
         f"postgresql://{postgres_service.user}:{postgres_service.password}"
         f"@{postgres_service.host}:{postgres_service.port}/{postgres_service.database}"
     )
 
+    # Store original environment
+    original_env = {
+        "SECRET_KEY": os.environ.get("SECRET_KEY"),
+        "DATABASE_URL": os.environ.get("DATABASE_URL"),
+        "EMAIL_ENABLED": os.environ.get("EMAIL_ENABLED"),
+    }
+
     # Clear the settings cache to force reload
-    get_settings.cache_clear()  # type: ignore[attr-defined]
+
+    Settings.from_env.cache_clear()  # type: ignore[attr-defined]
 
     # Set environment variables before settings are loaded
-    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-testing-only")
-    monkeypatch.setenv("DATABASE_URL", url)
-    monkeypatch.setenv("EMAIL_ENABLED", "false")
+    os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
+    os.environ["DATABASE_URL"] = url
+    os.environ["EMAIL_ENABLED"] = "false"
 
     # Force settings to reload with test environment
     settings = get_settings()
@@ -67,7 +78,14 @@ def patch_settings(postgres_service: PostgresService, monkeypatch: MonkeyPatch) 
     # Verify the settings are using the test database
     assert url == settings.db.URL
 
-    return url
+    yield url
+
+    # Restore original environment after all tests
+    for key, value in original_env.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 @pytest.fixture(scope="session")
@@ -96,12 +114,15 @@ async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, Non
     yield config
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def clean_database(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[None, None]:
     """Function-scoped fixture to truncate all tables for test isolation.
 
     Uses dynamic query to discover all tables in public schema,
     excluding the migration version table.
+
+    Note: This fixture is NOT autouse - integration tests that need it should
+    explicitly request it or use a marker-based autouse approach.
     """
     yield  # Run test first
 
@@ -171,7 +192,7 @@ async def driver(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[AsyncpgDriver,
 
 
 @pytest.fixture
-def app(asyncpg_config: AsyncpgConfig, monkeypatch: MonkeyPatch) -> Litestar:
+def app(asyncpg_config: AsyncpgConfig) -> Litestar:
     """Litestar app fixture with test database configuration.
 
     Recreates the SQLSpec config to point to test database.
