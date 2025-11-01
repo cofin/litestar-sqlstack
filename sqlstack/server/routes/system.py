@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypeVar
+from typing import Literal, TypeVar
 
 import structlog
 from litestar import Controller, MediaType, get
-from litestar.di import Provide
 from litestar.response import Response
 
 from sqlstack import schemas as s
-from sqlstack.server import deps
-
-if TYPE_CHECKING:
-    from sqlstack.services._base import SQLSpecService
+from sqlstack.lib.di import Inject, inject
+from sqlstack.services import UserService
 
 logger = structlog.get_logger()
 OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
@@ -19,10 +16,11 @@ OnlineOffline = TypeVar("OnlineOffline", bound=Literal["online", "offline"])
 
 class SystemController(Controller):
     tags = ["System"]
-    dependencies = {"users_service": Provide(deps.provide_users_service, sync_to_thread=False)}
+    signature_types = [UserService]
 
     @get(operation_id="SystemHealth", name="system:health", path="/health", summary="Health Check")
-    async def check_system_health(self, users_service: SQLSpecService) -> Response[s.SystemHealth]:
+    @inject
+    async def check_system_health(self, users_service: Inject[UserService]) -> Response[s.SystemHealth]:
         """Check database available and returns app config info.
 
         Args:

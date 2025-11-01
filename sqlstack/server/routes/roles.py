@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
+from uuid import UUID
 
 from litestar import Controller, get
-from litestar.di import Provide
+from litestar.params import Parameter
 
-from sqlstack.server import deps
+from sqlstack import schemas as s
+from sqlstack.lib.di import Inject, inject
 from sqlstack.server.security import requires_active_user, requires_superuser
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from litestar.params import Parameter
-
-    from sqlstack import schemas as s
-    from sqlstack.services import RoleService
-    from sqlstack.services._base import OffsetPagination
+from sqlstack.services import OffsetPagination, RoleService
 
 
 class RoleController(Controller):
@@ -23,11 +17,12 @@ class RoleController(Controller):
 
     path = "/api/roles"
     guards = [requires_active_user, requires_superuser]
-    dependencies = {"roles_service": Provide(deps.provide_role_service, sync_to_thread=False)}
     tags = ["Roles"]
+    signature_types = [RoleService, s, UUID]
 
     @get(operation_id="ListRoles")
-    async def list_roles(self, roles_service: RoleService) -> OffsetPagination[s.Role]:
+    @inject
+    async def list_roles(self, roles_service: Inject[RoleService]) -> OffsetPagination[s.Role]:
         """List roles.
 
         Args:
@@ -39,9 +34,10 @@ class RoleController(Controller):
         return await roles_service.list_with_count()
 
     @get(operation_id="GetRole", path="/{role_id:uuid}")
+    @inject
     async def get_role(
         self,
-        roles_service: RoleService,
+        roles_service: Inject[RoleService],
         role_id: Annotated[UUID, Parameter(title="Role ID", description="The role to retrieve.")],
     ) -> s.Role:
         """Get a role.

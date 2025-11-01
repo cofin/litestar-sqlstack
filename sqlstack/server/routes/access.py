@@ -2,35 +2,30 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from litestar import Controller, Request, Response, post
-from litestar.di import Provide
 from litestar.enums import RequestEncodingType
 from litestar.params import Body
+from litestar.security.jwt import OAuth2Login, Token
 
 from sqlstack import schemas as s
-from sqlstack.server import deps, security
-
-if TYPE_CHECKING:
-    from litestar.security.jwt import OAuth2Login, Token
-
-    from sqlstack.services import UserService
+from sqlstack.lib.di import Inject, inject
+from sqlstack.server import security
+from sqlstack.services import UserService
 
 
 class AccessController(Controller):
     """User login and registration."""
 
     tags = ["Access"]
-    dependencies = {
-        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
-        "roles_service": Provide(deps.provide_role_service, sync_to_thread=False),
-    }
+    signature_types = [UserService, OAuth2Login, Token]
 
     @post(operation_id="AccountLogin", path="/api/access/login", exclude_from_auth=True)
+    @inject
     async def login(
         self,
-        users_service: UserService,
+        users_service: Inject[UserService],
         data: Annotated[s.AccountLogin, Body(title="OAuth2 Login", media_type=RequestEncodingType.URL_ENCODED)],
     ) -> Response[OAuth2Login]:
         """Authenticate a user.
@@ -62,15 +57,15 @@ class AccessController(Controller):
         return response
 
     @post(operation_id="AccountRegister", path="/api/access/signup")
+    @inject
     async def signup(
-        self, request: Request[s.User, Token, Any], users_service: UserService, data: s.AccountRegister
+        self, request: Request[s.User, Token, Any], users_service: Inject[UserService], data: s.AccountRegister
     ) -> s.User:
         """User Signup.
 
         Args:
             request: Request
             users_service: User Service
-            roles_service: Role Service
             data: Account Register Data
 
         Returns:

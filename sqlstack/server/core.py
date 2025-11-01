@@ -4,13 +4,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar
 
 from litestar.di import Provide
+from litestar.enums import RequestEncodingType
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.plugins import ScalarRenderPlugin
+from litestar.params import Body, Parameter
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
-from litestar.security.jwt import OAuth2Login
+
+from sqlstack.lib.di import setup_dishka
+from sqlstack.providers import build_container
 
 if TYPE_CHECKING:
     from click import Group
+    from litestar import Litestar
     from litestar.config.app import AppConfig
 
 T = TypeVar("T")
@@ -34,11 +39,11 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         settings = get_settings()
         self.app_slug = settings.app.slug
-        if load_fixtures_cmd.name not in database_group.commands:  # type: ignore[attr-defined]
+        if load_fixtures_cmd.name not in database_group.commands:  # pyright: ignore
             database_group.add_command(load_fixtures_cmd)
-        if export_fixtures_cmd.name not in database_group.commands:  # type: ignore[attr-defined]
+        if export_fixtures_cmd.name not in database_group.commands:  # pyright: ignore
             database_group.add_command(export_fixtures_cmd)
-        if database_group.name not in cli.commands:  # type: ignore[attr-defined]
+        if database_group.name not in cli.commands:  # pyright: ignore
             cli.add_command(database_group)
         cli.add_command(user_management_group)
 
@@ -53,9 +58,6 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         """
         from uuid import UUID
 
-        from litestar.enums import RequestEncodingType
-        from litestar.params import Body, Parameter
-        from litestar.security.jwt import Token
         from sqlspec.driver import AsyncDriverAdapterBase
 
         from sqlstack import config
@@ -63,23 +65,11 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from sqlstack.__metadata__ import __version__
         from sqlstack.lib.settings import get_settings
         from sqlstack.server import plugins, routes, security
-        from sqlstack.services import (
-            EmailVerificationService,
-            FilterTypes,
-            PasswordService,
-            RoleService,
-            TagService,
-            TeamMemberService,
-            TeamService,
-            UserRoleService,
-            UserService,
-        )
-        from sqlstack.services._base import OffsetPagination, SQLSpecService
+        from sqlstack.services import FilterTypes, OffsetPagination, SQLSpecService
 
         settings = get_settings()
         self.app_slug = settings.app.slug
         app_config.debug = settings.app.DEBUG
-        # openapi
         app_config.openapi_config = OpenAPIConfig(
             title=settings.app.NAME,
             version=__version__,
@@ -87,17 +77,11 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             security=[security.auth.security_requirement],
             render_plugins=[ScalarRenderPlugin(version="latest")],
         )
-        # jwt auth (updates openapi config)
         app_config = security.auth.on_app_init(app_config)
-        # security
         app_config.cors_config = config.cors
-        # session - table created via migrations (include_extensions: ["litestar"])
         app_config.stores = config.stores
         app_config.middleware.append(config.session_config.middleware)
-        # plugins
         app_config.plugins.extend([plugins.structlog, plugins.granian, plugins.sqlspec, plugins.problem_details])
-
-        # routes
         app_config.route_handlers.extend([
             routes.AccessController,
             routes.ProfileController,
@@ -110,24 +94,13 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             routes.UserRoleController,
             routes.WebController,
         ])
-        # signatures
         app_config.signature_namespace.update({
-            "Token": Token,
-            "OAuth2Login": OAuth2Login,
             "RequestEncodingType": RequestEncodingType,
             "Body": Body,
             "Parameter": Parameter,
             "s": s,
             "UUID": UUID,
-            "EmailVerificationService": EmailVerificationService,
             "FilterTypes": FilterTypes,
-            "PasswordService": PasswordService,
-            "RoleService": RoleService,
-            "TagService": TagService,
-            "TeamMemberService": TeamMemberService,
-            "TeamService": TeamService,
-            "UserRoleService": UserRoleService,
-            "UserService": UserService,
             "OffsetPagination": OffsetPagination,
             "SQLSpecService": SQLSpecService,
             "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
@@ -135,5 +108,17 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         # dependencies
         dependencies = {"current_user": Provide(security.provide_user, sync_to_thread=False)}
         app_config.dependencies.update(dependencies)
+
+        # Dishka dependency injection setup
+        container = build_container()
+
+        async def _init_di(app: Litestar) -> None:
+            setup_dishka(container, app)
+
+        async def _shutdown_di(_app: Litestar) -> None:
+            await container.close()
+
+        app_config.on_startup.append(_init_di)
+        app_config.on_shutdown.append(_shutdown_di)
 
         return app_config

@@ -10,7 +10,8 @@ from sqlstack import schemas as s
 from sqlstack.config import sqlspec
 from sqlstack.lib.settings import get_settings
 from sqlstack.schemas import TeamRoles
-from sqlstack.server import deps, plugins
+from sqlstack.server import plugins
+from sqlstack.services import UserService
 
 if TYPE_CHECKING:
     from typing import Any
@@ -162,9 +163,8 @@ async def current_user_from_token(token: Token, connection: ASGIConnection[Any, 
     Returns:
         User: User record mapped to the JWT identifier
     """
-    service = deps.provide_users_service(
-        plugins.sqlspec.provide_async_request_session("db_session", connection.app.state, connection.scope)
-    )
+    driver = plugins.sqlspec.provide_async_request_session("db_session", connection.app.state, connection.scope)
+    service = UserService(driver)
     user = await service.driver.select_one(
         sqlspec.get_sql("get-user-account-details"), user_id=token.extras["user_id"], schema_type=s.User
     )

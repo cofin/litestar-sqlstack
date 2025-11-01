@@ -311,7 +311,7 @@ class TestBeforeSendHandler:
         from sqlstack.lib.log import BeforeSendHandler
 
         # This will use actual settings
-        with patch("sqlstack.lib.log.settings") as mock_settings:
+        with patch("sqlstack.lib.log._settings") as mock_settings:
             mock_settings.log.EXCLUDE_PATHS = "^/health|^/metrics"
             mock_settings.log.REQUEST_FIELDS = ["method", "path"]
             mock_settings.log.RESPONSE_FIELDS = ["status_code"]

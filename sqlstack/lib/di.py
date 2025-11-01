@@ -22,7 +22,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from dataclasses import dataclass
 
-from dishka import AsyncContainer, Provider, Scope, provide  # pyright: ignore
+from dishka import AsyncContainer, Provider, Scope, make_async_container, provide  # pyright: ignore
 from dishka.integrations.litestar import FromDishka as Inject
 from dishka.integrations.litestar import LitestarProvider, inject, setup_dishka
 
@@ -45,6 +45,7 @@ __all__ = (
     "QueryContext",
     "Scope",
     "inject",
+    "make_async_container",
     "provide",
     "query_id_var",
     "setup_dishka",

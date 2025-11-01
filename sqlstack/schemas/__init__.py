@@ -1,4 +1,4 @@
-from sqlstack.schemas._accounts import (
+from sqlstack.schemas._account import (
     AccountLogin,
     AccountRegister,
     OauthAccount,
@@ -25,7 +25,7 @@ from sqlstack.schemas._email_verification import (
     EmailVerificationToken,
 )
 from sqlstack.schemas._enums import TeamRoles
-from sqlstack.schemas._messages import Message
+from sqlstack.schemas._message import Message
 from sqlstack.schemas._password import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,

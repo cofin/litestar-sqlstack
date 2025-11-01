@@ -188,6 +188,7 @@ ignore = [
     "PLW3201",
     "PLR6301",
     "DOC201",
+    "RUF029",
 ]
 select = ["ALL"]
 # Allow unused variables when underscore-prefixed.
@@ -198,7 +199,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 "docs/**/*.*" = ["S", "B", "DTZ", "A", "TC", "ERA", "D", "RET", "E731", "RUF012", "FA100", "ARG001"]
 "docs/conf.py" = ["FIX002", "ARG001", "INP001"]
 "sqlstack/db/migrations/*.py" = ['D104', 'D103', 'D205', 'D212']
-"tests/*.py" = ['D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
+"tests/*.py" = ["ASYNC240", 'D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
 "tools/*.py" = ["INP001", "ERA001", "N999"]
 "tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT", "INP001", "S603", "S404", "S607", "PLR0915"]
 

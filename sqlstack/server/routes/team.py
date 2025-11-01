@@ -2,33 +2,28 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
+from uuid import UUID
 
 from litestar import Controller, delete, get, patch, post
-from litestar.di import Provide
+from litestar.params import Parameter
 
 from sqlstack import schemas as s
-from sqlstack.server import deps, security
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from litestar.params import Parameter
-
-    from sqlstack.services import TeamService
-    from sqlstack.services._base import OffsetPagination
+from sqlstack.lib.di import Inject, inject
+from sqlstack.server import security
+from sqlstack.services import OffsetPagination, TeamService
 
 
 class TeamController(Controller):
     """Teams."""
 
     tags = ["Teams"]
-    dependencies = {"teams_service": Provide(deps.provide_team_service, sync_to_thread=False)}
-
     guards = [security.requires_active_user]
+    signature_types = [TeamService, UUID, s, OffsetPagination]
 
     @get(component="team/list", operation_id="ListTeams", path="/api/teams")
-    async def list_teams(self, teams_service: TeamService, current_user: s.User) -> OffsetPagination[s.Team]:
+    @inject
+    async def list_teams(self, teams_service: Inject[TeamService], current_user: s.User) -> OffsetPagination[s.Team]:
         """List teams that your account can access.
 
         Args:
@@ -41,7 +36,8 @@ class TeamController(Controller):
         return await teams_service.list_with_count(user=current_user)
 
     @post(operation_id="CreateTeam", path="/api/teams")
-    async def create_team(self, teams_service: TeamService, current_user: s.User, data: s.TeamCreate) -> s.Team:
+    @inject
+    async def create_team(self, teams_service: Inject[TeamService], current_user: s.User, data: s.TeamCreate) -> s.Team:
         """Create a new team.
 
         Args:
@@ -53,19 +49,20 @@ class TeamController(Controller):
             s.Team
         """
         # Add owner_id to the team creation data
-        team_data = s.TeamCreate(  # type: ignore[call-arg]
+        team_data = s.TeamCreate(
             name=data.name,
             description=data.description,
-            slug=data.slug,  # type: ignore[attr-defined]
-            owner_id=current_user.id,  # type: ignore[call-arg]
+            slug=data.slug,
+            owner_id=current_user.id,
             tags=data.tags if hasattr(data, "tags") else [],
         )
         return await teams_service.create(team_data)
 
     @get(operation_id="GetTeam", guards=[security.requires_team_membership], path="/api/teams/{team_id:uuid}")
+    @inject
     async def get_team(
         self,
-        teams_service: TeamService,
+        teams_service: Inject[TeamService],
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to retrieve.")],
     ) -> s.Team:
         """Get details about a team.
@@ -80,10 +77,11 @@ class TeamController(Controller):
         return await teams_service.get_one(team_id)
 
     @patch(operation_id="UpdateTeam", guards=[security.requires_team_admin], path="/api/teams/{team_id:uuid}")
+    @inject
     async def update_team(
         self,
         data: s.TeamUpdate,
-        teams_service: TeamService,
+        teams_service: Inject[TeamService],
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to update.")],
     ) -> s.Team:
         """Update a migration team.
@@ -99,9 +97,10 @@ class TeamController(Controller):
         return await teams_service.update(team_id, data)
 
     @delete(operation_id="DeleteTeam", guards=[security.requires_team_admin], path="/api/teams/{team_id:uuid}")
+    @inject
     async def delete_team(
         self,
-        teams_service: TeamService,
+        teams_service: Inject[TeamService],
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to delete.")],
     ) -> None:
         """Delete a team.

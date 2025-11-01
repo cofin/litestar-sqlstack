@@ -2,36 +2,30 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
+from uuid import UUID
 
 from litestar import Controller, delete, post
-from litestar.di import Provide
 from litestar.params import Parameter
 from litestar.status_codes import HTTP_202_ACCEPTED
 
-from sqlstack.server import deps
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from sqlstack import schemas as s
-    from sqlstack.services import TeamService, UserService
+from sqlstack import schemas as s
+from sqlstack.lib.di import Inject, inject
+from sqlstack.services import TeamService, UserService
 
 
 class TeamMemberController(Controller):
     """Team Members."""
 
     tags = ["Team Members"]
-    dependencies = {
-        "teams_service": Provide(deps.provide_team_service, sync_to_thread=False),
-        "users_service": Provide(deps.provide_users_service, sync_to_thread=False),
-    }
+    signature_types = [TeamService, UserService, s, UUID]
 
     @post(operation_id="AddMemberToTeam", path="/api/teams/{team_id:uuid}/members")
+    @inject
     async def add_member_to_team(
         self,
-        teams_service: TeamService,
-        users_service: UserService,
+        teams_service: Inject[TeamService],
+        users_service: Inject[UserService],
         data: s.TeamMemberCreate,
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to update.")],
     ) -> s.TeamMember:
@@ -60,9 +54,10 @@ class TeamMemberController(Controller):
         path="/api/teams/{team_id:uuid}/members/{user_id:uuid}",
         status_code=HTTP_202_ACCEPTED,
     )
+    @inject
     async def remove_member_from_team(
         self,
-        teams_service: TeamService,
+        teams_service: Inject[TeamService],
         team_id: Annotated[UUID, Parameter(title="Team ID", description="The team to update.")],
         user_id: Annotated[UUID, Parameter(title="User ID", description="The user to remove from the team.")],
     ) -> None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast, overload
 
 from sqlspec.core.filters import (
     AnyCollectionFilter,
@@ -64,15 +64,39 @@ class SQLSpecService:
         """Initialize the service."""
         self.driver = driver
 
+    @overload
+    async def paginate(
+        self,
+        statement: Statement | QueryBuilder,
+        /,
+        *parameters: StatementParameters,
+        schema_type: None = None,
+        error_message: str | None = None,
+        statement_config: StatementConfig | None = None,
+        **kwargs: Any,
+    ) -> OffsetPagination[dict[str, Any]]: ...
+
+    @overload
+    async def paginate(
+        self,
+        statement: Statement | QueryBuilder,
+        /,
+        *parameters: StatementParameters,
+        schema_type: type[SchemaT],
+        error_message: str | None = None,
+        statement_config: StatementConfig | None = None,
+        **kwargs: Any,
+    ) -> OffsetPagination[SchemaT]: ...
+
     async def paginate(
         self,
         statement: Statement | QueryBuilder,
         /,
         *parameters: StatementParameters | StatementFilter,
-        schema_type: type[SchemaT],
+        schema_type: type[SchemaT] | None = None,
         statement_config: StatementConfig | None = None,
         **kwargs: Any,
-    ) -> OffsetPagination[SchemaT]:
+    ) -> OffsetPagination[SchemaT] | OffsetPagination[dict[str, Any]]:
         """Paginate the data."""
         results, total = await self.driver.select_with_total(
             statement, *parameters, schema_type=schema_type, statement_config=statement_config, **kwargs
@@ -80,8 +104,25 @@ class SQLSpecService:
         limit_offset = self.driver.find_filter(LimitOffsetFilter, parameters)
         offset = limit_offset.offset if limit_offset else 0
         limit = limit_offset.limit if limit_offset else 10
-        return OffsetPagination[SchemaT](items=results, limit=limit, offset=offset, total=total)
+        if schema_type is None:
+            return OffsetPagination[dict[str, Any]](
+                items=cast("list[dict[str, Any]]", results), limit=limit, offset=offset, total=total
+            )
+        return OffsetPagination[SchemaT](items=cast("list[SchemaT]", results), limit=limit, offset=offset, total=total)
 
+    @overload
+    async def get_or_404(
+        self,
+        statement: Statement | QueryBuilder,
+        /,
+        *parameters: StatementParameters,
+        schema_type: None = None,
+        error_message: str | None = None,
+        statement_config: StatementConfig | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]: ...
+
+    @overload
     async def get_or_404(
         self,
         statement: Statement | QueryBuilder,
@@ -91,7 +132,18 @@ class SQLSpecService:
         error_message: str | None = None,
         statement_config: StatementConfig | None = None,
         **kwargs: Any,
-    ) -> SchemaT:
+    ) -> SchemaT: ...
+
+    async def get_or_404(
+        self,
+        statement: Statement | QueryBuilder,
+        /,
+        *parameters: StatementParameters,
+        schema_type: type[SchemaT] | None = None,
+        error_message: str | None = None,
+        statement_config: StatementConfig | None = None,
+        **kwargs: Any,
+    ) -> SchemaT | dict[str, Any]:
         """Get a single record or raise 404 error if not found.
 
         Args:

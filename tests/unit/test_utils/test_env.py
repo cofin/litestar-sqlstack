@@ -27,8 +27,10 @@ class TestBaseDir:
 
     def test_base_dir_is_parent(self) -> None:
         """Test BASE_DIR is parent of sqlstack package."""
-        sqlstack_dir = BASE_DIR / "sqlstack"
-        assert sqlstack_dir.exists(), "sqlstack directory should exist under BASE_DIR"
+        import sqlstack
+
+        package_dir = Path(sqlstack.__file__).resolve().parent
+        assert BASE_DIR.samefile(package_dir)
 
 
 class TestTrueValues:

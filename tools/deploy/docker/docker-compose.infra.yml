@@ -54,7 +54,7 @@ services:
       timeout: 3s
       retries: 30
   db:
-    image: postgres:latest
+    image: google/alloydbomni:latest
     ports:
       - "35432:5432"
     hostname: db

@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import structlog
 from litestar import Controller, delete, get, patch
-from litestar.di import Provide
 
 from sqlstack import schemas as s
-from sqlstack.server import deps
+from sqlstack.lib.di import Inject, inject
 from sqlstack.server.security import requires_active_user
-
-if TYPE_CHECKING:
-    from sqlstack.services import UserService
+from sqlstack.services import UserService
 
 logger = structlog.get_logger()
 
@@ -20,7 +15,7 @@ class ProfileController(Controller):
     """Handles the login and registration of the application."""
 
     tags = ["Access"]
-    dependencies = {"users_service": Provide(deps.provide_users_service, sync_to_thread=False)}
+    signature_types = [UserService]
 
     @get(
         operation_id="AccountProfile",
@@ -38,7 +33,10 @@ class ProfileController(Controller):
         return current_user
 
     @patch(operation_id="AccountProfileUpdate", path="/api/me")
-    async def update_profile(self, current_user: s.User, data: s.ProfileUpdate, users_service: UserService) -> s.User:
+    @inject
+    async def update_profile(
+        self, current_user: s.User, data: s.ProfileUpdate, users_service: Inject[UserService]
+    ) -> s.User:
         """User Profile.
 
         Args:
@@ -52,8 +50,9 @@ class ProfileController(Controller):
         return await users_service.update_user(current_user.id, data)
 
     @patch(operation_id="AccountPasswordUpdate", path="/api/me/password")
+    @inject
     async def update_password(
-        self, current_user: s.User, data: s.PasswordUpdate, users_service: UserService
+        self, current_user: s.User, data: s.PasswordUpdate, users_service: Inject[UserService]
     ) -> s.Message:
         """Update user password.
 
@@ -69,7 +68,8 @@ class ProfileController(Controller):
         return s.Message(message="Your password was successfully modified.")
 
     @delete(operation_id="AccountDelete", path="/profile/")
-    async def remove_account(self, current_user: s.User, users_service: UserService) -> None:
+    @inject
+    async def remove_account(self, current_user: s.User, users_service: Inject[UserService]) -> None:
         """Remove your account.
 
         Args:
