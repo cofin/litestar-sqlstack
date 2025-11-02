@@ -1698,7 +1698,7 @@ wheels = [
 [[package]]
 name = "sqlspec"
 version = "0.28.1"
-source = { git = "https://github.com/litestar-org/sqlspec.git?rev=main#7f77dccde2b4af5eb74048b179413865a780ef32" }
+source = { git = "https://github.com/litestar-org/sqlspec.git?rev=main#4a0ba88d5d2940d453a98b3ece38b15cf2f993ae" }
 dependencies = [
     { name = "mypy-extensions" },
     { name = "rich-click" },

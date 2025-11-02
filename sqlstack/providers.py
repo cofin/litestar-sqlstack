@@ -36,7 +36,14 @@ from sqlspec.driver import AsyncDriverAdapterBase
 
 from sqlstack.config import db_config, sqlspec
 from sqlstack.lib.di import LitestarProvider, QueryContext, query_id_var
-from sqlstack.services import EmailVerificationService, PasswordService, RoleService, UserRoleService, UserService
+from sqlstack.services import (
+    EmailVerificationService,
+    PasswordService,
+    RoleService,
+    TaskService,
+    UserRoleService,
+    UserService,
+)
 
 _request_container: ContextVar[AsyncContainer | None] = ContextVar("_request_container", default=None)
 
@@ -105,11 +112,7 @@ class SQLSpecProvider(Provider):
         return manager.get_config(db_config)
 
     @provide(scope=Scope.REQUEST)
-    async def get_db_session(
-        self,
-        manager: SQLSpec,
-        config: AsyncpgConfig,
-    ) -> AsyncIterator[AsyncDriverAdapterBase]:
+    async def get_db_session(self, manager: SQLSpec, config: AsyncpgConfig) -> AsyncIterator[AsyncDriverAdapterBase]:
         """Provide SQLSpec async database session.
 
         This wraps SQLSpec's provide_session() context manager for
@@ -153,6 +156,10 @@ class CoreServiceProvider(Provider):
     def get_user_role_service(self, driver: AsyncDriverAdapterBase) -> UserRoleService:
         return UserRoleService(driver)
 
+    @provide
+    def get_task_service(self, driver: AsyncDriverAdapterBase) -> TaskService:
+        return TaskService(driver)
+
 
 class ContextProvider(Provider):
     """Provide request context utilities."""
@@ -178,11 +185,7 @@ def build_container() -> AsyncContainer:
     """
 
     return make_async_container(
-        SQLSpecProvider(),
-        CoreServiceProvider(),
-        ContextProvider(),
-        LitestarProvider(),
-        skip_validation=True,
+        SQLSpecProvider(), CoreServiceProvider(), ContextProvider(), LitestarProvider(), skip_validation=True
     )
 
 

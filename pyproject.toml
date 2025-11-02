@@ -190,6 +190,7 @@ ignore = [
     "DOC201",
     "RUF029",
     "PLW0108",
+    "DOC501",
 ]
 select = ["ALL"]
 # Allow unused variables when underscore-prefixed.

@@ -21,6 +21,7 @@ from sqlstack.services._base import (
 from sqlstack.services._email_verification import EmailVerificationService
 from sqlstack.services._password import PasswordService
 from sqlstack.services._roles import RoleService
+from sqlstack.services._tasks import TaskService
 from sqlstack.services._user_roles import UserRoleService
 from sqlstack.services._users import UserService
 
@@ -45,6 +46,7 @@ __all__ = (
     "SQLSpecService",
     "SearchFilter",
     "StatementFilter",
+    "TaskService",
     "UserRoleService",
     "UserService",
     "apply_filter",

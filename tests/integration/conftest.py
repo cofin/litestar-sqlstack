@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from litestar.testing import AsyncTestClient
-from sqlspec.adapters.asyncpg import AsyncpgConfig
 
 from sqlstack import schemas as s
 from sqlstack.config import get_settings
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
 
     from litestar import Litestar
     from pytest_databases.docker.postgres import PostgresService
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
+    from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver
 
 
 @pytest.fixture(scope="session", autouse=True)

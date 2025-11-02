@@ -70,7 +70,13 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.cors_config = config.cors
         app_config.stores = config.stores
         app_config.middleware.append(config.session_config.middleware)
-        app_config.plugins.extend([plugins.structlog, plugins.granian, plugins.sqlspec, plugins.problem_details])
+        app_config.plugins.extend([
+            plugins.structlog,
+            plugins.granian,
+            plugins.sqlspec,
+            plugins.problem_details,
+            plugins.worker,
+        ])
         app_config.route_handlers.extend([
             routes.AccessController,
             routes.ProfileController,

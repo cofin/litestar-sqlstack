@@ -23,6 +23,7 @@ from sqlstack.schemas._email_verification import (
     EmailVerificationStatusResponse,
     EmailVerificationToken,
 )
+from sqlstack.schemas._jobs import Job, JobCreate, JobStats, JobStatus, JobUpdate
 from sqlstack.schemas._message import Message
 from sqlstack.schemas._password import (
     ForgotPasswordRequest,
@@ -47,6 +48,11 @@ __all__ = (
     "EmailVerificationToken",
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
+    "Job",
+    "JobCreate",
+    "JobStats",
+    "JobStatus",
+    "JobUpdate",
     "Message",
     "OauthAccount",
     "PasswordResetToken",
