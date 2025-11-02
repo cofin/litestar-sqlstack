@@ -114,7 +114,7 @@ class DatabaseSettings:
                 "project_root": BASE_DIR,
                 "include_extensions": ["litestar"],
             },
-            extension_config={"litestar": {"session_table": "app_session"}},
+            extension_config={"litestar": {"commit_mode": "autocommit", "session_table": "app_session"}},
         )
 
 

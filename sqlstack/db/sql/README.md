@@ -22,19 +22,7 @@ RETURNING id, email, name, created_at, updated_at;
 
 ### Core Entity Files
 
-- `users.sql` - User CRUD operations and management
-- `roles.sql` - Role CRUD operations
-- `tags.sql` - Tag management and search operations
-- `teams.sql` - Team CRUD operations and search
-
-### Relationship & Specialized Files
-
-- `user_roles.sql` - User-role assignment operations
-- `user_oauth_accounts.sql` - OAuth account management
-- `team_members.sql` - Team membership management
-- `team_tags.sql` - Team-tag relationship operations
-- `team_invitations.sql` - Team invitation workflow
-- `authentication.sql` - Authentication, password, and verification operations
+- `users.sql` - User CRUD operations and account management
 
 ## Query Naming Conventions
 
@@ -45,9 +33,9 @@ Format: `{action}-{entity}[-{qualifier}]`
 Examples:
 
 - `get-user-by-id`
-- `create-team-invitation`
-- `list-teams-for-user`
-- `update-team-member-role`
+- `create-user`
+- `list-users`
+- `assign-user-role`
 
 ### Common Actions
 

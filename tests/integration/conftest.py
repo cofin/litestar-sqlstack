@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def patch_settings(postgres_service: PostgresService) -> Generator[str, None, None]:
+def database_url(postgres_service: PostgresService) -> Generator[str, None, None]:
     """Monkey patch settings to use test database URL.
 
     This fixture runs before any other fixtures and patches the cached settings
@@ -61,28 +60,12 @@ def patch_settings(postgres_service: PostgresService) -> Generator[str, None, No
 
 
 @pytest.fixture(scope="session")
-def database_url(patch_settings: str) -> str:
-    """PostgreSQL URL for testing."""
-
-    return patch_settings
-
-
-@pytest.fixture(scope="session")
 async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, None]:
     """Session-scoped test database configuration that runs migrations."""
 
-    project_root = Path(__file__).resolve().parent.parent
-    migration_path = project_root / "sqlstack" / "db" / "migrations"
+    settings = get_settings()
 
-    config = AsyncpgConfig(
-        pool_config={"dsn": database_url, "max_size": 15, "min_size": 5},
-        extension_config={"litestar": {"commit_mode": "autocommit"}},
-        migration_config={
-            "script_location": str(migration_path),
-            "version_table_name": "sqlspec_migrations_test",
-            "extensions": ["litestar"],
-        },
-    )
+    config = settings.db.create_config()
     await config.migrate_up()
 
     yield config
@@ -106,7 +89,7 @@ async def clean_database(asyncpg_config: AsyncpgConfig) -> AsyncGenerator[None, 
                 INTO stmt
                 FROM pg_tables
                 WHERE schemaname = 'public'
-                  AND tablename NOT IN ('sqlspec_migrations_test');
+                  AND tablename NOT IN ('ddl_version');
 
                 IF stmt IS NOT NULL THEN
                     EXECUTE stmt;
