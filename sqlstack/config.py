@@ -1,4 +1,4 @@
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import structlog
 from litestar.config.compression import CompressionConfig
@@ -12,6 +12,9 @@ from sqlspec.adapters.asyncpg.litestar.store import AsyncpgStore
 
 from sqlstack.lib.settings import get_settings
 from sqlstack.utils.env import BASE_DIR
+
+if TYPE_CHECKING:
+    from litestar.stores.base import Store
 
 DEFAULT_ACCESS_ROLE = "User"
 """The name of the default access role."""
