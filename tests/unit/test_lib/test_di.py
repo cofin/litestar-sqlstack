@@ -30,13 +30,17 @@ def test_query_id_var_round_trip() -> None:
 def test_public_exports_match_expected() -> None:
     expected_exports = {
         "AsyncContainer",
+        "Container",
         "Inject",
         "LitestarProvider",
-        "make_async_container",
+        "LitestarRouter",
         "Provider",
         "QueryContext",
         "Scope",
+        "get_from_connection",
         "inject",
+        "make_async_container",
+        "make_container",
         "provide",
         "query_id_var",
         "setup_dishka",
@@ -46,10 +50,10 @@ def test_public_exports_match_expected() -> None:
 
 
 @pytest.mark.anyio
-async def test_build_container_lifecycle() -> None:
-    from sqlstack.providers import build_container
+async def test_make_litestar_container_lifecycle() -> None:
+    from sqlstack.providers import make_litestar_container
 
-    container = build_container()
+    container = make_litestar_container()
     try:
         assert hasattr(container, "get")
     finally:

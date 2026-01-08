@@ -20,7 +20,7 @@ def create_app() -> Litestar:
 
     from sqlstack import config
     from sqlstack.lib.settings import get_settings
-    from sqlstack.providers import build_container
+    from sqlstack.providers import make_litestar_container
     from sqlstack.server.core import ApplicationCore
 
     _ = config.log.structlog_logging_config.configure()()
@@ -29,7 +29,7 @@ def create_app() -> Litestar:
     os.environ.setdefault("LITESTAR_APP_NAME", settings.app.NAME)
     os.environ.setdefault("LITESTAR_GRANIAN_IN_SUBPROCESS", "false")
     os.environ.setdefault("LITESTAR_GRANIAN_USE_LITESTAR_LOGGER", "true")
-    container = build_container()
+    container = make_litestar_container()
 
     @asynccontextmanager
     async def dishka_lifespan(_app: Litestar) -> AsyncIterator[None]:

@@ -12,7 +12,7 @@ from litestar.params import Body, Parameter
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
 
 from sqlstack.lib.di import setup_dishka
-from sqlstack.providers import build_container
+from sqlstack.providers import make_litestar_container
 
 if TYPE_CHECKING:
     from click import Group
@@ -46,15 +46,29 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         from litestar import WebSocket
         from litestar.channels import ChannelsPlugin
         from litestar.datastructures import State
+        from httpx_oauth.oauth2 import OAuth2Token
         from sqlspec.adapters.asyncpg import AsyncpgDriver
         from sqlspec.driver import AsyncDriverAdapterBase
+        from sqlspec.exceptions import UniqueViolationError
 
         from sqlstack import config
-        from sqlstack import schemas as s
         from sqlstack.__metadata__ import __version__
+        from sqlstack.domain.accounts import auth as security
+        from sqlstack.domain.accounts import schemas as account_schemas
+        from sqlstack.domain.accounts.auth import AccessTokenState, OAuth2AuthorizeCallback
+        from sqlstack.domain.system import schemas as system_schemas
+        from sqlstack.lib.exceptions import (
+            ConflictError,
+            NotFoundError,
+            ValidationError,
+            conflict_exception_handler,
+            not_found_exception_handler,
+            unique_violation_exception_handler,
+            validation_exception_handler,
+        )
+        from sqlstack.lib.service import FilterTypes, OffsetPagination, SQLSpecAsyncService
         from sqlstack.lib.settings import get_settings
-        from sqlstack.server import plugins, routes, security
-        from sqlstack.services import FilterTypes, OffsetPagination, SQLSpecService
+        from sqlstack.server import plugins
 
         settings = get_settings()
         self.app_slug = settings.app.slug
@@ -76,15 +90,9 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             plugins.sqlspec,
             plugins.problem_details,
             plugins.worker,
-        ])
-        app_config.route_handlers.extend([
-            routes.AccessController,
-            routes.ProfileController,
-            routes.RoleController,
-            routes.SystemController,
-            routes.UserController,
-            routes.UserRoleController,
-            routes.WebController,
+            plugins.domain,
+            plugins.vite,
+            plugins.oauth2_provider,
         ])
         app_config.signature_namespace.update({
             "RequestEncodingType": RequestEncodingType,
@@ -94,20 +102,32 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             "WebSocket": WebSocket,
             "Parameter": Parameter,
             "Request": Request,
-            "s": s,
+            "account_schemas": account_schemas,
+            "system_schemas": system_schemas,
             "UUID": UUID,
             "FilterTypes": FilterTypes,
             "OffsetPagination": OffsetPagination,
-            "SQLSpecService": SQLSpecService,
+            "SQLSpecAsyncService": SQLSpecAsyncService,
             "AsyncDriverAdapterBase": AsyncDriverAdapterBase,
             "AsyncpgDriver": AsyncpgDriver,
+            "OAuth2AuthorizeCallback": OAuth2AuthorizeCallback,
+            "AccessTokenState": AccessTokenState,
+            "OAuth2Token": OAuth2Token,
         })
+        # Exception handlers
+        app_config.exception_handlers = {
+            NotFoundError: not_found_exception_handler,
+            ValidationError: validation_exception_handler,
+            ConflictError: conflict_exception_handler,
+            UniqueViolationError: unique_violation_exception_handler,
+            **app_config.exception_handlers,
+        }
         # dependencies
         dependencies = {"current_user": Provide(security.provide_user, sync_to_thread=False)}
         app_config.dependencies.update(dependencies)
 
         # Dishka dependency injection setup
-        container = build_container()
+        container = make_litestar_container()
 
         async def _init_di(app: Litestar) -> None:
             setup_dishka(container, app)

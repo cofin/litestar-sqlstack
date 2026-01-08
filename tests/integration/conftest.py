@@ -7,10 +7,16 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 from litestar.testing import AsyncTestClient
 
-from sqlstack import schemas as s
 from sqlstack.config import get_settings
+from sqlstack.domain.accounts import schemas as s
+from sqlstack.domain.accounts.services import (
+    EmailVerificationService,
+    PasswordService,
+    RoleService,
+    UserRoleService,
+    UserService,
+)
 from sqlstack.lib.settings import Settings
-from sqlstack.services import EmailVerificationService, PasswordService, RoleService, UserRoleService, UserService
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
@@ -64,7 +70,7 @@ async def asyncpg_config(database_url: str) -> AsyncGenerator[AsyncpgConfig, Non
 
     settings = get_settings()
 
-    config = settings.db.create_config()
+    config = settings.db.create_main_config()
     await config.migrate_up()
 
     yield config

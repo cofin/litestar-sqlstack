@@ -5,6 +5,8 @@ dependencies = [
     "litestar-granian[uvloop]>=0.12.2",
     "litestar[structlog,jwt,jinja]>=2.15.2",
     "pwdlib[argon2]>=0.2.1",
+    "litestar-vite",
+    "litestar-email",
     "dishka",
     "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@main",
 ]

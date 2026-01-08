@@ -9,12 +9,12 @@ from unittest.mock import patch
 
 import pytest
 
+from sqlstack.domain.system.services import TaskService
 from sqlstack.lib.jobs import get_job_registry, get_scheduled_jobs, register_job
 from sqlstack.lib.worker import Worker
-from sqlstack.services import TaskService
 
 if TYPE_CHECKING:
-    from sqlspec.adapters.asyncpg import AsyncpgDriver
+    from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver
 
 
 @pytest.fixture
@@ -23,11 +23,22 @@ def task_service(driver: AsyncpgDriver) -> TaskService:
     return TaskService(driver)
 
 
+@pytest.fixture
+def worker_with_db(task_service: TaskService, asyncpg_config: AsyncpgConfig) -> Worker:
+    """Provide Worker fixture with db_config set for testing."""
+    worker = Worker(poll_interval=0.1)
+    worker.task_service = task_service
+    worker.db_config = asyncpg_config
+    return worker
+
+
 class TestWorkerIntegration:
     """Integration tests for Worker with real database."""
 
     @pytest.mark.anyio
-    async def test_worker_executes_task_end_to_end(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_executes_task_end_to_end(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test complete task execution flow."""
         # Register a test job
         execution_record: dict = {}
@@ -41,12 +52,8 @@ class TestWorkerIntegration:
         # Create a task
         task_id = await task_service.create_task(function="integration_test_job", data={"value": "test"})
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process one batch of tasks
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
 
         # Wait for task to complete
         await asyncio.sleep(0.2)
@@ -62,7 +69,9 @@ class TestWorkerIntegration:
         assert task.result == {"result": {"result": "TEST"}}
 
     @pytest.mark.anyio
-    async def test_worker_handles_task_failure(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_handles_task_failure(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test worker handling of task failures."""
 
         @register_job(name="failing_integration_job")
@@ -73,12 +82,8 @@ class TestWorkerIntegration:
         # Create a task
         task_id = await task_service.create_task(function="failing_integration_job", max_retries=2)
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process task
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.2)
 
         # Task should be pending (for retry)
@@ -90,7 +95,7 @@ class TestWorkerIntegration:
         assert "Intentional test failure" in task.error
 
         # Process retry
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.2)
 
         # Check retry count increased
@@ -98,7 +103,9 @@ class TestWorkerIntegration:
         assert task.retry_count == 2
 
     @pytest.mark.anyio
-    async def test_worker_respects_task_priority(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_respects_task_priority(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that worker processes high-priority tasks first."""
         execution_order: list = []
 
@@ -113,12 +120,8 @@ class TestWorkerIntegration:
         await task_service.create_task(function="priority_test_job", data={"label": "high"}, priority=10)
         await task_service.create_task(function="priority_test_job", data={"label": "medium"}, priority=5)
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1, batch_size=10)
-        worker.task_service = task_service
-
         # Process all tasks
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.3)
 
         # Should execute in priority order (high to low)
@@ -128,29 +131,27 @@ class TestWorkerIntegration:
         assert execution_order[2] == "low"
 
     @pytest.mark.anyio
-    async def test_worker_concurrent_task_execution(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_concurrent_task_execution(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test worker executing multiple tasks concurrently."""
         execution_times: dict = {}
 
         @register_job(name="concurrent_test_job")
-        async def concurrent_test_job(task_id: str) -> dict:
+        async def concurrent_test_job(label: str) -> dict:
             start = datetime.now(UTC)
             await asyncio.sleep(0.1)
             end = datetime.now(UTC)
-            execution_times[task_id] = (start, end)
-            return {"task_id": task_id}
+            execution_times[label] = (start, end)
+            return {"label": label}
 
         # Create multiple tasks
         for i in range(3):
-            await task_service.create_task(function="concurrent_test_job", data={"task_id": f"task_{i}"})
-
-        # Initialize worker
-        worker = Worker(poll_interval=0.1, batch_size=10)
-        worker.task_service = task_service
+            await task_service.create_task(function="concurrent_test_job", data={"label": f"task_{i}"})
 
         # Process tasks
         start_time = datetime.now(UTC)
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.3)
         end_time = datetime.now(UTC)
 
@@ -163,7 +164,9 @@ class TestWorkerIntegration:
         assert total_time < 0.25  # Less than sequential execution
 
     @pytest.mark.anyio
-    async def test_worker_scheduled_task_not_run_early(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_scheduled_task_not_run_early(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that scheduled tasks don't run before their scheduled time."""
         execution_record: dict = {}
 
@@ -177,19 +180,17 @@ class TestWorkerIntegration:
             function="scheduled_test_job", scheduled_at=datetime.now(UTC) + timedelta(hours=1)
         )
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process tasks
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.2)
 
         # Task should NOT have executed
         assert execution_record.get("executed") is None
 
     @pytest.mark.anyio
-    async def test_worker_atomic_task_claiming(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_atomic_task_claiming(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that multiple workers don't execute the same task."""
         execution_count: dict = {"count": 0}
         lock = asyncio.Lock()
@@ -206,9 +207,11 @@ class TestWorkerIntegration:
 
         # Create two workers
         worker1 = Worker(poll_interval=0.1)
+        worker1.db_config = worker_with_db.db_config
         worker1.task_service = task_service
 
         worker2 = Worker(poll_interval=0.1)
+        worker2.db_config = worker_with_db.db_config
         worker2.task_service = task_service
 
         # Both workers try to process tasks concurrently
@@ -220,7 +223,9 @@ class TestWorkerIntegration:
         assert execution_count["count"] == 1
 
     @pytest.mark.anyio
-    async def test_worker_key_deduplication(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_key_deduplication(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that tasks with same key are deduplicated."""
         execution_count: dict = {"count": 0}
 
@@ -237,12 +242,8 @@ class TestWorkerIntegration:
         # Should be the same task
         assert task_id1 == task_id2
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process tasks
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.2)
 
         # Should only execute once
@@ -336,7 +337,9 @@ class TestWorkerPluginIntegration:
         assert "cleanup_old_sessions" in schedules
 
     @pytest.mark.anyio
-    async def test_system_jobs_execute(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_system_jobs_execute(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that discovered system jobs can execute."""
         from sqlstack.lib.jobs import discover_jobs
 
@@ -346,12 +349,8 @@ class TestWorkerPluginIntegration:
         # Create task for system_task (short duration job)
         task_id = await task_service.create_task(function="system_task")
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process task
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
 
         # Wait for completion (system_task sleeps for 2 seconds)
         await asyncio.sleep(2.5)
@@ -361,7 +360,10 @@ class TestWorkerPluginIntegration:
         assert task is not None
         assert task.status == "completed"
         assert task.result is not None
+        # The result is wrapped as {"result": {"status": "completed", "duration_seconds": 2}}
+        assert "result" in task.result
         assert task.result["result"]["duration_seconds"] == 2
+        assert task.result["result"]["status"] == "completed"
 
 
 class TestWorkerCleanupIntegration:
@@ -407,7 +409,9 @@ class TestWorkerErrorHandling:
     """Integration tests for worker error handling."""
 
     @pytest.mark.anyio
-    async def test_worker_continues_after_task_error(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_continues_after_task_error(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test that worker continues processing after a task fails."""
         execution_record: dict = {"successful": []}
 
@@ -427,22 +431,18 @@ class TestWorkerErrorHandling:
         # Create successful task
         await task_service.create_task(function="error_then_success_2")
 
-        # Initialize worker
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
-
         # Process both tasks
-        await worker._process_pending_tasks()
+        await worker_with_db._process_pending_tasks()
         await asyncio.sleep(0.3)
 
         # Second task should have executed successfully
         assert "task2" in execution_record["successful"]
 
     @pytest.mark.anyio
-    async def test_worker_handles_connection_errors(self, task_service: TaskService, clean_database: None) -> None:
+    async def test_worker_handles_connection_errors(
+        self, task_service: TaskService, worker_with_db: Worker, clean_database: None
+    ) -> None:
         """Test worker handling of database connection errors."""
-        worker = Worker(poll_interval=0.1)
-        worker.task_service = task_service
 
         # Mock a connection error
         original_get_pending = task_service.get_pending_tasks
@@ -457,8 +457,8 @@ class TestWorkerErrorHandling:
 
         with patch.object(task_service, "get_pending_tasks", side_effect=mock_get_pending):
             # Should not raise, should handle error gracefully
-            await worker._run()
+            await worker_with_db._run()
             await asyncio.sleep(0.3)
 
         # Worker should still be functional after error
-        assert worker.task_service is not None
+        assert worker_with_db.task_service is not None

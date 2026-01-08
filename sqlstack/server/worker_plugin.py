@@ -101,15 +101,14 @@ class WorkerPlugin(InitPluginProtocol):
         """Initialize scheduled jobs in the database."""
         from sqlspec import sql
 
-        from sqlstack.config import db_config, sqlspec
-        from sqlstack.services import TaskService
+        from sqlstack.config import db, db_manager
+        from sqlstack.domain.system.services import TaskService
 
         scheduled_jobs = get_scheduled_jobs()
         if not scheduled_jobs:
             return
 
-        db = sqlspec.get_config(db_config)
-        async with sqlspec.provide_session(db) as driver:
+        async with db_manager.provide_session(db) as driver:
             task_service = TaskService(driver=driver)
 
             # Get existing scheduled tasks from database

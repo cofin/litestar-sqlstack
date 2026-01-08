@@ -19,7 +19,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlstack.lib.settings import get_settings
 
 if TYPE_CHECKING:
-    from sqlstack.schemas import User
+    from sqlstack.domain.accounts.schemas import User
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sqlstack import schemas as s
+from sqlstack.domain.accounts import schemas as s
 from sqlstack.lib.email import EmailService
 
 if TYPE_CHECKING:

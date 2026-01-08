@@ -25,6 +25,8 @@ create table user_account (
     is_verified boolean not null,
     verified_at date,
     joined_at date not null,
+    last_login_at timestamp with time zone,
+    total_login_count integer not null default 0,
     created_at timestamp with time zone not null,
     updated_at timestamp with time zone not null
 );
@@ -45,6 +47,7 @@ create table email_verification_token (
     email varchar not null,
     token varchar(255) not null constraint uq_email_verification_token_token unique,
     expires_at timestamp with time zone not null,
+    used boolean not null default false,
     created_at timestamp with time zone not null,
     updated_at timestamp with time zone not null
 );
@@ -55,6 +58,7 @@ create table password_reset_token (
     user_id uuid not null constraint fk_password_reset_token_user_id_user_account references user_account on delete cascade,
     token varchar(255) not null constraint uq_password_reset_token_token unique,
     expires_at timestamp with time zone not null,
+    used boolean not null default false,
     created_at timestamp with time zone not null,
     updated_at timestamp with time zone not null
 );

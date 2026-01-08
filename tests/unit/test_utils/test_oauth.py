@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from httpx_oauth.oauth2 import BaseOAuth2, GetAccessTokenError, OAuth2Error, OAuth2Token
 
-from sqlstack.utils.oauth import OAuth2AuthorizeCallback, OAuth2AuthorizeCallbackError, OAuth2ProviderPlugin
+from sqlstack.domain.accounts.auth import OAuth2AuthorizeCallback, OAuth2AuthorizeCallbackError, OAuth2ProviderPlugin
 
 if TYPE_CHECKING:
     from litestar import Request

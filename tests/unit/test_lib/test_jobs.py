@@ -484,11 +484,11 @@ class TestDiscoverJobs:
 
     def test_discover_jobs_loads_modules(self) -> None:
         """Test that discover_jobs loads job modules."""
-        discover_jobs("sqlstack.server.jobs")
+        discover_jobs("sqlstack.domain.system.jobs")
 
         registry = get_job_registry()
 
-        # Should have discovered jobs from sqlstack.server.jobs.system
+        # Should have discovered jobs from sqlstack.domain.system.jobs._system
         assert len(registry) > 0
         assert "system_upkeep" in registry
         assert "background_worker_task" in registry
@@ -502,7 +502,7 @@ class TestDiscoverJobs:
 
         _discovered_modules.clear()
 
-        discover_jobs("sqlstack.server.jobs", force_reload=True)
+        discover_jobs("sqlstack.domain.system.jobs", force_reload=True)
 
         schedules = get_scheduled_jobs()
 
@@ -514,11 +514,11 @@ class TestDiscoverJobs:
         """Test that discover_jobs caches discovered modules."""
         from sqlstack.lib.jobs import _discovered_modules
 
-        discover_jobs("sqlstack.server.jobs")
+        discover_jobs("sqlstack.domain.system.jobs")
         first_count = len(_discovered_modules)
 
         # Second call should not re-import
-        discover_jobs("sqlstack.server.jobs")
+        discover_jobs("sqlstack.domain.system.jobs")
         second_count = len(_discovered_modules)
 
         assert first_count == second_count
@@ -530,12 +530,12 @@ class TestDiscoverJobs:
         # Clear cache and force discovery
         _discovered_modules.clear()
 
-        discover_jobs("sqlstack.server.jobs", force_reload=True)
+        discover_jobs("sqlstack.domain.system.jobs", force_reload=True)
         registry = get_job_registry()
         first_count = len(registry)
 
         # Force reload should re-import modules
-        discover_jobs("sqlstack.server.jobs", force_reload=True)
+        discover_jobs("sqlstack.domain.system.jobs", force_reload=True)
         registry = get_job_registry()
         second_count = len(registry)
 
@@ -560,7 +560,7 @@ class TestDiscoverJobs:
         _discovered_modules.clear()
         _job_registry.clear()
 
-        discover_jobs("sqlstack.server.jobs", force_reload=True)
+        discover_jobs("sqlstack.domain.system.jobs", force_reload=True)
 
         # Should have logged discovery info
         # Check that info was called (at least for discovered jobs or no jobs warning)

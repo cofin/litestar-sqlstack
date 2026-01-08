@@ -4,13 +4,26 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from sqlstack.lib.worker import Worker
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+
+
+def create_mock_session(mock_driver: MagicMock) -> Callable[[], contextlib.AbstractAsyncContextManager[MagicMock]]:
+    """Create a factory function that returns mock async context managers for _get_session."""
+
+    @contextlib.asynccontextmanager
+    async def _mock_session() -> AsyncIterator[MagicMock]:
+        yield mock_driver
+
+    return _mock_session
 
 
 class TestWorkerInitialization:
@@ -112,8 +125,8 @@ class TestWorkerTaskExecution:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         # Register a test job
         from sqlstack.lib.jobs import _job_registry
@@ -131,12 +144,16 @@ class TestWorkerTaskExecution:
         task_data.function = "test_job"
         task_data.data = {"param1": "test", "param2": 123}
 
-        # Execute task
-        await worker._execute_task(task_data)
+        # Mock _get_session and _get_task_service
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._execute_task(task_data)
 
         # Should mark as completed
-        task_service.complete_task.assert_called_once()
-        call_args = task_service.complete_task.call_args
+        mock_task_service.complete_task.assert_called_once()
+        call_args = mock_task_service.complete_task.call_args
         assert call_args[0][0] == task_data.id
         assert call_args[1]["result"]["result"] == test_result
 
@@ -146,8 +163,8 @@ class TestWorkerTaskExecution:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         # Create mock task data with unknown function
         task_data = MagicMock()
@@ -155,12 +172,16 @@ class TestWorkerTaskExecution:
         task_data.function = "nonexistent_function"
         task_data.data = {}
 
-        # Execute task
-        await worker._execute_task(task_data)
+        # Mock _get_session and _get_task_service
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._execute_task(task_data)
 
         # Should mark as failed
-        task_service.fail_task.assert_called_once()
-        call_args = task_service.fail_task.call_args
+        mock_task_service.fail_task.assert_called_once()
+        call_args = mock_task_service.fail_task.call_args
         assert call_args[0][0] == task_data.id
         # Check keyword argument instead of positional
         assert "error" in call_args[1]
@@ -172,8 +193,8 @@ class TestWorkerTaskExecution:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         # Register a job that raises an error
         from sqlstack.lib.jobs import _job_registry
@@ -190,12 +211,16 @@ class TestWorkerTaskExecution:
         task_data.function = "failing_job"
         task_data.data = {}
 
-        # Execute task
-        await worker._execute_task(task_data)
+        # Mock _get_session and _get_task_service
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._execute_task(task_data)
 
         # Should mark as failed with retry
-        task_service.fail_task.assert_called_once()
-        call_args = task_service.fail_task.call_args
+        mock_task_service.fail_task.assert_called_once()
+        call_args = mock_task_service.fail_task.call_args
         assert call_args[0][0] == task_data.id
         # Check keyword arguments
         assert "error" in call_args[1]
@@ -208,8 +233,8 @@ class TestWorkerTaskExecution:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         # Register a job that returns None
         from sqlstack.lib.jobs import _job_registry
@@ -225,12 +250,16 @@ class TestWorkerTaskExecution:
         task_data.function = "no_result_job"
         task_data.data = {}
 
-        # Execute task
-        await worker._execute_task(task_data)
+        # Mock _get_session and _get_task_service
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._execute_task(task_data)
 
         # Should mark as completed with no result
-        task_service.complete_task.assert_called_once()
-        call_args = task_service.complete_task.call_args
+        mock_task_service.complete_task.assert_called_once()
+        call_args = mock_task_service.complete_task.call_args
         assert call_args[1]["result"] is None
 
     @pytest.mark.anyio
@@ -239,8 +268,8 @@ class TestWorkerTaskExecution:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         # Register a simple job
         from sqlstack.lib.jobs import _job_registry
@@ -260,8 +289,12 @@ class TestWorkerTaskExecution:
         # Add to running tasks
         worker.running_tasks[str(task_id)] = AsyncMock()
 
-        # Execute task
-        await worker._execute_task(task_data)
+        # Mock _get_session and _get_task_service
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._execute_task(task_data)
 
         # Should be removed from running tasks
         assert str(task_id) not in worker.running_tasks
@@ -271,27 +304,22 @@ class TestWorkerProcessPendingTasks:
     """Test Worker task processing logic."""
 
     @pytest.mark.anyio
-    async def test_process_pending_tasks_no_service(self) -> None:
-        """Test processing when task service is not set."""
-        worker = Worker()
-        worker.task_service = None
-
-        # Should not raise error
-        await worker._process_pending_tasks()
-
-    @pytest.mark.anyio
     async def test_process_pending_tasks_empty_queue(self) -> None:
         """Test processing when no tasks are pending."""
         worker = Worker()
 
         # Mock task service with no pending tasks
-        task_service = AsyncMock()
-        task_service.get_pending_tasks.return_value = []
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_task_service.get_pending_tasks.return_value = []
+        mock_driver = MagicMock()
 
-        await worker._process_pending_tasks()
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._process_pending_tasks()
 
-        task_service.get_pending_tasks.assert_called_once_with(limit=worker.batch_size)
+        mock_task_service.get_pending_tasks.assert_called_once_with(limit=worker.batch_size)
 
     @pytest.mark.anyio
     async def test_process_pending_tasks_claims_and_executes(self) -> None:
@@ -299,8 +327,9 @@ class TestWorkerProcessPendingTasks:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        task_service.claim_task.return_value = True
+        mock_task_service = AsyncMock()
+        mock_task_service.claim_task.return_value = True
+        mock_driver = MagicMock()
 
         # Create mock pending task
         task_data = MagicMock()
@@ -308,8 +337,7 @@ class TestWorkerProcessPendingTasks:
         task_data.function = "test_job"
         task_data.data = {}
 
-        task_service.get_pending_tasks.return_value = [task_data]
-        worker.task_service = task_service
+        mock_task_service.get_pending_tasks.return_value = [task_data]
 
         # Register a job
         from sqlstack.lib.jobs import _job_registry
@@ -320,16 +348,21 @@ class TestWorkerProcessPendingTasks:
 
         _job_registry["test_job"] = test_job
 
-        await worker._process_pending_tasks()
+        # Keep patch active while background tasks run
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._process_pending_tasks()
 
-        # Should have claimed the task
-        task_service.claim_task.assert_called_once_with(task_data.id)
+            # Should have claimed the task
+            mock_task_service.claim_task.assert_called_once_with(task_data.id)
 
-        # Should have started execution (task added to running_tasks)
-        assert len(worker.running_tasks) > 0
+            # Should have started execution (task added to running_tasks)
+            assert len(worker.running_tasks) > 0
 
-        # Wait for task to complete
-        await asyncio.sleep(0.1)
+            # Wait for task to complete within the patch context
+            await asyncio.sleep(0.1)
 
     @pytest.mark.anyio
     async def test_process_pending_tasks_skips_already_running(self) -> None:
@@ -337,7 +370,8 @@ class TestWorkerProcessPendingTasks:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
+        mock_task_service = AsyncMock()
+        mock_driver = MagicMock()
 
         task_id = uuid4()
         task_data = MagicMock()
@@ -345,16 +379,19 @@ class TestWorkerProcessPendingTasks:
         task_data.function = "test_job"
         task_data.data = {}
 
-        task_service.get_pending_tasks.return_value = [task_data]
-        worker.task_service = task_service
+        mock_task_service.get_pending_tasks.return_value = [task_data]
 
         # Mark task as already running
         worker.running_tasks[str(task_id)] = AsyncMock()
 
-        await worker._process_pending_tasks()
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._process_pending_tasks()
 
         # Should not try to claim the task
-        task_service.claim_task.assert_not_called()
+        mock_task_service.claim_task.assert_not_called()
 
     @pytest.mark.anyio
     async def test_process_pending_tasks_claim_fails(self) -> None:
@@ -362,21 +399,25 @@ class TestWorkerProcessPendingTasks:
         worker = Worker()
 
         # Mock task service
-        task_service = AsyncMock()
-        task_service.claim_task.return_value = False  # Claim failed
+        mock_task_service = AsyncMock()
+        mock_task_service.claim_task.return_value = False  # Claim failed
+        mock_driver = MagicMock()
 
         task_data = MagicMock()
         task_data.id = uuid4()
         task_data.function = "test_job"
         task_data.data = {}
 
-        task_service.get_pending_tasks.return_value = [task_data]
-        worker.task_service = task_service
+        mock_task_service.get_pending_tasks.return_value = [task_data]
 
-        await worker._process_pending_tasks()
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._process_pending_tasks()
 
         # Should have tried to claim
-        task_service.claim_task.assert_called_once()
+        mock_task_service.claim_task.assert_called_once()
 
         # Should not have started execution
         assert len(worker.running_tasks) == 0
@@ -456,28 +497,33 @@ class TestWorkerIntegrationMocks:
         worker = Worker(poll_interval=0.1)
 
         # Mock task service
-        task_service = AsyncMock()
-        task_service.get_pending_tasks.return_value = []
-        worker.task_service = task_service
+        mock_task_service = AsyncMock()
+        mock_task_service.get_pending_tasks.return_value = []
+        mock_task_service.requeue_stale_running = AsyncMock()
+        mock_driver = MagicMock()
 
         # Start worker loop in background
         async def run_and_shutdown() -> None:
-            # Run worker in background
-            worker_task = asyncio.create_task(worker._run())
+            with (
+                patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+                patch.object(worker, "_get_task_service", return_value=mock_task_service),
+            ):
+                # Run worker in background
+                worker_task = asyncio.create_task(worker._run())
 
-            # Wait a bit
-            await asyncio.sleep(0.2)
+                # Wait a bit
+                await asyncio.sleep(0.2)
 
-            # Signal shutdown
-            worker.shutdown_event.set()
+                # Signal shutdown
+                worker.shutdown_event.set()
 
-            # Wait for worker to exit
-            await asyncio.wait_for(worker_task, timeout=1.0)
+                # Wait for worker to exit
+                await asyncio.wait_for(worker_task, timeout=1.0)
 
         await run_and_shutdown()
 
         # Worker should have polled at least once
-        assert task_service.get_pending_tasks.call_count >= 1
+        assert mock_task_service.get_pending_tasks.call_count >= 1
 
     @pytest.mark.anyio
     async def test_worker_processes_multiple_tasks(self) -> None:
@@ -485,8 +531,9 @@ class TestWorkerIntegrationMocks:
         worker = Worker(poll_interval=0.1, batch_size=5)
 
         # Mock task service
-        task_service = AsyncMock()
-        task_service.claim_task.return_value = True
+        mock_task_service = AsyncMock()
+        mock_task_service.claim_task.return_value = True
+        mock_driver = MagicMock()
 
         # Create multiple mock tasks
         tasks_data = []
@@ -507,8 +554,7 @@ class TestWorkerIntegrationMocks:
                 return tasks_data
             return []
 
-        task_service.get_pending_tasks.side_effect = get_pending_side_effect
-        worker.task_service = task_service
+        mock_task_service.get_pending_tasks.side_effect = get_pending_side_effect
 
         # Register a job
         from sqlstack.lib.jobs import _job_registry
@@ -523,18 +569,22 @@ class TestWorkerIntegrationMocks:
 
         _job_registry["concurrent_job"] = concurrent_job
 
-        # Process tasks
-        await worker._process_pending_tasks()
+        # Process tasks - keep patch active while background tasks run
+        with (
+            patch.object(worker, "_get_session", side_effect=create_mock_session(mock_driver)),
+            patch.object(worker, "_get_task_service", return_value=mock_task_service),
+        ):
+            await worker._process_pending_tasks()
 
-        # Should have 3 tasks running
-        assert len(worker.running_tasks) == 3
+            # Should have 3 tasks running
+            assert len(worker.running_tasks) == 3
 
-        # Wait for all tasks to complete
-        await asyncio.sleep(0.2)
+            # Wait for all tasks to complete
+            await asyncio.sleep(0.2)
 
-        # All tasks should have executed
-        assert execution_count == 3
+            # All tasks should have executed
+            assert execution_count == 3
 
-        # Cleanup should remove completed tasks
-        worker._cleanup_completed_tasks()
-        assert len(worker.running_tasks) == 0
+            # Cleanup should remove completed tasks
+            worker._cleanup_completed_tasks()
+            assert len(worker.running_tasks) == 0

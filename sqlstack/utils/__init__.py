@@ -1,3 +1,3 @@
-from sqlstack.utils import dto, env, oauth, serialization
+from sqlstack.utils import dto, env, serialization
 
-__all__ = ("dto", "env", "oauth", "serialization")
+__all__ = ("dto", "env", "serialization")

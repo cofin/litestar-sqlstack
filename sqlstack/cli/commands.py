@@ -12,11 +12,10 @@ from sqlspec import sql
 from sqlspec.utils.sync_tools import run_
 from sqlspec.utils.text import slugify
 
-from sqlstack.config import DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE, db_config
-from sqlstack.config import sqlspec as sqlspec_manager
-from sqlstack.lib.settings import get_settings
-from sqlstack.schemas import UserCreate
-from sqlstack.services import UserRoleService, UserService
+from sqlstack.config import DEFAULT_ACCESS_ROLE, SUPERUSER_ACCESS_ROLE, db
+from sqlstack.domain.accounts.schemas import UserCreate
+from sqlstack.domain.accounts.services import UserRoleService, UserService
+from sqlstack.lib.settings import BASE_DIR
 from sqlstack.utils.fixtures import FixtureExporter, FixtureLoader, FixtureProcessor
 
 if TYPE_CHECKING:
@@ -35,12 +34,12 @@ _MEGABYTE = 1024 * 1024
 
 @asynccontextmanager
 async def _provide_driver() -> AsyncIterator[AsyncDriverAdapterBase]:
-    async with sqlspec_manager.provide_session(db_config) as driver:
+    async with db.provide_session() as driver:
         yield driver
 
 
 def _get_fixtures_dir() -> Path:
-    return Path(get_settings().db.FIXTURE_PATH)
+    return BASE_DIR / "db" / "fixtures"
 
 
 def _parse_csv_option(value: str | None) -> list[str] | None:
