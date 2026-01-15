@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sqlstack.lib.validation import (
+from sqlstack.utils.validation import (
     PASSWORD_MIN_LENGTH,
     PASSWORD_SCORE_MEDIUM,
     PASSWORD_SCORE_STRONG,
@@ -18,7 +18,6 @@ from sqlstack.lib.validation import (
     validate_not_empty,
     validate_password,
     validate_password_strength,
-    validate_phone,
     validate_slug,
     validate_url,
     validate_username,
@@ -536,60 +535,6 @@ def test_non_string_slug() -> None:
     """Test non-string slug input."""
     with pytest.raises(ValidationError, match="Slug must be a string"):
         validate_slug(123)  # type: ignore[arg-type]
-
-
-# Phone validation tests
-def test_valid_phone_numbers() -> None:
-    """Test valid phone numbers."""
-    valid_phones = [
-        "+1234567890",
-        "(555) 123-4567",
-        "555.123.4567",
-        "+44 20 7946 0958",
-        "1234567890",
-        "+1 (555) 123-4567",
-    ]
-
-    for phone in valid_phones:
-        result = validate_phone(phone)
-        assert result == phone
-
-
-def test_invalid_phone_characters() -> None:
-    """Test invalid characters in phone numbers."""
-    invalid_phones = [
-        "123-456-789a",  # Letter
-        "555-123-4567#123",  # Hash
-        "phone-number",  # Text
-        "123@456.7890",  # @ symbol
-    ]
-
-    for phone in invalid_phones:
-        with pytest.raises(ValidationError, match="Invalid phone number format"):
-            validate_phone(phone)
-
-
-def test_phone_length_limits() -> None:
-    """Test phone number length validation."""
-    # Too short
-    with pytest.raises(ValidationError, match="Phone number must be between"):
-        validate_phone("123456")
-
-    # Too long
-    with pytest.raises(ValidationError, match="Phone number must be between"):
-        validate_phone("1234567890123456")
-
-
-def test_empty_phone() -> None:
-    """Test empty phone number."""
-    with pytest.raises(ValidationError, match="Phone number cannot be empty"):
-        validate_phone("")
-
-
-def test_non_string_phone() -> None:
-    """Test non-string phone input."""
-    with pytest.raises(ValidationError, match="Phone number must be a string"):
-        validate_phone(123456789)  # type: ignore[arg-type]
 
 
 # Helper validation function tests
