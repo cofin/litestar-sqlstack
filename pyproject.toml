@@ -1,14 +1,12 @@
 [project]
 authors = [{ name = "Cody Fincher", email = "cody@litestar.dev" }]
 dependencies = [
-    "httpx-oauth>=0.16.1",
     "litestar-granian[uvloop]>=0.12.2",
-    "litestar[structlog,jwt,jinja]>=2.15.2",
-    "pwdlib[argon2]>=0.2.1",
+    "litestar[structlog,jinja]>=2.15.2",
+    "argon2-cffi>=23.1.0",
     "litestar-vite",
-    "litestar-email",
     "dishka",
-    "sqlspec[asyncpg,duckdb,performance,polars,mypyc] @ git+https://github.com/litestar-org/sqlspec.git@main",
+    "sqlspec[asyncpg,duckdb,performance,polars,mypyc]",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
 name = "sqlstack"
@@ -42,7 +40,7 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["sqlstack"]
+packages = ["src/sqlstack"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
@@ -110,7 +108,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:httpx._client",
 ]
 markers = ["unit: Execute unit tests", "integration: Execute integration tests"]
-testpaths = ["tests"]
+testpaths = ["src/tests"]
 
 [tool.ruff]
 exclude = [
@@ -138,7 +136,7 @@ exclude = [
 ]
 fix = true
 line-length = 120
-src = ["sqlstack", "tests"]
+src = ["src/sqlstack", "src/tests"]
 target-version = "py312"
 
 [tool.ruff.format]
@@ -202,8 +200,8 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 "__init__.py" = ['F401', 'D104']
 "docs/**/*.*" = ["S", "B", "DTZ", "A", "TC", "ERA", "D", "RET", "E731", "RUF012", "FA100", "ARG001"]
 "docs/conf.py" = ["FIX002", "ARG001", "INP001"]
-"sqlstack/db/migrations/*.py" = ['D104', 'D103', 'D205', 'D212']
-"tests/*.py" = ["ASYNC240", 'D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
+"src/sqlstack/db/migrations/*.py" = ['D104', 'D103', 'D205', 'D212']
+"src/tests/*.py" = ["ASYNC240", 'D103', 'S101', "S105", "S106", 'D104', "PLR2004", "RUF029", "ARG001", "SLF001", "DOC"]
 "tools/*.py" = ["INP001", "ERA001", "N999"]
 "tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT", "INP001", "S603", "S404", "S607", "PLR0915"]
 
@@ -276,13 +274,13 @@ module = ["uvloop", "uvloop.*"]
 
 [tool.pyright]
 disableBytesTypePromotions = true
-exclude = ["sqlstack/db/migrations"]
-include = ["sqlstack"]
+exclude = ["src/sqlstack/db/migrations"]
+include = ["src/sqlstack"]
 pythonVersion = "3.12"
 reportMissingTypeStubs = false
 reportPrivateImportUsage = false
 reportUnknownMemberType = false
 reportUnusedFunction = false
-strict = ["sqlstack/**/*"]
+strict = ["src/sqlstack/**/*"]
 venv = ".venv"
 venvPath = "."
