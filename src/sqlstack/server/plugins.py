@@ -5,8 +5,8 @@ from litestar_vite import VitePlugin
 from sqlspec.extensions.litestar import SQLSpecPlugin
 
 from sqlstack import config
-from sqlstack.server.worker_plugin import WorkerPlugin
 from sqlstack.utils.domains import DomainPlugin, DomainPluginConfig
+from sqlstack.utils.worker import WorkerPlugin
 
 structlog = StructlogPlugin(config=config.log)
 sqlspec = SQLSpecPlugin(sqlspec=config.db_manager)
@@ -14,10 +14,6 @@ granian = GranianPlugin()
 problem_details = ProblemDetailsPlugin(config=config.problem_details)
 worker = WorkerPlugin(start_worker=False, auto_discover=True)
 domain = DomainPlugin(
-    DomainPluginConfig(
-        domain_packages=["sqlstack.domain"],
-        discover_controllers=True,
-        discover_jobs=True,
-    )
+    DomainPluginConfig(domain_packages=["sqlstack.domain"], discover_controllers=True, discover_jobs=True)
 )
 vite = VitePlugin(config=config.vite)

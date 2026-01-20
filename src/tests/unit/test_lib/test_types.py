@@ -152,9 +152,9 @@ class TestTypeAnnotations:
 
     def test_password_structural_validation(self) -> None:
         """Test Password type enforces length constraints via msgspec."""
-        from sqlstack.utils.types import Password
-
         import pytest
+
+        from sqlstack.utils.types import Password
 
         # Too short password should fail
         with pytest.raises(msgspec.ValidationError):
@@ -166,9 +166,9 @@ class TestTypeAnnotations:
 
     def test_username_structural_validation(self) -> None:
         """Test Username type enforces pattern constraints via msgspec."""
-        from sqlstack.utils.types import Username
-
         import pytest
+
+        from sqlstack.utils.types import Username
 
         # Too short username should fail
         with pytest.raises(msgspec.ValidationError):

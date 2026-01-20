@@ -9,13 +9,7 @@ from litestar.testing import AsyncTestClient
 
 from sqlstack.config import get_settings
 from sqlstack.domain.accounts import schemas as s
-from sqlstack.domain.accounts.services import (
-    EmailVerificationService,
-    PasswordService,
-    RoleService,
-    UserRoleService,
-    UserService,
-)
+from sqlstack.domain.accounts.services import PasswordService, RoleService, UserRoleService, UserService
 from sqlstack.lib.settings import Settings
 
 if TYPE_CHECKING:

@@ -273,7 +273,8 @@ class PasswordService(SQLSpecAsyncService):
         await self._check_rate_limit(user_id)
         await self.invalidate_user_tokens(user_id)
         return await self.driver.select_one(
-            sql.insert("password_reset_token")
+            sql
+            .insert("password_reset_token")
             .values(
                 user_id=user_id,
                 token=secrets.token_urlsafe(32),
@@ -297,7 +298,8 @@ class PasswordService(SQLSpecAsyncService):
             ValueError: If token is invalid, expired, or already used
         """
         token_record = await self.driver.select_one_or_none(
-            sql.select("id", "user_id", "token", "expires_at", "used")
+            sql
+            .select("id", "user_id", "token", "expires_at", "used")
             .from_("password_reset_token")
             .where_eq("token", token)
             .where_eq("used", False),
@@ -325,12 +327,14 @@ class PasswordService(SQLSpecAsyncService):
         """
         token_record = await self.validate_reset_token(token)
         await self.driver.execute(
-            sql.update("password_reset_token")
+            sql
+            .update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
             .where_eq("id", token_record.id)
         )
         return await self.driver.select_one(
-            sql.select("id", "user_id", "token", "expires_at", "used")
+            sql
+            .select("id", "user_id", "token", "expires_at", "used")
             .from_("password_reset_token")
             .where_eq("id", token_record.id),
             schema_type=s.PasswordResetToken,
@@ -339,7 +343,8 @@ class PasswordService(SQLSpecAsyncService):
     async def invalidate_user_tokens(self, user_id: UUID) -> None:
         """Mark all existing reset tokens for a user as used."""
         await self.driver.execute(
-            sql.update("password_reset_token")
+            sql
+            .update("password_reset_token")
             .set(used=True, updated_at=sql.raw("NOW()"))
             .where_eq("user_id", user_id)
             .where_eq("used", False)
@@ -363,7 +368,8 @@ class PasswordService(SQLSpecAsyncService):
         """
         one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
         token_count = await self.driver.select_value(
-            sql.select("COUNT(1) as count")
+            sql
+            .select("COUNT(1) as count")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
             .where_gte("created_at", one_hour_ago)
@@ -376,7 +382,8 @@ class PasswordService(SQLSpecAsyncService):
         """Get the number of reset tokens created for a user in the specified time period."""
         time_ago = datetime.now(UTC) - timedelta(hours=hours)
         token_count = await self.driver.select_value(
-            sql.select("COUNT(1) as count")
+            sql
+            .select("COUNT(1) as count")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
             .where_gte("created_at", time_ago)
@@ -386,7 +393,8 @@ class PasswordService(SQLSpecAsyncService):
     async def get_pending_tokens_for_user(self, user_id: UUID) -> list[s.PasswordResetToken]:
         """Get all active (non-expired, non-used) reset tokens for a user."""
         return await self.driver.select(
-            sql.select("id", "user_id", "token", "expires_at", "used")
+            sql
+            .select("id", "user_id", "token", "expires_at", "used")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
             .where_eq("used", False)
@@ -398,7 +406,8 @@ class PasswordService(SQLSpecAsyncService):
     async def has_valid_token(self, user_id: UUID) -> bool:
         """Check if user has any valid (non-expired, non-used) reset tokens."""
         result = await self.driver.select_one_or_none(
-            sql.select("1")
+            sql
+            .select("1")
             .from_("password_reset_token")
             .where_eq("user_id", user_id)
             .where_eq("used", False)
@@ -409,7 +418,8 @@ class PasswordService(SQLSpecAsyncService):
     async def list_tokens(self, *filters: StatementFilter) -> OffsetPagination[s.PasswordResetToken]:
         """List password reset tokens with pagination."""
         return await self.paginate(
-            sql.select("id", "user_id", "token", "expires_at", "used")
+            sql
+            .select("id", "user_id", "token", "expires_at", "used")
             .from_("password_reset_token")
             .order_by(sql.column("created_at").desc()),
             *filters,
@@ -419,7 +429,8 @@ class PasswordService(SQLSpecAsyncService):
     async def get_token_by_value(self, token: str) -> s.PasswordResetToken | None:
         """Get a reset token by its value."""
         return await self.driver.select_one_or_none(
-            sql.select("id", "user_id", "token", "expires_at", "used")
+            sql
+            .select("id", "user_id", "token", "expires_at", "used")
             .from_("password_reset_token")
             .where_eq("token", token),
             schema_type=s.PasswordResetToken,

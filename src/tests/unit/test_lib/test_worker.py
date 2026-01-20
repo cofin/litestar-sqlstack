@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from sqlstack.lib.worker import Worker
+from sqlstack.utils.worker import Worker
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable

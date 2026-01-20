@@ -20,7 +20,8 @@ class UserRoleService(SQLSpecAsyncService):
         """Assign a role to a user."""
         # Insert the role assignment
         await self.driver.execute(
-            sql.insert("user_account_role")
+            sql
+            .insert("user_account_role")
             .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
             .values(
                 sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
@@ -28,7 +29,8 @@ class UserRoleService(SQLSpecAsyncService):
         )
         # Return the full UserRole with role details
         return await self.driver.select_one(
-            sql.select("ur.user_id", "ur.role_id", "ur.assigned_at", "r.slug as role_slug", "r.name as role_name")
+            sql
+            .select("ur.user_id", "ur.role_id", "ur.assigned_at", "r.slug as role_slug", "r.name as role_name")
             .from_("user_account_role ur")
             .join("role r", "ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
@@ -45,7 +47,8 @@ class UserRoleService(SQLSpecAsyncService):
     async def get_user_roles(self, user_id: UUID) -> list[s.UserRole]:
         """Get all roles assigned to a user."""
         return await self.driver.select(
-            sql.select(
+            sql
+            .select(
                 "ur.user_id",
                 "ur.role_id",
                 "ur.assigned_at",
@@ -63,7 +66,8 @@ class UserRoleService(SQLSpecAsyncService):
     async def get_role_users(self, role_id: UUID) -> list[s.User]:
         """Get all users assigned to a specific role."""
         return await self.driver.select(
-            sql.select(
+            sql
+            .select(
                 "u.id",
                 "u.email",
                 "u.name",
@@ -92,7 +96,8 @@ class UserRoleService(SQLSpecAsyncService):
     async def user_has_role_by_slug(self, user_id: UUID, role_slug: str) -> bool:
         """Check if a user has a role by role slug."""
         return await self.exists(
-            sql.select("1")
+            sql
+            .select("1")
             .from_("user_account_role ur")
             .join("role r", "ur.role_id = r.id")
             .where_eq("ur.user_id", user_id)
@@ -102,7 +107,8 @@ class UserRoleService(SQLSpecAsyncService):
     async def get_users_by_role_slug(self, role_slug: str) -> list[s.User]:
         """Get all users with a specific role by role slug."""
         return await self.driver.select(
-            sql.select(
+            sql
+            .select(
                 "u.id",
                 "u.email",
                 "u.name",
@@ -126,7 +132,8 @@ class UserRoleService(SQLSpecAsyncService):
     async def list_all_assignments(self, *filters: StatementFilter) -> OffsetPagination[s.UserRole]:
         """List all user-role assignments with pagination."""
         return await self.paginate(
-            sql.select(
+            sql
+            .select(
                 "ur.user_id",
                 "ur.role_id",
                 "ur.assigned_at",

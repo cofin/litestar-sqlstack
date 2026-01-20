@@ -9,8 +9,8 @@ from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
 from sqlspec.extensions.litestar.providers import create_filter_dependencies
 
-from sqlstack.domain.accounts import security
 from sqlstack.domain.accounts import schemas as s
+from sqlstack.domain.accounts import security
 from sqlstack.domain.accounts.services import UserService
 from sqlstack.lib.di import Inject, inject
 from sqlstack.lib.service import FilterTypes, OffsetPagination

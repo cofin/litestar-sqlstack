@@ -6,11 +6,15 @@ from litestar.exceptions import HTTPException
 from litestar.status_codes import HTTP_409_CONFLICT
 
 from sqlstack.lib.exceptions import (
-    ClientError,
     ApplicationError,
     AuthorizationError,
+    ClientError,
+    ConfigurationError,
+    DatabaseConnectionError,
     HealthCheckConfigurationError,
+    ImproperConfigurationError,
     MissingDependencyError,
+    NonRetryableError,
     _HTTPConflictException,
 )
 
@@ -169,3 +173,78 @@ def test_error_detail_edge_cases() -> None:
     assert error3.detail == "First"
     assert "Second" in str(error3)
     assert "1" in str(error3)
+
+
+def test_configuration_error_inheritance() -> None:
+    """Test that ConfigurationError inherits from ApplicationError."""
+    error = ConfigurationError("Config error")
+
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Config error"
+    assert error.detail == "Config error"
+
+
+def test_improper_configuration_error_inheritance() -> None:
+    """Test that ImproperConfigurationError inherits from ConfigurationError."""
+    error = ImproperConfigurationError("DATABASE_URL is required but not set")
+
+    assert isinstance(error, ConfigurationError)
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "DATABASE_URL is required but not set"
+    assert error.detail == "DATABASE_URL is required but not set"
+
+
+def test_improper_configuration_error_with_detail() -> None:
+    """Test ImproperConfigurationError with explicit detail."""
+    error = ImproperConfigurationError("startup failed", detail="Missing required configuration: API_KEY")
+
+    assert error.detail == "Missing required configuration: API_KEY"
+    assert "startup failed" in str(error)
+
+
+def test_database_connection_error_inheritance() -> None:
+    """Test that DatabaseConnectionError inherits from ApplicationError."""
+    error = DatabaseConnectionError("Connection refused")
+
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Connection refused"
+    assert error.detail == "Connection refused"
+
+
+def test_non_retryable_error_inheritance() -> None:
+    """Test that NonRetryableError inherits from ApplicationError."""
+    error = NonRetryableError("Payment was cancelled by user")
+
+    assert isinstance(error, ApplicationError)
+    assert str(error) == "Payment was cancelled by user"
+    assert error.detail == "Payment was cancelled by user"
+
+
+def test_non_retryable_error_use_case() -> None:
+    """Test NonRetryableError typical usage in job context."""
+
+    # Simulate job error handling
+    def simulate_job() -> None:
+        payment_cancelled = True
+        if payment_cancelled:
+            raise NonRetryableError("Payment cancelled - do not retry")
+
+    try:
+        simulate_job()
+    except NonRetryableError as e:
+        assert isinstance(e, ApplicationError)
+        assert "do not retry" in str(e)
+
+
+def test_extended_exception_hierarchy() -> None:
+    """Test complete exception hierarchy is properly set up."""
+    # Configuration errors
+    assert issubclass(ConfigurationError, ApplicationError)
+    assert issubclass(ImproperConfigurationError, ConfigurationError)
+    assert issubclass(ImproperConfigurationError, ApplicationError)
+
+    # Database errors
+    assert issubclass(DatabaseConnectionError, ApplicationError)
+
+    # Worker-related errors
+    assert issubclass(NonRetryableError, ApplicationError)

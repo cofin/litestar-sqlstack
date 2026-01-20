@@ -51,7 +51,7 @@ def test_public_exports_match_expected() -> None:
 
 @pytest.mark.anyio
 async def test_make_litestar_container_lifecycle() -> None:
-    from sqlstack.providers import make_litestar_container
+    from sqlstack.ioc import make_litestar_container
 
     container = make_litestar_container()
     try:

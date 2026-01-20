@@ -191,7 +191,7 @@ class WorkerPlugin(InitPluginProtocol):
     async def _start_worker(self) -> None:
         """Start the worker process in background."""
         try:
-            from sqlstack.lib.worker import Worker
+            from sqlstack.utils.worker.worker import Worker
 
             async def run_worker() -> None:
                 worker = Worker()

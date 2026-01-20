@@ -6,12 +6,7 @@ from sqlstack.domain.accounts.schemas._roles import UserRole
 from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.utils.types import Email, Name, Password
 
-__all__ = (
-    "ProfileUpdate",
-    "User",
-    "UserCreate",
-    "UserUpdate",
-)
+__all__ = ("ProfileUpdate", "User", "UserCreate", "UserUpdate")
 
 
 class User(CamelizedBaseStruct):

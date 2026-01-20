@@ -41,22 +41,13 @@ Email = Annotated[
 Password = Annotated[
     str,
     msgspec.Meta(
-        min_length=12,
-        max_length=128,
-        description="Strong password (12+ chars, mixed case, numbers, symbols)",
+        min_length=12, max_length=128, description="Strong password (12+ chars, mixed case, numbers, symbols)"
     ),
 ]
 
 # Name: 1-100 chars, Unicode-friendly
 # Use validate_name() for additional character and pattern validation
-Name = Annotated[
-    str,
-    msgspec.Meta(
-        min_length=1,
-        max_length=100,
-        description="Human name (1-100 characters)",
-    ),
-]
+Name = Annotated[str, msgspec.Meta(min_length=1, max_length=100, description="Human name (1-100 characters)")]
 
 # Username: 3-30 chars, lowercase alphanumeric with hyphens/underscores
 # Must start with letter or number
@@ -73,14 +64,7 @@ Username = Annotated[
 
 # URL: Max 2048 chars, must start with http:// or https://
 # Use validate_url() for blocked domains and security checks
-Url = Annotated[
-    str,
-    msgspec.Meta(
-        max_length=2048,
-        pattern=r"^https?://",
-        description="Valid HTTP/HTTPS URL",
-    ),
-]
+Url = Annotated[str, msgspec.Meta(max_length=2048, pattern=r"^https?://", description="Valid HTTP/HTTPS URL")]
 
 # Slug: 1-100 chars, lowercase alphanumeric with hyphens (no consecutive/leading/trailing)
 # Use validate_slug() for additional hyphen rules

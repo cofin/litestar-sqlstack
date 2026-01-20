@@ -1,10 +1,7 @@
 from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.utils.types import Email, Name, Password
 
-__all__ = (
-    "AccountLogin",
-    "AccountRegister",
-)
+__all__ = ("AccountLogin", "AccountRegister")
 
 
 class AccountLogin(CamelizedBaseStruct):

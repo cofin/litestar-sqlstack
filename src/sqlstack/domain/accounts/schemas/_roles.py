@@ -6,15 +6,7 @@ import msgspec
 from sqlstack.lib.schema import CamelizedBaseStruct
 from sqlstack.utils.types import Slug
 
-__all__ = (
-    "Role",
-    "RoleCreate",
-    "RoleUpdate",
-    "UserRole",
-    "UserRoleAdd",
-    "UserRoleCreate",
-    "UserRoleRevoke",
-)
+__all__ = ("Role", "RoleCreate", "RoleUpdate", "UserRole", "UserRoleAdd", "UserRoleCreate", "UserRoleRevoke")
 
 
 class Role(CamelizedBaseStruct):

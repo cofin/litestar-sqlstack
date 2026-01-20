@@ -10,8 +10,8 @@ from litestar.exceptions import HTTPException
 from litestar.params import Parameter
 from litestar.status_codes import HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
-from sqlstack.domain.accounts import security
 from sqlstack.domain.accounts import schemas as s
+from sqlstack.domain.accounts import security
 from sqlstack.domain.accounts.services import RoleService, UserRoleService, UserService
 from sqlstack.lib.di import Inject, inject
 from sqlstack.lib.schema import Message

@@ -1,4 +1,16 @@
 # pylint: disable=[invalid-name,import-outside-toplevel]
+"""Application core plugin for Litestar configuration.
+
+This plugin handles all application initialization including:
+- OpenAPI configuration
+- CORS and middleware setup
+- Plugin registration
+- Dishka dependency injection setup
+
+Container creation is centralized in ioc.py - this plugin only sets up
+the container with the Litestar application.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar
@@ -11,8 +23,8 @@ from litestar.openapi.plugins import ScalarRenderPlugin
 from litestar.params import Body, Parameter
 from litestar.plugins import CLIPluginProtocol, InitPluginProtocol
 
+from sqlstack.ioc import make_litestar_container
 from sqlstack.lib.di import setup_dishka
-from sqlstack.providers import make_litestar_container
 
 if TYPE_CHECKING:
     from click import Group
@@ -52,8 +64,8 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
 
         from sqlstack import config
         from sqlstack.__metadata__ import __version__
-        from sqlstack.domain.accounts import security
         from sqlstack.domain.accounts import schemas as account_schemas
+        from sqlstack.domain.accounts import security
         from sqlstack.domain.system import schemas as system_schemas
         from sqlstack.lib.exceptions import (
             ConflictError,
@@ -137,13 +149,16 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
     def on_cli_init(self, cli: Group) -> None:
         from sqlspec.extensions.litestar.cli import database_group
 
-        from sqlstack.cli.commands import export_fixtures_cmd, load_fixtures_cmd, user_management_group
+        from sqlstack.cli.commands.database import database_commands
+        from sqlstack.cli.commands.users import user_management_group
         from sqlstack.lib.settings import get_settings
 
         settings = get_settings()
         self.app_slug = settings.app.slug
-        database_group.add_command(load_fixtures_cmd)
-        database_group.add_command(export_fixtures_cmd)
+
+        # Register database commands
+        for cmd in database_commands:
+            database_group.add_command(cmd)
 
         cli.add_command(database_group)
         cli.add_command(user_management_group)

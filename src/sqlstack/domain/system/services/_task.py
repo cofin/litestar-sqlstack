@@ -150,7 +150,8 @@ class TaskService(SQLSpecAsyncService):
         """
         now = datetime.now(UTC)
         await self.driver.execute(
-            sql.update("job")
+            sql
+            .update("job")
             .set(status="completed", completed_at=now, heartbeat_at=now, result=result or {})
             .where_eq("id", task_id)
         )
@@ -247,7 +248,8 @@ class TaskService(SQLSpecAsyncService):
             Task object or None if not found
         """
         return await self.driver.select_one_or_none(
-            sql.select(
+            sql
+            .select(
                 "id",
                 "key",
                 "function",
@@ -330,10 +332,7 @@ class TaskService(SQLSpecAsyncService):
         total = int(results[0]["total_count"]) if results else 0
 
         # Convert dicts to Job objects (single query, no double execution)
-        jobs = [
-            msgspec.convert({k: v for k, v in row.items() if k != "total_count"}, s.Job)
-            for row in results
-        ]
+        jobs = [msgspec.convert({k: v for k, v in row.items() if k != "total_count"}, s.Job) for row in results]
 
         return OffsetPagination[s.Job](items=jobs, limit=limit, offset=offset, total=total)
 

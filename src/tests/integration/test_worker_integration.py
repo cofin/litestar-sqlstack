@@ -11,7 +11,7 @@ import pytest
 
 from sqlstack.domain.system.services import TaskService
 from sqlstack.lib.jobs import get_job_registry, get_scheduled_jobs, register_job
-from sqlstack.lib.worker import Worker
+from sqlstack.utils.worker import Worker
 
 if TYPE_CHECKING:
     from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver

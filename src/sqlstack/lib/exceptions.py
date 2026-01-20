@@ -23,6 +23,7 @@ __all__ = (
     "ConflictError",
     "DatabaseConnectionError",
     "HealthCheckConfigurationError",
+    "ImproperConfigurationError",
     "MissingDependencyError",
     "NonRetryableError",
     "NotFoundError",
@@ -83,6 +84,20 @@ class MissingDependencyError(ApplicationError, ImportError):
 
 class HealthCheckConfigurationError(ApplicationError):
     """An error occurred while registering a health check."""
+
+
+class ImproperConfigurationError(ConfigurationError):
+    """Configuration error that prevents application startup.
+
+    Raised when required configuration is missing or invalid,
+    and the application cannot proceed safely.
+
+    Example:
+        if not settings.db.DATABASE_URL:
+            raise ImproperConfigurationError(
+                "DATABASE_URL is required but not set"
+            )
+    """
 
 
 class NonRetryableError(ApplicationError):

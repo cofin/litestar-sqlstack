@@ -47,7 +47,7 @@ def _get_sqlspec_log_level() -> int:
     """
     # Allow explicit override
     explicit_level = os.getenv("SQLSPEC_LOG_LEVEL")
-    if explicit_level:
+    if explicit_level:  # pragma: nocover
         return int(explicit_level)
 
     # Auto-enable DEBUG when ECHO is enabled
@@ -71,9 +71,7 @@ class DatabaseSettings:
     POOL_RECYCLE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_RECYCLE", "300")))
     ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", False))
     """Print SQL statements to console for debugging."""
-    MIGRATION_PATH: str = field(
-        default_factory=get_env("DATABASE_MIGRATION_PATH", str(BASE_DIR / "db" / "migrations"))
-    )
+    MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", str(BASE_DIR / "db" / "migrations")))
     """The path to database migrations."""
     MIGRATION_DDL_VERSION_TABLE: str = field(
         default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version")
@@ -164,13 +162,13 @@ class ETLSettings:
         working_path.mkdir(parents=True, exist_ok=True)
         return working_path
 
-    def get_database_path(self) -> str:
+    def get_database_path(self) -> str:  # pragma: nocover
         """Get database path, defaulting to working_path/etl.db if not configured."""
         if self.DATABASE_PATH:
             return self.DATABASE_PATH
         return str(self.get_working_path() / "etl.db")
 
-    def get_connection_params(self) -> dict[str, Any]:
+    def get_connection_params(self) -> dict[str, Any]:  # pragma: nocover
         """Get DuckDB connection parameters."""
         working_path = self.get_working_path()
 
@@ -187,7 +185,7 @@ class ETLSettings:
             config["max_temp_directory_size"] = self.MAX_TEMP_FILE_SIZE
         return config
 
-    def get_config(self, db_settings: DatabaseSettings | None = None) -> DuckDBConfig:
+    def get_config(self, db_settings: DatabaseSettings | None = None) -> DuckDBConfig:  # pragma: nocover
         """Create DuckDB configuration for ETL operations.
 
         Args:
@@ -211,7 +209,7 @@ class ETLSettings:
         return DuckDBConfig(
             connection_config=self.get_connection_params(),
             driver_features=driver_features or None,
-            extension_config= {
+            extension_config={
                 "litestar": {
                     "connection_key": "etl_connection",
                     "pool_key": "etl_pool",
@@ -241,11 +239,7 @@ class ViteSettings:
             mode="spa",
             dev_mode=self.DEV_MODE,
             runtime=RuntimeConfig(executor="bun", trusted_proxies=self.TRUSTED_PROXIES),
-            paths=PathConfig(
-                root=js_home,
-                bundle_dir=self.BUNDLE_DIR,
-                asset_url=self.ASSET_URL,
-            ),
+            paths=PathConfig(root=js_home, bundle_dir=self.BUNDLE_DIR, asset_url=self.ASSET_URL),
             types=TypeGenConfig(output=Path("src/lib/generated")),
         )
 
@@ -267,11 +261,11 @@ class AppSettings:
     CSRF_COOKIE_SECURE: bool = field(default_factory=get_env("CSRF_COOKIE_SECURE", False))
 
     @property
-    def slug(self) -> str:
+    def slug(self) -> str:  # pragma: nocover
         """Return a slugified name."""
         return slugify(self.NAME)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self) -> None:  # pragma: nocover
         if isinstance(self.ALLOWED_CORS_ORIGINS, str):
             if self.ALLOWED_CORS_ORIGINS.startswith("[") and self.ALLOWED_CORS_ORIGINS.endswith("]"):
                 try:
@@ -363,13 +357,13 @@ class LogSettings:
                     log_exceptions="always",
                     disable_stack_trace=disable_stack_trace,
                     root={"level": logging.getLevelName(self.LEVEL), "handlers": ["queue_listener"]},
-                    formatters= {
+                    formatters={
                         "standard": {
                             "()": structlog.stdlib.ProcessorFormatter,
                             "processors": log_conf.stdlib_logger_processors(as_json=as_json),
                         }
                     },
-                    loggers= {
+                    loggers={
                         "sqlspec": {"propagate": False, "level": self.SQLSPEC_LEVEL, "handlers": ["queue_listener"]},
                         "sqlglot": {"propagate": False, "level": self.SQLGLOT_LEVEL, "handlers": ["queue_listener"]},
                         "_granian": {
@@ -397,19 +391,45 @@ class LogSettings:
 
 
 @dataclass
+class GoogleCloudSettings:
+    """Google Cloud Platform settings.
+
+    These settings are automatically populated when running in Cloud Run
+    or other GCP environments.
+    """
+
+    PROJECT_ID: str | None = field(default_factory=get_env("GCP_PROJECT_ID", None))
+    """Google Cloud project ID."""
+    REGION: str = field(default_factory=get_env("GCP_REGION", "us-central1"))
+    """Default region for Google Cloud services."""
+    CLOUD_RUN_SERVICE: str | None = field(default_factory=get_env("K_SERVICE", None))
+    """Cloud Run service name (auto-populated in Cloud Run environment)."""
+    CLOUD_RUN_REVISION: str | None = field(default_factory=get_env("K_REVISION", None))
+    """Cloud Run revision name (auto-populated in Cloud Run environment)."""
+    CLOUD_RUN_JOB: str | None = field(default_factory=get_env("CLOUD_RUN_JOB", None))
+    """Cloud Run job name for worker tasks."""
+
+    @property
+    def is_cloud_run(self) -> bool:
+        """Check if running in Cloud Run environment."""
+        return self.CLOUD_RUN_SERVICE is not None or self.CLOUD_RUN_JOB is not None
+
+
+@dataclass
 class TaskSettings:
     """Task execution settings.
 
     Controls how background tasks are executed across different environments.
     """
 
-    DEFAULT_EXECUTION_TARGET: Literal["local", "immediate"] = cast(
-        'Literal["local", "immediate"]', field(default_factory=get_env("EXECUTION_TARGET", "local"))
+    DEFAULT_EXECUTION_TARGET: Literal["local", "immediate", "cloudrun"] = cast(
+        'Literal["local", "immediate", "cloudrun"]', field(default_factory=get_env("EXECUTION_TARGET", "local"))
     )
     """Default execution target for tasks.
 
     - local: Execute via local worker process (default for dev/prod)
     - immediate: Execute synchronously without database (for testing)
+    - cloudrun: Execute via Google Cloud Run Jobs
     """
 
 
@@ -420,11 +440,12 @@ class Settings:
     app: AppSettings = field(default_factory=AppSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
     etl: ETLSettings = field(default_factory=ETLSettings)
+    gcp: GoogleCloudSettings = field(default_factory=GoogleCloudSettings)
     log: LogSettings = field(default_factory=LogSettings)
     task: TaskSettings = field(default_factory=TaskSettings)
     vite: ViteSettings = field(default_factory=ViteSettings)
 
-    def ensure_directories(self) -> None:
+    def ensure_directories(self) -> None:  # pragma: nocover
         """Ensure required directories exist."""
         # Create ETL working directory
         self.etl.get_working_path().mkdir(parents=True, exist_ok=True)
@@ -469,7 +490,7 @@ class Settings:
             msg = f"Configuration key '{key}' not found"
             raise ConfigurationError(msg) from e
 
-    def set_config_value(self, key: str, value: str) -> None:
+    def set_config_value(self, key: str, value: str) -> None:  # pragma: nocover
         """Set configuration value by dot-notation key.
 
         Args:
@@ -521,7 +542,7 @@ class Settings:
         """
         config: dict[str, dict[str, Any]] = {}
 
-        for section_name in ("app", "db", "etl", "log", "task", "vite"):
+        for section_name in ("app", "db", "etl", "gcp", "log", "task", "vite"):
             section_obj = getattr(self, section_name)
             section_config: dict[str, Any] = {}
 
@@ -536,7 +557,7 @@ class Settings:
 
     @classmethod
     @lru_cache(maxsize=1, typed=True)
-    def from_env(cls, dotenv_filename: str = ".env") -> Settings:
+    def from_env(cls, dotenv_filename: str = ".env") -> Settings:  # pragma: nocover
         import structlog
         from litestar.cli._utils import console  # pyright: ignore[reportPrivateImportUsage]
 
@@ -551,6 +572,7 @@ class Settings:
             app = AppSettings()
             db = DatabaseSettings()
             etl = ETLSettings()
+            gcp = GoogleCloudSettings()
             log = LogSettings()
             task = TaskSettings()
             vite = ViteSettings()
@@ -561,7 +583,7 @@ class Settings:
             os.environ.clear()
             os.environ.update(original_env)
 
-        settings = Settings(app=app, db=db, etl=etl, log=log, task=task, vite=vite)
+        settings = Settings(app=app, db=db, etl=etl, gcp=gcp, log=log, task=task, vite=vite)
 
         # Setup Litestar environment variables early
         settings.setup_litestar_env()

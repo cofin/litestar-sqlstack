@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
 
-
 class UserService(SQLSpecAsyncService):
     """Handles database operations for users using SQLSpec's sql builder API."""
 
@@ -36,7 +35,8 @@ class UserService(SQLSpecAsyncService):
         role_id = await self.driver.select_value_or_none(sql.select("id").from_("role").where_eq("slug", "member"))
         if role_id:
             await self.driver.execute(
-                sql.insert("user_account_role")
+                sql
+                .insert("user_account_role")
                 .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
                 .values(
                     sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
@@ -147,7 +147,8 @@ class UserService(SQLSpecAsyncService):
         """
         new_password_hash = await get_password_hash(new_password)
         await self.driver.execute(
-            sql.update("user_account")
+            sql
+            .update("user_account")
             .set(password_hash=new_password_hash, is_verified=True, updated_at=sql.raw("NOW()"))
             .where_eq("id", user_id)
         )
@@ -185,4 +186,3 @@ class UserService(SQLSpecAsyncService):
         await self.driver.execute(
             sql.update("user_account").set(is_verified=True, updated_at=sql.raw("NOW()")).where_eq("id", user_id)
         )
-

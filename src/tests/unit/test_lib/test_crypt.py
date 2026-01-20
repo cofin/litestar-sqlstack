@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from sqlstack.lib.crypt import check_needs_rehash, get_password_hash, verify_password
 
 

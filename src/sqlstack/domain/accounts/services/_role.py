@@ -23,7 +23,8 @@ class RoleService(SQLSpecAsyncService):
             role_data["slug"] = await self.get_available_slug(role_data["name"])
 
         return await self.driver.select_one(
-            sql.insert("role")
+            sql
+            .insert("role")
             .columns("id", "slug", "name", "description", "created_at", "updated_at")
             .values(
                 sql.raw("gen_random_uuid()"),
@@ -43,7 +44,8 @@ class RoleService(SQLSpecAsyncService):
         if update_data:
             await self.driver.execute(sql.update("role").set(**update_data).where_eq("id", role_id))
         return await self.driver.select_one(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .where_eq("id", role_id),
             schema_type=s.Role,
@@ -58,7 +60,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_one(self, role_id: UUID) -> s.Role:
         """Get a single role by ID."""
         return await self.get_or_404(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .where_eq("id", role_id),
             error_message=f"Role {role_id} not found",
@@ -68,7 +71,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_by_name(self, name: str) -> s.Role | None:
         """Get a role by name."""
         return await self.driver.select_one_or_none(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .where_eq("name", name),
             schema_type=s.Role,
@@ -77,7 +81,8 @@ class RoleService(SQLSpecAsyncService):
     async def fetch_with_count(self, *filters: StatementFilter) -> OffsetPagination[s.Role]:
         """List roles with pagination and filtering."""
         base_query = (
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .order_by("created_at", "DESC")
         )
@@ -90,7 +95,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_default_role(self) -> s.Role:
         """Get the default user role."""
         return await self.driver.select_one(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .where_eq("slug", "member")
             .limit(1),
@@ -100,7 +106,8 @@ class RoleService(SQLSpecAsyncService):
     async def assign_role_to_user(self, user_id: UUID, role_id: UUID) -> None:
         """Assign a role to a user."""
         await self.driver.execute(
-            sql.insert("user_account_role")
+            sql
+            .insert("user_account_role")
             .columns("id", "user_id", "role_id", "assigned_at", "created_at", "updated_at")
             .values(
                 sql.raw("gen_random_uuid()"), user_id, role_id, sql.raw("NOW()"), sql.raw("NOW()"), sql.raw("NOW()")
@@ -117,7 +124,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_user_roles(self, user_id: UUID) -> list[s.Role]:
         """Get all roles for a user."""
         return await self.driver.select(
-            sql.select("r.id", "r.slug", "r.name", "r.description", "r.created_at", "r.updated_at")
+            sql
+            .select("r.id", "r.slug", "r.name", "r.description", "r.created_at", "r.updated_at")
             .from_("role r")
             .join("user_account_role ur", "r.id = ur.role_id")
             .where_eq("ur.user_id", user_id)
@@ -133,7 +141,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_active_roles(self, limit: int = 10) -> list[s.Role]:
         """Get most recently active roles."""
         return await self.driver.select(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .order_by("updated_at", "DESC")
             .limit(limit),
@@ -147,7 +156,8 @@ class RoleService(SQLSpecAsyncService):
     async def get_by_slug(self, slug: str) -> s.Role | None:
         """Get a role by slug."""
         return await self.driver.select_one_or_none(
-            sql.select("id", "slug", "name", "description", "created_at", "updated_at")
+            sql
+            .select("id", "slug", "name", "description", "created_at", "updated_at")
             .from_("role")
             .where_eq("slug", slug),
             schema_type=s.Role,
