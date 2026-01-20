@@ -193,3 +193,5 @@ GEMINI.md
 CRUSH.md
 AGENTS.md
 specs/
+.geminiignore
+tools/scripts/detect_mcp_tools.py
