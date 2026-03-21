@@ -192,6 +192,10 @@ CLAUDE.*.md
 GEMINI.md
 CRUSH.md
 AGENTS.md
-specs/
+.agents/
 .geminiignore
 tools/scripts/detect_mcp_tools.py
+
+# Flow specification files (local-only)
+.agents/
+.beads
