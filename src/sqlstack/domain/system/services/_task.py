@@ -4,19 +4,25 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-import msgspec
 import structlog
 from sqlspec import sql
+from sqlspec.utils.uuids import uuid7
 
 from sqlstack.domain.system import schemas as s
-from sqlstack.lib.service import LimitOffsetFilter, OffsetPagination, SQLSpecAsyncService, StatementFilter
+from sqlstack.lib.log import log_error, log_info, log_warning
+from sqlstack.lib.realtime import RealtimeEntityRef, RealtimeEvent
+from sqlstack.lib.service import OffsetPagination, SQLSpecAsyncService, StatementFilter
+from sqlstack.utils.serialization import schema_dump
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sqlstack.lib.realtime import RealtimePublisher
+
 logger = structlog.get_logger()
+_PUBLISH_ERRORS = (OSError, RuntimeError, ValueError, TypeError)
 
 
 class TaskService(SQLSpecAsyncService):
@@ -31,6 +37,7 @@ class TaskService(SQLSpecAsyncService):
         priority: int = 0,
         scheduled_at: datetime | None = None,
         max_retries: int = 3,
+        team_id: UUID | None = None,
     ) -> UUID:
         """Create a new task or return existing if key exists.
 
@@ -41,11 +48,12 @@ class TaskService(SQLSpecAsyncService):
             priority: Task priority (higher = more important)
             scheduled_at: When to run the task (None = immediately)
             max_retries: Maximum retry attempts on failure
+            team_id: Optional team ID for scoping
 
         Returns:
             Task ID
         """
-        task_id = uuid4()
+        task_id = uuid7()
         status = "scheduled" if scheduled_at else "pending"
 
         task_data = {
@@ -59,11 +67,26 @@ class TaskService(SQLSpecAsyncService):
             "max_retries": max_retries,
         }
 
+        if team_id:
+            task_data["data"]["team_id"] = str(team_id)
+
+        is_scheduled_key = bool(key and key.startswith("scheduled-"))
+
         if key:
             # Check if task with this key already exists
             existing = await self.driver.select_value_or_none(sql.select("id").from_("job").where_eq("key", key))
             if existing:
-                await logger.ainfo("task with key already exists", task_id=str(existing), key=key)
+                if is_scheduled_key:
+                    await logger.adebug(
+                        "scheduled job already registered; reusing existing task",
+                        task_id=str(existing),
+                        schedule_key=key,
+                        job_name=key.removeprefix("scheduled-"),
+                    )
+                else:
+                    await logger.adebug(
+                        "task key already exists; reusing existing task", task_id=str(existing), task_key=key
+                    )
                 return UUID(str(existing))
 
         # Insert new task
@@ -72,7 +95,12 @@ class TaskService(SQLSpecAsyncService):
         )
         task_id = UUID(str(result))
 
-        await logger.ainfo("task created", task_id=str(task_id), function=function, key=key)
+        if is_scheduled_key:
+            await logger.adebug(
+                "registered scheduled job task", task_id=str(task_id), schedule_key=key, job_name=function
+            )
+        else:
+            await log_info("task queued", task_id=str(task_id), function=function, key=key)
 
         # Notify worker of new task via PostgreSQL LISTEN/NOTIFY
         await self._notify_worker("new_task", str(task_id))
@@ -82,16 +110,12 @@ class TaskService(SQLSpecAsyncService):
     async def get_pending_tasks(self, limit: int = 10) -> Sequence[s.Job]:
         """Get pending tasks ordered by priority and creation time.
 
-        Note: Uses raw SQL for FOR UPDATE SKIP LOCKED since SQLSpec
-        doesn't support it yet.
-
         Args:
             limit: Maximum number of tasks to retrieve
 
         Returns:
             List of task objects
         """
-        # Use raw SQL for proper row locking (FOR UPDATE SKIP LOCKED)
         return await self.driver.select(
             """
             SELECT id, key, function, data, status, priority,
@@ -112,19 +136,14 @@ class TaskService(SQLSpecAsyncService):
     async def claim_task(self, task_id: UUID) -> bool:
         """Claim a task for processing (atomic operation).
 
-        Uses SELECT FOR UPDATE SKIP LOCKED to prevent race conditions
-        between multiple workers.
-
         Args:
             task_id: Task to claim
 
         Returns:
             True if successfully claimed, False if already claimed
         """
-        # Use a transaction with SELECT FOR UPDATE to atomically claim the task
         now = datetime.now(UTC)
         async with self.begin_transaction():
-            # Use raw SQL for FOR UPDATE (not yet supported by SQLSpec)
             locked_task = await self.driver.select_one_or_none(
                 """
                 SELECT id, status FROM job
@@ -156,7 +175,7 @@ class TaskService(SQLSpecAsyncService):
             .where_eq("id", task_id)
         )
 
-        await logger.ainfo("task completed", task_id=str(task_id))
+        await log_info("task completed", task_id=str(task_id))
 
     async def fail_task(self, task_id: UUID, error: str, retry: bool = True) -> None:
         """Mark task as failed.
@@ -166,30 +185,33 @@ class TaskService(SQLSpecAsyncService):
             error: Error message
             retry: Whether to retry the task
         """
-        # Atomically update the task status and retry count
         updated_task = await self.driver.select_one_or_none(
             """
+            WITH ctx AS (
+                SELECT :retry::boolean AS should_retry
+            )
             UPDATE job
             SET
                 status = CASE
-                    WHEN retry_count < max_retries AND :retry THEN 'pending'
+                    WHEN retry_count < max_retries AND ctx.should_retry THEN 'pending'
                     ELSE 'failed'
                 END,
                 retry_count = CASE
-                    WHEN retry_count < max_retries AND :retry THEN retry_count + 1
+                    WHEN retry_count < max_retries AND ctx.should_retry THEN retry_count + 1
                     ELSE retry_count
                 END,
                 completed_at = CASE
-                    WHEN retry_count >= max_retries OR NOT :retry THEN NOW()
+                    WHEN retry_count >= max_retries OR NOT ctx.should_retry THEN NOW()
                     ELSE completed_at
                 END,
                 started_at = CASE
-                    WHEN retry_count < max_retries AND :retry THEN NULL
+                    WHEN retry_count < max_retries AND ctx.should_retry THEN NULL
                     ELSE started_at
                 END,
                 error = :error
-            WHERE id = :task_id
-            RETURNING status, retry_count
+            FROM ctx
+            WHERE job.id = :task_id
+            RETURNING job.status, job.retry_count
             """,
             task_id=task_id,
             error=error,
@@ -200,25 +222,36 @@ class TaskService(SQLSpecAsyncService):
             return
 
         if updated_task["status"] == "pending":
-            await logger.ainfo(
+            await log_info(
                 "task scheduled for retry", task_id=str(task_id), retry_count=updated_task["retry_count"]
             )
         else:
-            await logger.aerror("task failed permanently", task_id=str(task_id), error=error)
+            await log_error("task failed permanently", task_id=str(task_id), error=error)
+
+    async def reschedule_job(self, function: str, schedule_config: dict[str, Any], completed_at: datetime) -> UUID:
+        """Create the next execution of a scheduled job."""
+        from sqlstack.lib.jobs import ScheduleConfig
+
+        config = ScheduleConfig(**schedule_config)
+        next_run = config.get_next_run(after=completed_at)
+        key = f"scheduled-{function}"
+
+        # Clear key on old terminal jobs so the new one can claim it
+        await self.driver.execute(
+            "UPDATE job SET key = NULL WHERE key = :key AND status IN ('completed', 'failed', 'cancelled')", key=key
+        )
+
+        return await self.create_task(
+            function=function,
+            data={"_scheduled": True, "_schedule_config": schedule_config},
+            scheduled_at=next_run,
+            key=key,
+            priority=5,
+        )
 
     async def cancel_task(self, task_id: UUID) -> bool:
-        """Cancel a pending task.
-
-        Uses SELECT FOR UPDATE to ensure atomic cancellation.
-
-        Args:
-            task_id: Task to cancel
-
-        Returns:
-            True if cancelled, False if not found or already running
-        """
+        """Cancel a pending task."""
         async with self.begin_transaction():
-            # Use raw SQL for FOR UPDATE (not yet supported by SQLSpec)
             locked_task = await self.driver.select_one_or_none(
                 """
                 SELECT id, status FROM job
@@ -231,7 +264,6 @@ class TaskService(SQLSpecAsyncService):
             if not locked_task:
                 return False
 
-            # Update the locked task
             await self.driver.execute(
                 sql.update("job").set(status="cancelled", completed_at=datetime.now(UTC)).where_eq("id", task_id)
             )
@@ -239,14 +271,7 @@ class TaskService(SQLSpecAsyncService):
             return True
 
     async def get_task(self, task_id: UUID) -> s.Job | None:
-        """Get a single task by ID.
-
-        Args:
-            task_id: Task ID to retrieve
-
-        Returns:
-            Task object or None if not found
-        """
+        """Get a single task by ID."""
         return await self.driver.select_one_or_none(
             sql
             .select(
@@ -272,79 +297,46 @@ class TaskService(SQLSpecAsyncService):
             schema_type=s.Job,
         )
 
-    async def get_statistics(self) -> s.JobStats:
-        """Get task queue statistics.
-
-        Returns:
-            JobStats object with counts by status
-        """
+    async def get_statistics(self) -> dict[str, int]:
+        """Get task queue statistics."""
         rows = await self.driver.select(sql.select("status", "COUNT(1) as count").from_("job").group_by("status"))
 
-        stats_dict = {row["status"]: row["count"] for row in rows}
-        total = sum(stats_dict.values())
+        stats = {row["status"]: row["count"] for row in rows}
+        for key in ("pending", "scheduled", "running", "completed", "failed"):
+            stats.setdefault(key, 0)
 
-        return s.JobStats(
-            pending=stats_dict.get("pending", 0),
-            running=stats_dict.get("running", 0),
-            completed=stats_dict.get("completed", 0),
-            failed=stats_dict.get("failed", 0),
-            cancelled=stats_dict.get("cancelled", 0),
-            scheduled=stats_dict.get("scheduled", 0),
-            total=total,
-        )
+        return stats
 
     async def list_tasks(self, *filters: StatementFilter, status: str | None = None) -> OffsetPagination[s.Job]:
-        """List tasks with pagination and filtering.
+        """List tasks with pagination and filtering."""
+        stmt = sql.select(
+            "id",
+            "key",
+            "function",
+            "data",
+            "status",
+            "priority",
+            "max_retries",
+            "retry_count",
+            "scheduled_at",
+            "created_at",
+            "started_at",
+            "heartbeat_at",
+            "completed_at",
+            "error",
+            "result",
+            "metadata",
+        ).from_("job")
 
-        Args:
-            filters: Additional filters
-            status: Filter by status
+        if status:
+            stmt = stmt.where_eq("status", status)
 
-        Returns:
-            Paginated list of tasks
-        """
-        # Extract limit/offset from filters
-        limit_offset = self.driver.find_filter(LimitOffsetFilter, filters)
-        offset = limit_offset.offset if limit_offset else 0
-        limit = limit_offset.limit if limit_offset else 10
+        stmt = stmt.order_by("created_at DESC")
 
-        # Use window function to get count in single query
-        where_clause = "WHERE status = :status" if status else ""
-        params: dict[str, Any] = (
-            {"status": status, "limit": limit, "offset": offset} if status else {"limit": limit, "offset": offset}
-        )
-
-        query = f"""
-            SELECT
-                id, key, function, data, status, priority,
-                max_retries, retry_count, scheduled_at, created_at,
-                started_at, heartbeat_at, completed_at, error, result, metadata,
-                COUNT(*) OVER() as total_count
-            FROM job
-            {where_clause}
-            ORDER BY created_at DESC
-            LIMIT :limit OFFSET :offset
-        """  # noqa: S608
-
-        results = await self.driver.select(query, params)
-
-        # Extract total from first row, or default to 0
-        total = int(results[0]["total_count"]) if results else 0
-
-        # Convert dicts to Job objects (single query, no double execution)
-        jobs = [msgspec.convert({k: v for k, v in row.items() if k != "total_count"}, s.Job) for row in results]
-
-        return OffsetPagination[s.Job](items=jobs, limit=limit, offset=offset, total=total)
+        return await self.paginate(stmt, *filters, schema_type=s.Job)
 
     async def cleanup_old_jobs(self, days: int = 30) -> int:
-        """Clean up old completed jobs.
-
-        Args:
-            days: Days to keep completed jobs
-
-        Returns:
-            Number of jobs cleaned up
-        """
+        """Clean up old completed jobs."""
         cutoff_date = datetime.now(UTC) - timedelta(days=days)
         result = await self.driver.select(
             """
@@ -357,22 +349,11 @@ class TaskService(SQLSpecAsyncService):
         )
 
         count = len(result) if result else 0
-        await logger.ainfo(f"cleaned up {count} old jobs")
+        await log_info(f"cleaned up {count} old jobs")
         return count
 
-    async def requeue_stale_running(self, stale_after: timedelta = timedelta(minutes=1)) -> int:
-        """Requeue tasks that were left in 'running' due to a crash.
-
-        Any task that has been in 'running' longer than ``stale_after`` is
-        reset to 'pending' and its ``started_at`` cleared so it can be
-        picked up again. This uses the heartbeat_at column to detect stale tasks.
-
-        Args:
-            stale_after: Duration after which a running task is considered stale.
-
-        Returns:
-            Number of tasks reset.
-        """
+    async def requeue_stale_running(self, stale_after: timedelta = timedelta(minutes=5)) -> int:
+        """Requeue tasks that were left in 'running' due to a crash."""
         cutoff = datetime.now(UTC) - stale_after
         rows = await self.driver.select(
             """
@@ -392,36 +373,127 @@ class TaskService(SQLSpecAsyncService):
 
         count = len(rows) if rows else 0
         if count:
-            await logger.awarning("requeued stale running tasks", count=count)
+            task_ids = [str(r["id"]) for r in rows]
+            await log_warning("requeued stale running tasks", count=count, task_ids=task_ids)
         return count
 
     async def touch_heartbeat(self, task_id: UUID) -> None:
-        """Update heartbeat timestamp for a running task.
-
-        Called periodically by the worker to indicate the task is still being
-        processed. This allows stale detection for crashed workers.
-
-        Args:
-            task_id: Task ID to update
-        """
+        """Update heartbeat timestamp for a running task."""
         await self.driver.execute(
             sql.update("job").set(heartbeat_at=datetime.now(UTC)).where_eq("id", task_id).where_eq("status", "running")
         )
 
+    async def null_heartbeats(self, task_ids: list[UUID]) -> None:
+        """Null heartbeat_at for specific tasks."""
+        if not task_ids:
+            return
+        await self.driver.execute(
+            "UPDATE job SET heartbeat_at = NULL WHERE id = ANY(:ids::uuid[]) AND status = 'running'", ids=task_ids
+        )
+
+    # ── Job Log Methods ──────────────────────────────────────────────
+
+    def _job_log_table(self, data: s.JobLogCreate) -> str:
+        """Determine the target table based on scoping fields."""
+        if data.team_id is not None:
+            return "team_job_log"
+        return "job_log"
+
+    def _job_log_columns(self, data: s.JobLogCreate) -> dict[str, Any]:
+        """Build the column dict for the target table."""
+        row: dict[str, Any] = schema_dump(data)
+        row["id"] = uuid7()
+        return row
+
+    async def _publish_job_log_event(
+        self, log_entry: s.JobLog, team_id: UUID, publisher: RealtimePublisher
+    ) -> None:
+        """Publish a single job log event to the team channel."""
+        payload = {
+            "log_id": str(log_entry.id),
+            "job_id": str(log_entry.job_id) if log_entry.job_id else None,
+            "stage": log_entry.stage,
+            "level": log_entry.level,
+            "message": log_entry.message,
+            "detail": log_entry.detail,
+            "sequence": log_entry.sequence,
+            "duration_ms": log_entry.duration_ms,
+            "team_id": str(team_id),
+            "created_at": log_entry.created_at.isoformat() if log_entry.created_at else datetime.now(UTC).isoformat(),
+        }
+        try:
+            event = RealtimeEvent(
+                event_type="team.job.log.created",
+                scope="team",
+                team_id=team_id,
+                entity=RealtimeEntityRef(type="job_log", id=str(log_entry.id)),
+                payload=payload,
+            )
+            await publisher.publish_team_event(team_id=team_id, event_type=event.event_type, payload=payload)
+        except _PUBLISH_ERRORS:
+            logger.debug("failed to publish job log event", team_id=str(team_id))
+
+    async def create_job_log(self, data: s.JobLogCreate, publisher: RealtimePublisher | None = None) -> s.JobLog:
+        """Insert a single job log entry into the appropriate table."""
+        table = self._job_log_table(data)
+        row = self._job_log_columns(data)
+        returning_cols = [
+            "id",
+            "job_id",
+            "stage",
+            "level",
+            "message",
+            "detail",
+            "duration_ms",
+            "sequence",
+            "created_at",
+        ]
+        if data.team_id is not None:
+            returning_cols.append("team_id")
+
+        log_entry = await self.driver.select_one(
+            sql.insert(table).columns(*row.keys()).values(**row).returning(*returning_cols), schema_type=s.JobLog
+        )
+        if data.team_id is not None and publisher:
+            await self._publish_job_log_event(log_entry, data.team_id, publisher)
+        return log_entry
+
+    async def create_job_logs(self, entries: list[s.JobLogCreate]) -> int:
+        """Batch insert multiple job log entries."""
+        if not entries:
+            return 0
+        for entry in entries:
+            table = self._job_log_table(entry)
+            row = self._job_log_columns(entry)
+            await self.driver.execute(sql.insert(table).columns(*row.keys()).values(**row))
+        return len(entries)
+
+    async def get_job_log_summary(self, job_id: UUID) -> s.JobLogSummary:
+        """Get an aggregated summary of job log entries by stage."""
+        # Note: This requires the get-job-log-summary SQL to be in db/sql/jobs.sql
+        from sqlstack.config import db_manager
+
+        stages = await self.driver.select(
+            db_manager.get_sql("get-job-log-summary"), job_id=job_id, schema_type=s.JobLogStageSummary
+        )
+        total_entries = sum(s.entry_count for s in stages)
+        total_duration = sum(s.duration_ms or 0 for s in stages) or None
+        has_errors = any(s.level == "ERROR" for s in stages)
+        has_warnings = any(s.level == "WARNING" for s in stages)
+        return s.JobLogSummary(
+            job_id=job_id,
+            total_entries=total_entries,
+            stages=list(stages),
+            has_errors=has_errors,
+            has_warnings=has_warnings,
+            total_duration_ms=total_duration,
+        )
+
     async def _notify_worker(self, event: str, data: str) -> None:
-        """Send PostgreSQL NOTIFY to wake up workers.
-
-        Uses the 'sqlstack_tasks' channel to notify workers of new tasks
-        or other events without requiring polling.
-
-        Args:
-            event: Event type (e.g., 'new_task')
-            data: Event data (e.g., task ID)
-        """
+        """Send PostgreSQL NOTIFY to wake up workers."""
         try:
             await self.driver.execute(
                 "SELECT pg_notify(:channel, :payload)", channel="sqlstack_tasks", payload=f"{event}:{data}"
             )
         except Exception:  # noqa: BLE001
-            # Notifications are best-effort; ignore failures to keep queue flowing.
             await logger.adebug("notification failed", event=event)

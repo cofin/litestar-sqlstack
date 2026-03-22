@@ -41,6 +41,8 @@ if TYPE_CHECKING:
 
 # Request context variables
 query_id_var: ContextVar[str | None] = ContextVar("query_id", default=None)
+request_container_var: ContextVar[AsyncContainer | None] = ContextVar("request_container", default=None)
+worker_container_var: ContextVar[AsyncContainer | None] = ContextVar("worker_container", default=None)
 
 T = TypeVar("T")
 
@@ -95,5 +97,7 @@ __all__ = (
     "make_container",
     "provide",
     "query_id_var",
+    "request_container_var",
     "setup_dishka",
+    "worker_container_var",
 )

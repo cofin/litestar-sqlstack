@@ -100,6 +100,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             plugins.sqlspec,
             plugins.problem_details,
             plugins.worker,
+            plugins.channels,
             plugins.domain,
             plugins.vite,
         ])
@@ -149,16 +150,27 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
     def on_cli_init(self, cli: Group) -> None:
         from sqlspec.extensions.litestar.cli import database_group
 
-        from sqlstack.cli.commands.database import database_commands
-        from sqlstack.cli.commands.users import user_management_group
+        from sqlstack.cli.commands import (
+            assets_group,
+            database_commands,
+            manage_group,
+            server_group,
+            user_management_group,
+            version_cmd,
+        )
         from sqlstack.lib.settings import get_settings
 
         settings = get_settings()
         self.app_slug = settings.app.slug
 
-        # Register database commands
+        # Register database commands into the shared database group
         for cmd in database_commands:
             database_group.add_command(cmd)
 
+        # Add all groups to the main CLI
+        cli.add_command(server_group)
+        cli.add_command(manage_group)
+        cli.add_command(assets_group)
         cli.add_command(database_group)
         cli.add_command(user_management_group)
+        cli.add_command(version_cmd)

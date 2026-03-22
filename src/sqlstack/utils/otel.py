@@ -1,188 +1,371 @@
-"""OpenTelemetry utilities with stub support.
+# ruff: noqa: RUF100, PLR0913, A002, ARG001, ARG002, B903, PLR0917
+# mypy: disable-error-code="misc,assignment,import-not-found,unused-ignore,valid-type,no-any-return,attr-defined,unreachable"
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportMissingImports=false, reportInvalidTypeForm=false
+"""OpenTelemetry support with optional dependency and instrumentation utilities.
 
-This module provides OpenTelemetry instrumentation utilities that
-gracefully fall back to no-ops when OpenTelemetry is not installed.
+This module provides:
+1. Stub implementations of OpenTelemetry types when the package isn't installed
+2. Real types when opentelemetry is available
+3. Instrumentation utilities for SQLStack worker jobs
 
-This allows code to be instrumented with tracing without requiring
-OpenTelemetry as a hard dependency.
-
-Example:
-    from sqlstack.utils.otel import create_span, tracer
-
-    with create_span("my_operation") as span:
-        span.set_attribute("key", "value")
-        # Do work...
-
-For worker job tracing:
-    from sqlstack.utils.otel import create_job_span, end_job_span
-
-    span = create_job_span(task_id, function_name)
-    try:
-        result = await execute_job()
-        end_job_span(span, success=True)
-    except Exception as e:
-        end_job_span(span, success=False, error=str(e))
-        raise
+Pattern inspired by litestar-saq and sqlspec.
 """
 
-from __future__ import annotations
+from collections.abc import Mapping
+from importlib.util import find_spec
+from typing import Any, Self
 
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-__all__ = [
-    "OTEL_AVAILABLE",
+__all__ = (
+    "OPENTELEMETRY_INSTALLED",
+    "Context",
+    "Span",
+    "SpanKind",
+    "Status",
+    "StatusCode",
+    "Tracer",
+    "create_enqueue_span",
     "create_job_span",
-    "create_span",
     "end_job_span",
+    "extract_trace_context",
     "get_tracer",
-    "tracer",
-]
-
-# Check if OpenTelemetry is available
-try:
-    from opentelemetry import trace  # pragma: nocover
-    from opentelemetry.trace import Span, Tracer  # pragma: nocover
-
-    OTEL_AVAILABLE = True  # pragma: nocover
-except ImportError:
-    OTEL_AVAILABLE = False
-    trace = None  # type: ignore[assignment]
-    Span = None  # type: ignore[assignment, misc]
-    Tracer = None  # type: ignore[assignment, misc]
+    "inject_trace_context",
+    "propagate",
+    "trace",
+)
 
 
-class StubSpan:
-    """Stub span implementation when OpenTelemetry is not available."""
+# =============================================================================
+# Stub Implementations (used when OpenTelemetry is not installed)
+# =============================================================================
+
+
+class SpanStub:
+    """Placeholder implementation for opentelemetry.trace.Span."""
 
     def set_attribute(self, key: str, value: Any) -> None:
-        """No-op attribute setter."""
+        """Set a span attribute (no-op when OTEL not installed)."""
 
-    def set_status(self, status: Any) -> None:
-        """No-op status setter."""
+    def set_attributes(self, attributes: Mapping[str, Any]) -> None:
+        """Set multiple span attributes (no-op when OTEL not installed)."""
 
-    def record_exception(self, exception: Exception) -> None:
-        """No-op exception recorder."""
+    def add_event(self, name: str, attributes: Mapping[str, Any] | None = None, timestamp: int | None = None) -> None:
+        """Add an event to the span (no-op when OTEL not installed)."""
 
-    def end(self) -> None:
-        """No-op end."""
+    def record_exception(
+        self,
+        exception: BaseException,
+        attributes: Mapping[str, Any] | None = None,
+        timestamp: int | None = None,
+        escaped: bool = False,
+    ) -> None:
+        """Record an exception (no-op when OTEL not installed)."""
 
-    def __enter__(self) -> "StubSpan":
+    def set_status(self, status: Any, description: str | None = None) -> None:
+        """Set span status (no-op when OTEL not installed)."""
+
+    def end(self, end_time: int | None = None) -> None:
+        """End the span (no-op when OTEL not installed)."""
+
+    def get_span_context(self) -> Any:
+        """Get span context (returns None when OTEL not installed)."""
+        return None
+
+    def is_recording(self) -> bool:
+        """Check if span is recording (returns False when OTEL not installed)."""
+        return False
+
+    def __enter__(self) -> Self:
+        """Context manager entry."""
         return self
 
-    def __exit__(self, *args: Any) -> None:
-        pass
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
+        """Context manager exit."""
 
 
-class StubTracer:
-    """Stub tracer implementation when OpenTelemetry is not available."""
+class TracerStub:
+    """Placeholder implementation for opentelemetry.trace.Tracer."""
 
-    def start_span(self, name: str, **kwargs: Any) -> StubSpan:
-        """Return a stub span."""
-        return StubSpan()
+    def start_span(
+        self,
+        name: str,
+        context: Any = None,
+        kind: Any = None,
+        attributes: Any = None,
+        links: Any = None,
+        start_time: Any = None,
+        record_exception: bool = True,
+        set_status_on_exception: bool = True,
+    ) -> SpanStub:
+        """Start a new span (returns stub when OTEL not installed)."""
+        return SpanStub()
 
-    def start_as_current_span(self, name: str, **kwargs: Any) -> StubSpan:
-        """Return a stub span as context manager."""
-        return StubSpan()
+    def start_as_current_span(
+        self,
+        name: str,
+        context: Any = None,
+        kind: Any = None,
+        attributes: Any = None,
+        links: Any = None,
+        start_time: Any = None,
+        record_exception: bool = True,
+        set_status_on_exception: bool = True,
+        end_on_exit: bool = True,
+    ) -> SpanStub:
+        """Start span as current (returns stub when OTEL not installed)."""
+        return SpanStub()
 
 
-def get_tracer(name: str = "sqlstack") -> Any:
-    """Get a tracer instance.
+class SpanKindStub:
+    """Placeholder for opentelemetry.trace.SpanKind enum."""
 
-    Returns a real OpenTelemetry tracer if available, otherwise a stub.
+    INTERNAL = 0
+    SERVER = 1
+    CLIENT = 2
+    PRODUCER = 3
+    CONSUMER = 4
+
+
+class StatusCodeStub:
+    """Placeholder for opentelemetry.trace.StatusCode enum."""
+
+    UNSET = 0
+    OK = 1
+    ERROR = 2
+
+
+class StatusStub:
+    """Placeholder for opentelemetry.trace.Status."""
+
+    def __init__(self, status_code: Any = None, description: str | None = None) -> None:
+        self.status_code = status_code
+        self.description = description
+
+
+class _TraceModuleStub:
+    """Placeholder for opentelemetry.trace module."""
+
+    def get_tracer(
+        self,
+        instrumenting_module_name: str,
+        instrumenting_library_version: str | None = None,
+        schema_url: str | None = None,
+        tracer_provider: Any = None,
+    ) -> TracerStub:
+        """Get a tracer instance (returns stub when OTEL not installed)."""
+        return TracerStub()
+
+    def get_current_span(self, context: Any = None) -> SpanStub:
+        """Get current span (returns stub when OTEL not installed)."""
+        return SpanStub()
+
+    def set_span_in_context(self, span: Any, context: Any = None) -> Any:
+        """Set span in context (no-op when OTEL not installed)."""
+        return context
+
+
+class _PropagateModuleStub:
+    """Placeholder for opentelemetry.propagate module."""
+
+    def inject(self, carrier: dict[str, str], context: Any = None, setter: Any = None) -> None:
+        """Inject trace context into carrier (no-op when OTEL not installed)."""
+
+    def extract(self, carrier: dict[str, str], context: Any = None, getter: Any = None) -> Any:
+        """Extract trace context from carrier (returns None when OTEL not installed)."""
+        return None
+
+
+class _ContextStub:
+    """Placeholder for opentelemetry.context.Context."""
+
+
+# =============================================================================
+# Type Detection and Assignment
+# =============================================================================
+
+OPENTELEMETRY_INSTALLED: bool = find_spec("opentelemetry") is not None
+
+if OPENTELEMETRY_INSTALLED:
+    from opentelemetry import propagate as _real_propagate  # pyright: ignore[reportMissingImports]
+    from opentelemetry import trace as _real_trace  # pyright: ignore[reportMissingImports]
+    from opentelemetry.context import Context as _RealContext  # pyright: ignore[reportMissingImports]
+    from opentelemetry.trace import Span as _RealSpan  # pyright: ignore[reportMissingImports]
+    from opentelemetry.trace import SpanKind as _RealSpanKind  # pyright: ignore[reportMissingImports]
+    from opentelemetry.trace import Status as _RealStatus  # pyright: ignore[reportMissingImports]
+    from opentelemetry.trace import StatusCode as _RealStatusCode  # pyright: ignore[reportMissingImports]
+    from opentelemetry.trace import Tracer as _RealTracer  # pyright: ignore[reportMissingImports]
+
+    Span = _RealSpan  # pyright: ignore[reportConstantRedefinition]
+    SpanKind = _RealSpanKind  # pyright: ignore[reportConstantRedefinition]
+    Status = _RealStatus  # pyright: ignore[reportConstantRedefinition]
+    StatusCode = _RealStatusCode  # pyright: ignore[reportConstantRedefinition]
+    Tracer = _RealTracer  # pyright: ignore[reportConstantRedefinition]
+    Context = _RealContext  # pyright: ignore[reportConstantRedefinition]
+    trace = _real_trace  # pyright: ignore[reportConstantRedefinition]
+    propagate = _real_propagate  # pyright: ignore[reportConstantRedefinition]
+else:
+    Span = SpanStub  # type: ignore[misc,assignment]
+    SpanKind = SpanKindStub  # type: ignore[misc,assignment]
+    Status = StatusStub  # type: ignore[misc,assignment]
+    StatusCode = StatusCodeStub  # type: ignore[misc,assignment]
+    Tracer = TracerStub  # type: ignore[misc,assignment]
+    Context = _ContextStub  # type: ignore[misc,assignment]
+    trace = _TraceModuleStub()  # type: ignore[assignment]
+    propagate = _PropagateModuleStub()  # type: ignore[assignment]
+
+
+# =============================================================================
+# Instrumentation Utilities
+# =============================================================================
+
+_tracer: Tracer | None = None
+
+
+def get_tracer(name: str = "sqlstack.worker", version: str | None = None) -> Tracer:
+    """Get or create the tracer instance.
 
     Args:
-        name: The tracer name (typically the module/service name)
+        name: Instrumenting module name.
+        version: Instrumenting module version.
 
     Returns:
-        A tracer instance (real or stub)
+        Tracer instance (real or stub depending on OPENTELEMETRY_INSTALLED).
     """
-    if OTEL_AVAILABLE and trace is not None:  # pragma: nocover
-        return trace.get_tracer(name)
-    return StubTracer()
+    global _tracer  # noqa: PLW0603
+    if _tracer is None:
+        _tracer = trace.get_tracer(name, version)
+    return _tracer
 
 
-# Default tracer instance
-tracer = get_tracer()
+def inject_trace_context(data: dict[str, Any]) -> None:
+    """Inject current trace context into job data.
 
-
-@contextmanager
-def create_span(
-    name: str,
-    *,
-    attributes: dict[str, Any] | None = None,
-) -> Iterator[Any]:
-    """Create a tracing span.
+    This enables distributed tracing across process boundaries by
+    storing the W3C trace context in data["_otel_context"].
 
     Args:
-        name: The span name
-        attributes: Optional attributes to add to the span
-
-    Yields:
-        The span instance (real or stub)
+        data: Job data dictionary to inject context into.
     """
-    if OTEL_AVAILABLE:  # pragma: nocover
-        span = tracer.start_span(name)
-        try:
-            if attributes:
-                for key, value in attributes.items():
-                    span.set_attribute(key, value)
-            yield span
-        finally:
-            span.end()
-    else:
-        yield StubSpan()
+    if not OPENTELEMETRY_INSTALLED:
+        return
+
+    carrier: dict[str, str] = {}
+    propagate.inject(carrier)
+
+    if carrier:
+        data["_otel_context"] = carrier
 
 
-def create_job_span(task_id: Any, function_name: str) -> Any:
-    """Create a span for a background job execution.
+def extract_trace_context(data: dict[str, Any] | None) -> Any:
+    """Extract trace context from job data.
+
+    Retrieves the stored W3C trace context from data["_otel_context"]
+    and returns an OpenTelemetry Context that can be used as a parent.
 
     Args:
-        task_id: The task identifier
-        function_name: The name of the job function
+        data: Job data dictionary to extract context from.
 
     Returns:
-        The span instance (real or stub)
+        OpenTelemetry Context or None if no context found.
     """
-    if OTEL_AVAILABLE:  # pragma: nocover
-        span = tracer.start_span(
-            f"job:{function_name}",
-        )
-        span.set_attribute("job.task_id", str(task_id))
-        span.set_attribute("job.function", function_name)
-        return span
-    return StubSpan()
+    if not OPENTELEMETRY_INSTALLED:
+        return None
+
+    if data is None:
+        return None
+
+    carrier = data.get("_otel_context", {})
+    if not carrier:
+        return None
+
+    return propagate.extract(carrier)
 
 
-def end_job_span(
-    span: Any,
-    *,
-    success: bool = True,
-    error: str | None = None,
-    result: dict[str, Any] | None = None,
-) -> None:
-    """End a job span with status.
+def create_job_span(
+    tracer: Tracer, job_id: str, function_name: str, data: dict[str, Any] | None = None, *, queue_name: str = "sqlstack.jobs"
+) -> Span | None:
+    """Create a span for job processing (CONSUMER).
+
+    Following OTEL messaging semantic conventions:
+    - Span name: "{queue_name} process"
+    - SpanKind: CONSUMER
+    - Attributes follow messaging.* conventions
 
     Args:
-        span: The span to end
-        success: Whether the job completed successfully
-        error: Error message if failed
-        result: Optional result data to record
+        tracer: Tracer instance to use.
+        job_id: Unique identifier for the job.
+        function_name: Name of the job function being executed.
+        data: Optional job data (used to extract parent trace context).
+        queue_name: Name of the queue being processed.
+
+    Returns:
+        Created span or None if tracing unavailable.
     """
-    if OTEL_AVAILABLE and trace is not None:  # pragma: nocover
-        from opentelemetry.trace import StatusCode
+    parent_context = extract_trace_context(data)
+    attributes: dict[str, Any] = {
+        "messaging.system": "sqlstack",
+        "messaging.operation.name": "process",
+        "messaging.destination.name": queue_name,
+        "messaging.message.id": job_id,
+        "sqlstack.job.function": function_name,
+    }
 
-        if success:
-            span.set_status(trace.Status(StatusCode.OK))
-        else:
-            span.set_status(trace.Status(StatusCode.ERROR, description=error))
-            if error:
-                span.set_attribute("job.error", error)
+    span_kind = SpanKind.CONSUMER if OPENTELEMETRY_INSTALLED else None
+    return tracer.start_span(
+        name=f"{queue_name} process", context=parent_context, kind=span_kind, attributes=attributes
+    )
 
-        if result:
-            span.set_attribute("job.result", str(result))
 
-    span.end()
+def end_job_span(span: Span | None, *, status: str | None = None, error: BaseException | None = None) -> None:
+    """End a job processing span with status and error information.
+
+    Should be called in a finally block to ensure span is always ended.
+
+    Args:
+        span: Span to end (may be None).
+        status: Optional job status string.
+        error: Optional exception that occurred during processing.
+    """
+    if span is None:
+        return
+
+    try:
+        if status is not None:
+            span.set_attribute("sqlstack.job.status", status)
+
+        if error is not None:
+            if OPENTELEMETRY_INSTALLED:
+                span.record_exception(error)
+                span.set_status(Status(StatusCode.ERROR, str(error)))
+            else:
+                span.set_status(None, str(error))
+        elif OPENTELEMETRY_INSTALLED:
+            span.set_status(Status(StatusCode.OK))
+    finally:
+        span.end()
+
+
+def create_enqueue_span(tracer: Tracer, function_name: str, *, queue_name: str = "sqlstack.jobs") -> Span:
+    """Create a span for job enqueue (PRODUCER).
+
+    Following OTEL messaging semantic conventions:
+    - Span name: "{queue_name} publish"
+    - SpanKind: PRODUCER
+    - Attributes follow messaging.* conventions
+
+    Args:
+        tracer: Tracer instance to use.
+        function_name: Name of the job function being enqueued.
+        queue_name: Name of the queue.
+
+    Returns:
+        Created span (real or stub).
+    """
+    attributes: dict[str, Any] = {
+        "messaging.system": "sqlstack",
+        "messaging.operation.name": "publish",
+        "messaging.destination.name": queue_name,
+        "sqlstack.job.function": function_name,
+    }
+
+    span_kind = SpanKind.PRODUCER if OPENTELEMETRY_INSTALLED else None
+    return tracer.start_as_current_span(name=f"{queue_name} publish", kind=span_kind, attributes=attributes)

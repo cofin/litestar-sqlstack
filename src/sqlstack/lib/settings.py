@@ -434,12 +434,36 @@ class TaskSettings:
 
 
 @dataclass
+class ChannelSettings:
+    """Configuration for Litestar Channels (WebSockets)."""
+
+    BACKEND_URL: str = field(default_factory=get_env("CHANNELS_BACKEND_URL", "memory"))
+    """Backend URL for channels.
+
+    Examples:
+        - memory (default, single process only)
+        - redis://localhost:6379/0
+        - postgres+asyncpg://user:pass@localhost:5432/db
+    """
+    HISTORY_TTL: int = field(default_factory=get_env("CHANNELS_HISTORY_TTL", 60))
+    """Time to live for channel history in seconds."""
+
+    def get_config(self) -> Any:
+        """Create ChannelsPlugin configuration."""
+        from litestar.channels import ChannelsPlugin
+        from litestar.channels.backends.memory import MemoryChannelsBackend
+
+        return ChannelsPlugin(backend=MemoryChannelsBackend(history=self.HISTORY_TTL), arbitrary_channels_allowed=True)
+
+
+@dataclass
 class Settings:
     """Application settings container."""
 
     app: AppSettings = field(default_factory=AppSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
     etl: ETLSettings = field(default_factory=ETLSettings)
+    channels: ChannelSettings = field(default_factory=ChannelSettings)
     gcp: GoogleCloudSettings = field(default_factory=GoogleCloudSettings)
     log: LogSettings = field(default_factory=LogSettings)
     task: TaskSettings = field(default_factory=TaskSettings)
@@ -542,7 +566,7 @@ class Settings:
         """
         config: dict[str, dict[str, Any]] = {}
 
-        for section_name in ("app", "db", "etl", "gcp", "log", "task", "vite"):
+        for section_name in ("app", "db", "etl", "channels", "gcp", "log", "task", "vite"):
             section_obj = getattr(self, section_name)
             section_config: dict[str, Any] = {}
 
@@ -572,6 +596,7 @@ class Settings:
             app = AppSettings()
             db = DatabaseSettings()
             etl = ETLSettings()
+            channels = ChannelSettings()
             gcp = GoogleCloudSettings()
             log = LogSettings()
             task = TaskSettings()
@@ -583,7 +608,7 @@ class Settings:
             os.environ.clear()
             os.environ.update(original_env)
 
-        settings = Settings(app=app, db=db, etl=etl, gcp=gcp, log=log, task=task, vite=vite)
+        settings = Settings(app=app, db=db, etl=etl, channels=channels, gcp=gcp, log=log, task=task, vite=vite)
 
         # Setup Litestar environment variables early
         settings.setup_litestar_env()

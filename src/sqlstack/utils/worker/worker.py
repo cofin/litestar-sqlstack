@@ -1,26 +1,33 @@
 """Background worker for processing tasks."""
-
-from __future__ import annotations
+# ruff: noqa: BLE001
 
 import asyncio
+import concurrent.futures
 import contextlib
+import functools
+import inspect
 import os
 import signal
 from collections.abc import Callable, Coroutine
-from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from sqlstack.domain.system.services import TaskService
+from sqlstack.ioc import make_worker_container
+from sqlstack.lib.di import Scope, request_container_var, worker_container_var
 from sqlstack.lib.exceptions import NonRetryableError
 from sqlstack.lib.jobs import get_job_registry
+from sqlstack.lib.log import JobLogBuffer, set_buffer
+from sqlstack.lib.realtime import RealtimeActor, RealtimeChannels, RealtimeEntityRef, RealtimeEvent
+from sqlstack.lib.settings import get_settings
+from sqlstack.utils.otel import get_tracer
+from sqlstack.utils.worker.heartbeat import HeartbeatManager
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Mapping
-
-    from sqlspec.adapters.asyncpg import AsyncpgConfig, AsyncpgDriver
+    from collections.abc import Mapping
 
 
 logger = structlog.get_logger()
@@ -28,22 +35,28 @@ logger = structlog.get_logger()
 # Type alias for job functions
 JobFunction = Callable[..., Coroutine[Any, Any, dict[str, Any] | None]]
 
-# Interval for requeue check (seconds)
-REQUEUE_CHECK_INTERVAL = 60
+
+async def _safe_alog(method_name: str, event: str, *args: object, **kwargs: object) -> None:
+    """Best-effort async logging for shutdown paths where streams may be closed."""
+    with contextlib.suppress(ValueError):
+        await getattr(logger, method_name)(event, *args, **kwargs)
+
+
+def _safe_log(method_name: str, event: str, *args: object, **kwargs: object) -> None:
+    """Best-effort sync logging for callback/shutdown paths."""
+    with contextlib.suppress(ValueError):
+        getattr(logger, method_name)(event, *args, **kwargs)
 
 
 class Worker:
-    """Background task worker with 3-second polling and LISTEN/NOTIFY support."""
-
-    # Optional attributes for dependency injection (used in testing)
-    task_service: TaskService | None
-    db_config: AsyncpgConfig | None
+    """Background task worker with 30-second fallback polling."""
 
     def __init__(
         self,
         *,
-        poll_interval: float = 3.0,  # 3-second polling as default
+        poll_interval: float = 30.0,  # 30-second fallback polling (LISTEN/NOTIFY provides instant wake)
         batch_size: int = 10,
+        max_concurrent_jobs: int = 4,
         shutdown_timeout: float = 30.0,
         graceful_shutdown_timeout: float = 5.0,
         register_signals: bool = True,
@@ -51,8 +64,10 @@ class Worker:
         """Initialize worker.
 
         Args:
-            poll_interval: Seconds between polling for new tasks (default: 3)
+            poll_interval: Seconds between fallback polling for new tasks (default: 30).
+                          LISTEN/NOTIFY provides instant wake-up for new tasks.
             batch_size: Maximum tasks to fetch per poll
+            max_concurrent_jobs: Maximum number of jobs executing concurrently
             shutdown_timeout: Maximum time to wait for tasks to complete on shutdown
             graceful_shutdown_timeout: Time to wait for tasks to finish before we cancel them on shutdown
             register_signals: Whether to install SIGINT/SIGTERM handlers (disable in tests)
@@ -70,41 +85,71 @@ class Worker:
         self._listener_task: asyncio.Task[None] | None = None
         self._last_requeue_check: float = 0.0
 
-        # DI attributes - can be set externally for testing
-        self.task_service = None
-        self.db_config = None
+        # Executors
+        self.default_worker_pool = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
 
-    @asynccontextmanager
-    async def _get_session(self) -> AsyncGenerator[AsyncpgDriver, None]:
-        """Get a database session, using injected config if available."""
-        if self.db_config is not None:
-            async with self.db_config.provide_session() as driver:
-                yield driver
-        else:
-            from sqlstack.config import db, db_manager
+        # Database configs for worker operations
+        settings = get_settings()
 
-            async with db_manager.provide_session(db) as driver:
-                yield driver
+        # Concurrency limit — prefer settings over constructor default
+        effective_concurrency = settings.task.MAX_CONCURRENT_JOBS if max_concurrent_jobs == 4 else max_concurrent_jobs
+        self._job_semaphore = asyncio.Semaphore(effective_concurrency)
+        self._worker_db = settings.db.get_worker_config()
+        self._heartbeat_db = settings.db.get_heartbeat_config()
 
-    def _get_task_service(self, driver: AsyncpgDriver) -> TaskService:
-        """Get a TaskService, using injected service if available."""
-        if self.task_service is not None:
-            return self.task_service
+        # Heartbeat Manager - centralized heartbeat for all jobs
+        heartbeat_interval = settings.task.HEARTBEAT_INTERVAL
+        self._heartbeat_manager = HeartbeatManager(self._heartbeat_db, interval=heartbeat_interval)
 
-        return TaskService(driver=driver)
+        # Stale recovery settings
+        self._stale_after_minutes = settings.task.STALE_AFTER_MINUTES
+
+        # Job log capture buffer — accumulates structlog events for persistence
+        self._log_buffer = JobLogBuffer()
+
+        # Realtime Channels setup for Worker context
+        from litestar.channels.backends.memory import MemoryChannelsBackend
+
+        self._channels_backend = MemoryChannelsBackend(history=settings.channels.HISTORY_TTL)
+
+        # Dependency Injection - pass worker_db so DI uses the same pool
+        self.container = make_worker_container(self._worker_db, self._channels_backend)
 
     async def start(self) -> None:
         """Start the worker."""
-        await logger.ainfo("worker starting", pid=os.getpid())
+        await logger.ainfo("Worker process started", pid=os.getpid())
+
+        # Validate stale recovery invariant: stale_after must be >= 3x heartbeat_interval
+        heartbeat_interval_minutes = self._heartbeat_manager.interval / 60.0
+        min_stale_after = 3 * heartbeat_interval_minutes
+        if self._stale_after_minutes < min_stale_after:
+            await logger.awarning(
+                "stale_after_minutes is less than 3x heartbeat_interval - healthy jobs may be incorrectly requeued",
+                stale_after_minutes=self._stale_after_minutes,
+                heartbeat_interval_seconds=self._heartbeat_manager.interval,
+                recommended_minimum_minutes=round(min_stale_after, 1),
+            )
+
+        # Initialize channels backend
+        await self._channels_backend.on_startup()
+
+        # Set the global worker container for worker_scope() access
+        worker_container_var.set(self.container)
+
+        # Activate the job log capture buffer so the structlog processor starts capturing
+        set_buffer(self._log_buffer)
+
+        # Start the heartbeat manager
+        await self._heartbeat_manager.start()
 
         # Log available jobs
         scheduled_count = sum(1 for job in self.job_registry.values() if hasattr(job, "__schedule_config__"))
         ad_hoc_count = len(self.job_registry) - scheduled_count
-        await logger.ainfo(
-            "worker initialized with job functions",
+        await logger.adebug(
+            "Worker job registry loaded",
             total_jobs=len(self.job_registry),
-            scheduled=scheduled_count,
-            ad_hoc=ad_hoc_count,
+            scheduled_jobs=scheduled_count,
+            adhoc_jobs=ad_hoc_count,
         )
 
         # Register signal handlers
@@ -119,20 +164,25 @@ class Worker:
 
         try:
             # Requeue any stale running tasks left from crashes
-            async with self._get_session() as driver:
-                task_service = self._get_task_service(driver)
-                await task_service.requeue_stale_running()
+            try:
+                async with self.container(scope=Scope.REQUEST) as request_container:
+                    from sqlstack.domain.system.services import TaskService
+
+                    task_service = await request_container.get(TaskService)
+                    await task_service.requeue_stale_running()
+            except Exception as e:
+                await logger.aerror("Failed initial stale task recovery", error=str(e))
 
             # Run main worker loop
             await self._run()
         except asyncio.CancelledError:
-            await logger.ainfo("worker cancelled")
+            await _safe_alog("ainfo", "Worker cancelled")
         finally:
             await self._cleanup()
 
     def _handle_shutdown(self) -> None:
         """Handle shutdown signal."""
-        logger.info("shutdown signal received")
+        _safe_log("info", "Shutdown signal received")
         self.shutdown_event.set()
 
     async def _run(self) -> None:
@@ -144,16 +194,19 @@ class Worker:
 
                 # Requeue stale running tasks periodically (once a minute)
                 now = asyncio.get_event_loop().time()
-                if now - self._last_requeue_check > REQUEUE_CHECK_INTERVAL:
-                    async with self._get_session() as driver:
-                        task_service = self._get_task_service(driver)
-                        await task_service.requeue_stale_running(stale_after=timedelta(minutes=1))
+                if now - self._last_requeue_check > 60:
+                    async with self.container(scope=Scope.REQUEST) as request_container:
+                        from sqlstack.domain.system.services import TaskService
+
+                        task_service = await request_container.get(TaskService)
+                        await task_service.requeue_stale_running(
+                            stale_after=timedelta(minutes=self._stale_after_minutes)
+                        )
                     self._last_requeue_check = now
 
                 # Clean up completed tasks
                 self._cleanup_completed_tasks()
 
-                # Wait for either shutdown, notification, or poll timeout
                 wait_tasks: list[asyncio.Task[bool]] = [
                     asyncio.create_task(self.shutdown_event.wait()),
                     asyncio.create_task(self._notification_event.wait()),
@@ -167,20 +220,19 @@ class Worker:
                     self._notification_event.clear()
 
             except (ConnectionError, OSError, RuntimeError):
-                await logger.aexception("error in worker loop")
+                await logger.aexception("Error in worker loop")
                 await asyncio.sleep(self.poll_interval)
 
     async def _listen_for_notifications(self) -> None:
         """Listen on PostgreSQL channel to wake the worker without polling."""
 
         async def _do_listen() -> None:
-            async with self._get_session() as driver:
+            async with self._worker_db.provide_session() as driver:
 
                 def listener(*_: object) -> None:
                     self._notification_event.set()
 
                 await driver.connection.add_listener("sqlstack_tasks", listener)
-                await driver.execute("LISTEN sqlstack_tasks")
 
                 try:
                     while not self.shutdown_event.is_set():
@@ -190,34 +242,21 @@ class Worker:
                             continue
                 finally:
                     with contextlib.suppress(Exception):
-                        await driver.execute("UNLISTEN sqlstack_tasks")
-                    with contextlib.suppress(Exception):
                         await driver.connection.remove_listener("sqlstack_tasks", listener)
 
         while not self.shutdown_event.is_set():
             try:
                 await _do_listen()
-            except Exception:  # noqa: BLE001
-                await logger.awarning("notification listener error; retrying", exc_info=True)
+            except Exception:
+                await logger.awarning("Notification listener error; retrying", exc_info=True)
                 await asyncio.sleep(1)
-
-    async def _heartbeat_loop(self, task_id: Any) -> None:
-        """Periodically update heartbeat for a running task."""
-        while not self.shutdown_event.is_set():
-            try:
-                await asyncio.wait_for(self.shutdown_event.wait(), timeout=60)
-                # shutdown_event set; break
-                break
-            except TimeoutError:
-                async with self._get_session() as driver:
-                    task_service = self._get_task_service(driver)
-                    await task_service.touch_heartbeat(task_id)
 
     async def _process_pending_tasks(self) -> None:
         """Fetch and process pending tasks."""
-        # Get fresh connection for this operation
-        async with self._get_session() as driver:
-            task_service = self._get_task_service(driver)
+        from sqlstack.domain.system.services import TaskService
+
+        async with self.container(scope=Scope.REQUEST) as request_container:
+            task_service = await request_container.get(TaskService)
             tasks = await task_service.get_pending_tasks(limit=self.batch_size)
 
             for task_data in tasks:
@@ -231,74 +270,231 @@ class Worker:
                 if await task_service.claim_task(task_id):
                     # Start processing in background
                     task = asyncio.create_task(self._execute_task(task_data))
+                    task.add_done_callback(self._consume_task_exception)
                     self.running_tasks[str(task_id)] = task
 
+    def _consume_task_exception(self, task: asyncio.Task[None]) -> None:
+        """Ensure task exceptions are observed to avoid leaking into the event loop."""
+        with contextlib.suppress(asyncio.CancelledError):
+            try:
+                task.result()
+            except NonRetryableError:
+                pass
+            except Exception as exc:
+                _safe_log("exception", "Worker task failed", exc_info=exc)
+
     async def _execute_task(self, task_data: Any) -> None:
-        """Execute a single task.
+        """Execute a single task with concurrency limiting.
 
         Args:
             task_data: Task information from database
         """
+        async with self._job_semaphore:
+            await self._execute_task_inner(task_data)
+
+    async def _execute_task_inner(self, task_data: Any) -> None:
+        """Execute a single task."""
+        from sqlstack.domain.system.services import TaskService
 
         task_id = task_data.id
         function_name = task_data.function
-        data: dict[str, Any] = task_data.data or {}
+        raw_data = task_data.data or {}
+        data = {k: v for k, v in raw_data.items() if not k.startswith("_")}
 
-        await logger.ainfo("executing task", task_id=str(task_id), function=function_name)
+        # Bind job context to all logs within this task execution
+        clear_contextvars()
+        ctx_extras: dict[str, str] = {}
+        if raw_data.get("team_id"):
+            ctx_extras["team_id"] = str(raw_data["team_id"])
+        bind_contextvars(job_id=str(task_id), job_function=function_name, **ctx_extras)
+
+        await logger.ainfo("Executing job")
 
         def _raise_unknown_function() -> None:
-            msg = f"unknown function: {function_name}"
+            msg = f"Unknown function: {function_name}"
             raise ValueError(msg)
 
-        heartbeat_task: asyncio.Task[None] | None = None
+        tracer = get_tracer()
+        span = create_job_span(tracer, job_id=str(task_id), function_name=function_name, data=data)
+        error: BaseException | None = None
+
+        func = self.job_registry.get(function_name)
+        timeout = getattr(func, "_timeout", 300) if func else 300
 
         try:
-            # Get function from registry
-            func = self.job_registry.get(function_name)
             if func is None:
                 _raise_unknown_function()
-                return  # This should never be reached due to the exception above
+                return
 
-            heartbeat_task = asyncio.create_task(self._heartbeat_loop(task_id))
+            async with self.container(scope=Scope.REQUEST) as request_container:
+                token = request_container_var.set(request_container)
+                try:
+                    from sqlstack.lib.realtime import RealtimePublisher
 
-            # Execute the function
-            result = await func(**data)
+                    publisher = await request_container.get(RealtimePublisher)
 
-            # Mark as completed with fresh connection
-            async with self._get_session() as driver:
-                task_service = self._get_task_service(driver)
-                await task_service.complete_task(task_id, result={"result": result} if result else None)
+                    # Register job for heartbeat updates
+                    self._heartbeat_manager.register_job(task_id)
 
-            await logger.ainfo("task completed successfully", task_id=str(task_id), function=function_name)
+                    # Publish status update
+                    await self._publish_status(publisher, task_id, "started", raw_data)
 
-        except (ValueError, TypeError, ImportError, AttributeError, RuntimeError) as e:
-            await logger.aexception("task execution failed", task_id=str(task_id), function=function_name)
+                    # Execute the function
+                    result = await self._run_job_function(
+                        request_container=request_container, func=func, task_id=task_id, data=data, job_timeout=timeout
+                    )
 
-            # Decide whether to retry based on non-retryable marker
-            retry_allowed = not isinstance(e, NonRetryableError)
+                    # Mark as completed
+                    task_service = await request_container.get(TaskService)
+                    await task_service.complete_task(task_id, result={"result": result} if result else None)
 
-            # Mark as failed with fresh connection
-            async with self._get_session() as driver:
-                task_service = self._get_task_service(driver)
-                await task_service.fail_task(task_id, error=str(e), retry=retry_allowed)
+                    # Publish final status
+                    await self._publish_status(publisher, task_id, "completed", raw_data, result=result)
 
-        except asyncio.CancelledError:
-            # Shutdown initiated; mark the task as retryable and re-raise to propagate cancellation
-            await logger.awarning("task cancelled during shutdown", task_id=str(task_id), function=function_name)
-            async with self._get_session() as driver:
-                task_service = self._get_task_service(driver)
-                await task_service.fail_task(task_id, error="Task cancelled during shutdown", retry=True)
+                finally:
+                    request_container_var.reset(token)
+
+            await logger.ainfo("Job completed")
+
+        except Exception as e:
+            error = e
+            fail_task = asyncio.create_task(self._job_failed(task_id, function_name, raw_data, e))
+            await fail_task
+
+        except asyncio.CancelledError as e:
+            error = e
+            await self._job_cancelled(task_id)
             raise
 
         finally:
-            # Cancel heartbeat task first
-            if heartbeat_task is not None:
-                heartbeat_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await heartbeat_task
+            end_job_span(span, error=error)
 
-            # Remove from running tasks
+            self._heartbeat_manager.unregister_job(task_id)
+
+            flush_task = asyncio.create_task(self._flush_job_logs(task_id))
+            await flush_task
+
             self.running_tasks.pop(str(task_id), None)
+            clear_contextvars()
+
+    async def _publish_status(
+        self,
+        publisher: "RealtimePublisher",
+        task_id: UUID,
+        status: str,
+        raw_data: dict[str, Any],
+        *,
+        result: Any = None,
+        error: str | None = None,
+    ) -> None:
+        """Publish task status update to realtime channels."""
+        event_type = f"task.status.{status}"
+        payload = {"task_id": str(task_id), "status": status}
+        if result:
+            payload["result"] = result
+        if error:
+            payload["error"] = error
+
+        team_id = raw_data.get("team_id")
+        user_id = raw_data.get("user_id")
+
+        if team_id:
+            await publisher.publish_team_event(
+                team_id=UUID(str(team_id)),
+                event_type=event_type,
+                payload=payload,
+                entity=RealtimeEntityRef(type="task", id=str(task_id)),
+                user_id=UUID(str(user_id)) if user_id else None,
+            )
+        elif user_id:
+            await publisher.publish_user_event(
+                user_id=UUID(str(user_id)),
+                event_type=event_type,
+                payload=payload,
+                entity=RealtimeEntityRef(type="task", id=str(task_id)),
+            )
+        else:
+            await publisher.publish_global_event(
+                event_type=event_type,
+                payload=payload,
+                entity=RealtimeEntityRef(type="task", id=str(task_id)),
+            )
+
+    async def _flush_job_logs(self, task_id: UUID) -> None:
+        """Flush buffered job log entries to PostgreSQL."""
+        from sqlstack.domain.system.services import TaskService
+
+        try:
+            async with self.container(scope=Scope.REQUEST) as flush_container:
+                flush_service = await flush_container.get(TaskService)
+                await self._log_buffer.flush(flush_service)
+        except Exception:
+            await logger.awarning("Failed to flush job log buffer after task execution", job_id=str(task_id))
+        self._log_buffer.reset_sequences(str(task_id))
+
+    async def _run_job_function(
+        self, *, request_container: Any, func: JobFunction, task_id: UUID, data: dict[str, Any], job_timeout: int
+    ) -> Any:
+        """Execute the job function with timeout enforcement."""
+        try:
+            original_func = getattr(func, "__wrapped__", func)
+            if not inspect.iscoroutinefunction(original_func):
+                loop = asyncio.get_running_loop()
+                p = functools.partial(original_func, **data)
+                return await asyncio.wait_for(loop.run_in_executor(self.default_worker_pool, p), timeout=job_timeout)
+
+            task_kwargs = dict(data)
+            if "_job_id" not in task_kwargs:
+                sig = inspect.signature(func)
+                has_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+                if has_var_keyword or "_job_id" in sig.parameters:
+                    task_kwargs["_job_id"] = str(task_id)
+            return await asyncio.wait_for(func(**task_kwargs), timeout=job_timeout)
+
+        except TimeoutError:
+            await logger.awarning("Job timed out", timeout=job_timeout)
+            from sqlstack.domain.system.services import TaskService
+
+            task_service = await request_container.get(TaskService)
+            await task_service.fail_task(task_id, error=f"Task timed out after {job_timeout}s", retry=True)
+            raise
+
+    async def _job_failed(self, task_id: UUID, function_name: str, raw_data: dict[str, Any], e: Exception) -> None:
+        """Handle job failure."""
+        from sqlstack.domain.system.services import TaskService
+
+        if isinstance(e, NonRetryableError):
+            await logger.awarning("Job failed", error=str(e))
+        else:
+            await logger.aexception("Job failed")
+
+        retry_allowed = not isinstance(e, NonRetryableError)
+
+        async with self.container(scope=Scope.REQUEST) as request_container:
+            token = request_container_var.set(request_container)
+            try:
+                task_service = await request_container.get(TaskService)
+                await task_service.fail_task(task_id, error=str(e), retry=retry_allowed)
+
+                from sqlstack.lib.realtime import RealtimePublisher
+
+                publisher = await request_container.get(RealtimePublisher)
+                await self._publish_status(publisher, task_id, "failed", raw_data, error=str(e))
+            finally:
+                request_container_var.reset(token)
+
+    async def _job_cancelled(self, task_id: UUID) -> None:
+        """Handle job cancellation during shutdown."""
+        from sqlstack.domain.system.services import TaskService
+
+        await logger.awarning("Job cancelled during shutdown")
+        async with self.container(scope=Scope.REQUEST) as request_container:
+            token = request_container_var.set(request_container)
+            try:
+                task_service = await request_container.get(TaskService)
+                await task_service.fail_task(task_id, error="Task cancelled during shutdown", retry=True)
+            finally:
+                request_container_var.reset(token)
 
     def _cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from tracking."""
@@ -309,35 +505,54 @@ class Worker:
 
     async def _cleanup(self) -> None:
         """Clean up on shutdown."""
-        await logger.ainfo("worker shutting down")
+        await _safe_alog("ainfo", "Worker shutting down")
 
-        # Stop the listener task
-        if self._listener_task and not self._listener_task.done():
-            self._listener_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._listener_task
+        if self._listener_task is not None:
+            self.shutdown_event.set()
+            try:
+                await asyncio.wait_for(self._listener_task, timeout=2.0)
+            except TimeoutError:
+                self._listener_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._listener_task
+            self._listener_task = None
 
-        # First, give running tasks a grace period to finish naturally
+        if self._heartbeat_manager:
+            await self._heartbeat_manager.stop(shutdown_timeout=2.0)
+
         running = list(self.running_tasks.values())
         if running:
-            await logger.ainfo("allowing running tasks to finish", task_count=len(running))
+            await _safe_alog("ainfo", "Allowing running tasks to finish", task_count=len(running))
             try:
                 await asyncio.wait_for(
                     asyncio.gather(*running, return_exceptions=True), timeout=self.graceful_shutdown_timeout
                 )
             except TimeoutError:
-                await logger.awarning("graceful shutdown timed out; cancelling running tasks")
+                await _safe_alog("awarning", "Graceful shutdown timed out; cancelling running tasks")
 
-        # Cancel any tasks still running after grace period
         still_running = [t for t in self.running_tasks.values() if not t.done()]
         for task in still_running:
             task.cancel()
 
         if still_running:
-            await logger.ainfo("waiting for cancelled tasks to finish", task_count=len(still_running))
+            await _safe_alog("ainfo", "Waiting for cancelled tasks to finish", task_count=len(still_running))
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(
                     asyncio.gather(*still_running, return_exceptions=True), timeout=self.shutdown_timeout
                 )
 
-        await logger.ainfo("worker shutdown complete")
+        try:
+            from sqlstack.domain.system.services import TaskService
+
+            async with self.container(scope=Scope.REQUEST) as flush_container:
+                flush_service = await flush_container.get(TaskService)
+                await self._log_buffer.flush(flush_service)
+        except Exception:
+            await _safe_alog("awarning", "Failed final log buffer flush during shutdown")
+        set_buffer(None)
+
+        await self._channels_backend.on_shutdown()
+
+        self.default_worker_pool.shutdown(wait=True)
+        await self.container.close()
+        await _safe_alog("ainfo", "Worker shutdown complete")

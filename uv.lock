@@ -122,7 +122,7 @@ wheels = [
 
 [[package]]
 name = "bump-my-version"
-version = "1.2.7"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -135,9 +135,9 @@ dependencies = [
     { name = "tomlkit" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/45/11/0f73c652396f86197ea6d509c78e8c44c3483d9a86437ca53ce55edca8e8/bump_my_version-1.2.7.tar.gz", hash = "sha256:d915a10b41e0c9db5a2fa39bde9f45f92e1e4194242d819c9ceb9eca8831cd21", size = 1198071, upload-time = "2026-02-14T13:44:59.923Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/61/07b90027091a4192b4a0290dc3da1aeea6b9e7b6b4c0f7fd30dab36070c1/bump_my_version-1.3.0.tar.gz", hash = "sha256:5780137a8d93378af3839798fcba01c7e6cb28dcc5aa5a7ab4d8507787f1995c", size = 1142429, upload-time = "2026-03-22T13:27:34.923Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/ed/ad1755f82cd5a0baafe342e7154696a93e57f04f86515402f14e5beceb36/bump_my_version-1.2.7-py3-none-any.whl", hash = "sha256:16f89360f979c0a8eb3249ebe3e13ae4f0cb5481d7bb58e12a9f66996922acfd", size = 60013, upload-time = "2026-02-14T13:44:58.318Z" },
+    { url = "https://files.pythonhosted.org/packages/36/01/b168791bfbfb0322ef6d38d236f6f17a02e41fb7753e23e4cdb0f19ac969/bump_my_version-1.3.0-py3-none-any.whl", hash = "sha256:3cdaa54588d2443a29303b77e7539417187952c3d22f87bfdd32c0fe6af2f570", size = 64878, upload-time = "2026-03-22T13:27:33.006Z" },
 ]
 
 [[package]]
@@ -1487,6 +1487,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pytz"
+version = "2026.1.post1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/db/b8721d71d945e6a8ac63c0fc900b2067181dbb50805958d4d4661cf7d277/pytz-2026.1.post1.tar.gz", hash = "sha256:3378dde6a0c3d26719182142c56e60c7f9af7e968076f31aae569d72a0358ee1", size = 321088, upload-time = "2026-03-03T07:47:50.683Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/99/781fe0c827be2742bcc775efefccb3b048a3a9c6ce9aec0cbf4a101677e5/pytz-2026.1.post1-py2.py3-none-any.whl", hash = "sha256:f2fd16142fda348286a75e1a524be810bb05d444e5a081f37f7affc635035f7a", size = 510489, upload-time = "2026-03-03T07:47:49.167Z" },
+]
+
+[[package]]
 name = "pywin32"
 version = "311"
 source = { registry = "https://pypi.org/simple" }
@@ -1742,7 +1751,7 @@ wheels = [
 
 [[package]]
 name = "sqlspec"
-version = "0.41.1"
+version = "0.42.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mypy-extensions" },
@@ -1750,15 +1759,15 @@ dependencies = [
     { name = "sqlglot" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/11/a8104daff5ec43ddd3e29822276f8d8155d189980653883d55d7770f1574/sqlspec-0.41.1.tar.gz", hash = "sha256:7d0448ff4ec5c8c43932b08d35992039288d88f1fc57ffb3c452ce11df8ef59e", size = 2041845, upload-time = "2026-03-20T20:18:13.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/11/f2/f6ec29956e531d7531b329e8873371828922cc11125b1fa5c1860dae39a1/sqlspec-0.42.0.tar.gz", hash = "sha256:80f804172416ac9f720c75ddd21c5b6e46feff599bb66fd0af3190f23dec59b2", size = 2049328, upload-time = "2026-03-22T05:20:58.135Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6e/92/84668b23ee06be24a96524ddf8f468c02549d754ec2fb3d91f1e73672aaa/sqlspec-0.41.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:58a921ef6923d7cee26787bff5a84c614149ca26ed5a9dc5d41a589f5a322517", size = 4745968, upload-time = "2026-03-20T20:17:55.687Z" },
-    { url = "https://files.pythonhosted.org/packages/5e/1b/c0b94128207cf8dea6664e3e41cf689b431520d83b27671dbfcda986780e/sqlspec-0.41.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:62cc137c3489b1e29d7698cdb229fb6d1167634aa23fe015d6d35225fa712992", size = 4415715, upload-time = "2026-03-20T20:17:57.647Z" },
-    { url = "https://files.pythonhosted.org/packages/bc/38/4c1b6a2f2a978988fb443d5d1770fb1e9dccae505e891191d40a422a9c23/sqlspec-0.41.1-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:3727b04d2f05e4ce11562338b149ce6e087d60050e73b9ffaf90e26af97c1279", size = 4764952, upload-time = "2026-03-20T20:17:59.78Z" },
-    { url = "https://files.pythonhosted.org/packages/7e/80/6b40424595511b320571200c7f0850a4895eac9e15517a15eae6dd1283e8/sqlspec-0.41.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d2beb7bc74566e7d54603d6b42a1570b85fdcd5e4658096fd81c1ccf102174a5", size = 4444004, upload-time = "2026-03-20T20:18:02.186Z" },
-    { url = "https://files.pythonhosted.org/packages/84/52/b0d81744327b42150dc2074cb7cbbbee64c44418f2ecd54704512105cc7e/sqlspec-0.41.1-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:0dc8edc09d98f7cb27ab65a0f630f75a0d08a76f393bcfb85afe4305dbd8a3ca", size = 4748062, upload-time = "2026-03-20T20:18:04.56Z" },
-    { url = "https://files.pythonhosted.org/packages/02/ab/469f33f1b1220e3368347c994453298987a46bc333c2ab12966d84eb5cb3/sqlspec-0.41.1-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:27f5b787662f8f15ea82da06417d7d2674d9f91d7ab459fae7a2d9353e4d8114", size = 4450403, upload-time = "2026-03-20T20:18:06.541Z" },
-    { url = "https://files.pythonhosted.org/packages/ab/2e/4c4eab39ac1958bba765fc05ff58129897d355b20d7911dccffa4fb15583/sqlspec-0.41.1-py3-none-any.whl", hash = "sha256:6fe26ed2ba396a5779329f9b96c3a49eb826c1aedb453ae7824cc4249490f02e", size = 1044513, upload-time = "2026-03-20T20:18:10.913Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/0a/1376362d386b5e430d4ee469aa51a5989b34a65284f672a950790fd889b6/sqlspec-0.42.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:ea4f8f76faab6f26f9084778923c178d725ecbaffdcb210ea3c311f1b4062c96", size = 4839117, upload-time = "2026-03-22T05:20:44.875Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/05/d065d99c8505d3aa8355f57c269fdb29d9f5d399e18d976fde39b3a5cfbc/sqlspec-0.42.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9b75f735cd84d8c56a334c7cd73495f802be29c226d0757266861783e77234be", size = 4508466, upload-time = "2026-03-22T05:20:47.316Z" },
+    { url = "https://files.pythonhosted.org/packages/01/a6/bd91abc380a2b9687aa6a5842871d2d712dac78372272cf4f635ffa0f917/sqlspec-0.42.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:c07880cec342c816082c30514c5881b1366dfd1488582292ea0b15758a15c74b", size = 4858209, upload-time = "2026-03-22T05:20:49.137Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/41/fc4e16249e3d59a788e34d8d67ddaeeed355c54cf0cca54be44453ff8950/sqlspec-0.42.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:42af2f9bc7519ca91564ca0be796d4aac1d22c560f9adb57d59469eab9182a95", size = 4534624, upload-time = "2026-03-22T05:20:50.892Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/53/792b439cd695094eeb22dc5016bfc80c68e08af1de086fdf65931417d083/sqlspec-0.42.0-cp314-cp314-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:9212fa0dd2bf1bb96f0648160559aac2e994e594f19e004427bcd97e05460386", size = 4845243, upload-time = "2026-03-22T05:20:52.884Z" },
+    { url = "https://files.pythonhosted.org/packages/56/a7/73b95fb44b2040e04c49860ed1ce30f8d3b748883d53feb434a31df431f5/sqlspec-0.42.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:86853f68ad5fb6db8874b73fa286f50c729d5128a7803f461e293ce2723e64ba", size = 4546273, upload-time = "2026-03-22T05:20:54.76Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/68/aa5ca3bcba9a0166cdb8002e26c57c3659e296ed242b1dd75ad5dea82216/sqlspec-0.42.0-py3-none-any.whl", hash = "sha256:4c56da62223397c030e599137279c3965c9781d20e043a18015fc80dfd08de38", size = 1045705, upload-time = "2026-03-22T05:20:56.715Z" },
 ]
 
 [package.optional-dependencies]
@@ -1767,6 +1776,7 @@ asyncpg = [
 ]
 duckdb = [
     { name = "duckdb" },
+    { name = "pytz" },
 ]
 mypyc = [
     { name = "sqlglot", extra = ["c"] },

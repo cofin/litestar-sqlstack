@@ -62,6 +62,7 @@ __all__ = (
     "StatementParameters",
     "SyncDriverAdapterBase",
     "apply_filter",
+    "encode_offset_pagination",
 )
 
 T = TypeVar("T")
@@ -217,7 +218,7 @@ class SQLSpecAsyncService:
             True if record exists, False otherwise.
         """
         result = await self.driver.select_one_or_none(
-            statement, *parameters, statement_config=statement_config, **kwargs
+            statement.limit(1), *parameters, statement_config=statement_config, **kwargs
         )
         return result is not None
 
@@ -401,7 +402,7 @@ class SQLSpecSyncService:
         Returns:
             True if record exists, False otherwise.
         """
-        result = self.driver.select_one_or_none(statement, *parameters, statement_config=statement_config, **kwargs)
+        result = self.driver.select_one_or_none(statement.limit(1), *parameters, statement_config=statement_config, **kwargs)
         return result is not None
 
     def begin(self) -> None:
@@ -433,3 +434,13 @@ class SQLSpecSyncService:
             raise
         else:
             self.commit()
+
+
+def encode_offset_pagination(pagination: OffsetPagination[Any]) -> dict[str, Any]:
+    """Helper to encode OffsetPagination for JSON responses."""
+    return {
+        "items": pagination.items,
+        "limit": pagination.limit,
+        "offset": pagination.offset,
+        "total": pagination.total,
+    }
