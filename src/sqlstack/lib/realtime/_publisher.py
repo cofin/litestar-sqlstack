@@ -24,7 +24,7 @@ class RealtimePublisher:
         """Publish a realtime event to a specific channel or scope-derived default."""
         resolved_channel = channel or self._resolve_channel(event)
         try:
-            await self.backend.publish(data=to_json(event), channels=[resolved_channel])
+            await self.backend.publish(data=to_json(event, as_bytes=True), channels=[resolved_channel])
         except RuntimeError as exc:
             if not self._is_backend_not_initialized_error(exc):
                 raise

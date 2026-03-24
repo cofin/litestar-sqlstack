@@ -6,6 +6,7 @@ from typing import Any
 from structlog import get_logger
 
 from sqlstack.lib.jobs import register_job
+from sqlstack.lib.realtime import RealtimePublisher
 
 __all__ = ("background_worker_task", "cleanup_old_sessions", "publish_heartbeat", "system_task", "system_upkeep")
 
@@ -72,25 +73,19 @@ async def cleanup_old_sessions() -> dict[str, Any]:
     return {"status": "completed", "sessions_cleaned": cleaned_count}
 
 
-from sqlstack.lib.realtime import RealtimePublisher
-
-
-def _get_publisher() -> RealtimePublisher | None:
+async def _get_publisher() -> RealtimePublisher | None:
     """Attempt to get a RealtimePublisher from the worker container.
 
-    Returns None if no channels backend is available (e.g., during testing
-    or when running without the channels plugin).
+    Returns None if no container or channels backend is available
+    (e.g., during testing or when running without the channels plugin).
     """
-    from sqlstack.lib.di import worker_container_var
+    from sqlstack.lib.di import request_container_var
 
-    container = worker_container_var.get()
+    container = request_container_var.get()
     if container is None:
         return None
     try:
-        from litestar.channels.backends.memory import MemoryChannelsBackend
-
-        backend = MemoryChannelsBackend(history=0)
-        return RealtimePublisher(backend)
+        return await container.get(RealtimePublisher)
     except Exception:  # noqa: BLE001
         return None
 
@@ -105,14 +100,13 @@ async def publish_heartbeat() -> dict[str, Any]:
     Returns:
         Job execution result
     """
-    publisher = _get_publisher()
+    publisher = await _get_publisher()
     if publisher is None:
         await logger.ainfo("no realtime backend available, skipping heartbeat")
         return {"status": "skipped", "events_published": 0}
 
     await publisher.publish_global_event(
-        event_type="system.heartbeat",
-        payload={"message": "system alive", "source": "heartbeat_job"},
+        event_type="system.heartbeat", payload={"message": "system alive", "source": "heartbeat_job"}
     )
 
     await logger.ainfo("published system heartbeat event")

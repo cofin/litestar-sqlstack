@@ -53,6 +53,7 @@ def test_public_exports_match_expected() -> None:
         "WebSocketScope",
         "get_from_connection",
         "inject",
+        "job_inject",
         "make_async_container",
         "make_container",
         "provide",

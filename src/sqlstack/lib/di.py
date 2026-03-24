@@ -19,15 +19,19 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from functools import wraps
+from inspect import iscoroutinefunction, signature
+from typing import TYPE_CHECKING, Annotated, Any, TypeVar, get_args, get_origin
 
+import structlog
 from dishka import (  # pyright: ignore
     AsyncContainer,
     Container,
+    FromComponent,
     Provider,
     Scope,
     make_async_container,
@@ -41,6 +45,12 @@ from dishka.integrations.litestar import LitestarProvider, inject, setup_dishka
 if TYPE_CHECKING:
     from litestar import WebSocket
     from litestar.connection import ASGIConnection
+
+logger = structlog.get_logger()
+
+# FromComponent is a function that returns an instance of _FromComponent.
+# We need the type for isinstance checks.
+_FromComponentType = type(FromComponent())
 
 # Request context variables
 query_id_var: ContextVar[str | None] = ContextVar("query_id", default=None)
@@ -57,32 +67,34 @@ class QueryContext:
     query_id: str
 
 
-async def get_from_connection(  # noqa: UP047
-    connection: ASGIConnection[Any, Any, Any, Any], dependency_type: type[T]
-) -> T:
+@asynccontextmanager
+async def get_from_connection(
+    connection: "ASGIConnection[Any, Any, Any, Any]", dependency_type: type[T]
+) -> AsyncIterator[T]:
     """Get a dependency from the Dishka container via the connection.
 
     This is useful for code that runs outside of route handlers but still
-    has access to the connection (e.g., auth callbacks, middleware).
+    has access to the connection (e.g., JWT auth callbacks, middleware).
 
-    The Dishka middleware stores the request-scoped container in
-    `connection.state.dishka_container`.
+    For WebSocket connections (SESSION scope), this automatically creates a
+    temporary REQUEST scope to resolve REQUEST-scoped dependencies like
+    database services. The scope is properly cleaned up when the context exits.
 
     Args:
         connection: The ASGI connection (Request or WebSocket).
         dependency_type: The type of dependency to retrieve (can be abstract).
 
-    Returns:
+    Yields:
         The resolved dependency instance.
 
     Example:
         ```python
-        service = await get_from_connection(connection, UserService)
-        user = await service.get_user(user_id)
+        async with get_from_connection(connection, UserService) as service:
+            user = await service.get_user(user_id)
         ```
     """
     container: AsyncContainer = connection.state.dishka_container
-    return await container.get(dependency_type)
+    yield await container.get(dependency_type)
 
 
 @asynccontextmanager
@@ -141,6 +153,57 @@ def provide_websocket_scope(socket: "WebSocket") -> WebSocketScope:
     return WebSocketScope(socket)
 
 
+def job_inject(func: Callable) -> Callable:
+    """Decorator to inject dependencies into background jobs.
+
+    Uses request_container_var to resolve dependencies from the active
+    REQUEST scope managed by the Worker.
+    """
+
+    @wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        container = request_container_var.get()
+        if not container:
+            # Fallback to no injection if no container found in context
+            logger.warning("No DI container found in context for %s. Running without injection.", func.__qualname__)
+            return await func(*args, **kwargs) if iscoroutinefunction(func) else func(*args, **kwargs)
+
+        # Resolve dependencies from container
+        sig = signature(func)
+        injected_kwargs = {}
+        for param_name, param in sig.parameters.items():
+            if param_name in kwargs:
+                continue
+
+            is_dependency = False
+
+            # Unwrap Annotated (Inject[T] is Annotated[T, FromDishka()])
+            dependency_type = param.annotation
+            if get_origin(param.annotation) is Annotated:
+                args_origin = get_args(param.annotation)
+                # Check for Inject (legacy) or FromComponent (new Inject[T])
+                if args_origin and any(isinstance(a, (Inject, _FromComponentType)) for a in args_origin[1:]):  # type: ignore[arg-type]
+                    dependency_type = args_origin[0]
+                    is_dependency = True
+
+            if is_dependency:
+                try:
+                    # Resolve from Dishka
+                    dep = await container.get(dependency_type)
+                    injected_kwargs[param_name] = dep
+                except Exception:  # noqa: BLE001
+                    # Skip if cannot resolve (might be a normal argument)
+                    logger.debug("Failed to inject dependency", param=param_name, error=True)
+                    continue
+
+        final_kwargs = {**kwargs, **injected_kwargs}
+        if iscoroutinefunction(func):
+            return await func(*args, **final_kwargs)
+        return func(*args, **final_kwargs)
+
+    return wrapper
+
+
 __all__ = (
     "AsyncContainer",
     "Container",
@@ -153,6 +216,7 @@ __all__ = (
     "WebSocketScope",
     "get_from_connection",
     "inject",
+    "job_inject",
     "make_async_container",
     "make_container",
     "provide",
