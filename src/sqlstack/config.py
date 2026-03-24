@@ -38,6 +38,7 @@ vite = _settings.vite.get_config()
 db_manager = SQLSpec()
 db = db_manager.add_config(_settings.db.get_config())
 etl_db = db_manager.add_config(_settings.etl.get_config(_settings.db))
+channels = _settings.channels.get_config()
 
 db_manager.load_sql_files(BASE_DIR / "sqlstack" / "db" / "sql")
 
