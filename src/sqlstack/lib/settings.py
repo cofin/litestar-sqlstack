@@ -69,6 +69,12 @@ class DatabaseSettings:
     POOL_MAX_SIZE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_MAX_SIZE", "20")))
     POOL_TIMEOUT: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_TIMEOUT", "30")))
     POOL_RECYCLE: int = field(default_factory=lambda: int(os.getenv("DATABASE_POOL_RECYCLE", "300")))
+    WORKER_POOL_MIN_SIZE: int = field(default_factory=get_env("DATABASE_WORKER_POOL_MIN_SIZE", 2))
+    WORKER_POOL_MAX_SIZE: int = field(default_factory=get_env("DATABASE_WORKER_POOL_MAX_SIZE", 10))
+    WORKER_POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_WORKER_POOL_TIMEOUT", 30))
+    HEARTBEAT_POOL_MIN_SIZE: int = field(default_factory=get_env("DATABASE_HEARTBEAT_POOL_MIN_SIZE", 1))
+    HEARTBEAT_POOL_MAX_SIZE: int = field(default_factory=get_env("DATABASE_HEARTBEAT_POOL_MAX_SIZE", 2))
+    HEARTBEAT_POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_HEARTBEAT_POOL_TIMEOUT", 10))
     ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", False))
     """Print SQL statements to console for debugging."""
     MIGRATION_PATH: str = field(default_factory=get_env("DATABASE_MIGRATION_PATH", str(BASE_DIR / "db" / "migrations")))
@@ -109,14 +115,18 @@ class DatabaseSettings:
             f"postgresql://{params['user']}:{params['password']}@{params['host']}:{params['port']}/{params['database']}"
         )
 
-    def get_config(self) -> AsyncpgConfig:
-        """Create PostgreSQL database configuration using asyncpg.
-
-        Returns:
-            AsyncpgConfig instance for database connection.
-        """
+    def _get_config(
+        self,
+        *,
+        min_size: int | None = None,
+        max_size: int | None = None,
+        timeout: int | None = None,
+        connection_key: str = "db_connection",
+        pool_key: str = "db_pool",
+        session_key: str = "db_session",
+    ) -> AsyncpgConfig:
+        """Create PostgreSQL database configuration with custom pool settings."""
         conn_params = self.get_connection_params()
-
         return AsyncpgConfig(
             connection_config={
                 "user": conn_params["user"],
@@ -124,9 +134,9 @@ class DatabaseSettings:
                 "host": conn_params["host"],
                 "port": conn_params["port"],
                 "database": conn_params["database"],
-                "min_size": self.POOL_MIN_SIZE,
-                "max_size": self.POOL_MAX_SIZE,
-                "timeout": self.POOL_TIMEOUT,
+                "min_size": min_size or self.POOL_MIN_SIZE,
+                "max_size": max_size or self.POOL_MAX_SIZE,
+                "timeout": timeout or self.POOL_TIMEOUT,
                 "command_timeout": 60,
                 "max_queries": 50000,
                 "max_inactive_connection_lifetime": float(self.POOL_RECYCLE),
@@ -138,6 +148,32 @@ class DatabaseSettings:
                 "include_extensions": ["litestar"],
             },
             extension_config={"litestar": {"session_table": "app_session", "disable_di": True}},
+        )
+
+    def get_config(self) -> AsyncpgConfig:
+        """Create PostgreSQL database configuration for main application."""
+        return self._get_config(min_size=self.POOL_MIN_SIZE, max_size=self.POOL_MAX_SIZE, timeout=self.POOL_TIMEOUT)
+
+    def get_worker_config(self) -> AsyncpgConfig:
+        """Create PostgreSQL database configuration for Worker."""
+        return self._get_config(
+            min_size=self.WORKER_POOL_MIN_SIZE,
+            max_size=self.WORKER_POOL_MAX_SIZE,
+            timeout=self.WORKER_POOL_TIMEOUT,
+            connection_key="worker_connection",
+            pool_key="worker_pool",
+            session_key="worker_session",
+        )
+
+    def get_heartbeat_config(self) -> AsyncpgConfig:
+        """Create PostgreSQL database configuration for Heartbeat thread."""
+        return self._get_config(
+            min_size=self.HEARTBEAT_POOL_MIN_SIZE,
+            max_size=self.HEARTBEAT_POOL_MAX_SIZE,
+            timeout=self.HEARTBEAT_POOL_TIMEOUT,
+            connection_key="heartbeat_connection",
+            pool_key="heartbeat_pool",
+            session_key="heartbeat_session",
         )
 
 
@@ -431,6 +467,18 @@ class TaskSettings:
     - immediate: Execute synchronously without database (for testing)
     - cloudrun: Execute via Google Cloud Run Jobs
     """
+
+    INPROCESS_WORKER: bool = field(default_factory=get_env("INPROCESS_WORKER", True))
+    """Run the background worker in the same process as the Litestar application."""
+
+    HEARTBEAT_INTERVAL: float = field(default_factory=get_env("HEARTBEAT_INTERVAL", 30.0))
+    """Seconds between heartbeat updates for running jobs."""
+
+    STALE_AFTER_MINUTES: float = field(default_factory=get_env("STALE_AFTER_MINUTES", 1.5))
+    """Minutes after which a running job with no heartbeat is considered stale."""
+
+    MAX_CONCURRENT_JOBS: int = field(default_factory=get_env("MAX_CONCURRENT_JOBS", 4))
+    """Maximum number of jobs executing concurrently in the worker."""
 
 
 @dataclass

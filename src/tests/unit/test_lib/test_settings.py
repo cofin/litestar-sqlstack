@@ -126,6 +126,30 @@ class TestTaskSettings:
 
             assert settings.DEFAULT_EXECUTION_TARGET == "cloudrun"
 
+    def test_default_inprocess_worker(self) -> None:
+        """Test TaskSettings defaults for INPROCESS_WORKER."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = TaskSettings()
+            assert settings.INPROCESS_WORKER is True
+
+    def test_default_heartbeat_interval(self) -> None:
+        """Test TaskSettings defaults for HEARTBEAT_INTERVAL."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = TaskSettings()
+            assert settings.HEARTBEAT_INTERVAL == 30.0
+
+    def test_default_stale_after_minutes(self) -> None:
+        """Test TaskSettings defaults for STALE_AFTER_MINUTES."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = TaskSettings()
+            assert settings.STALE_AFTER_MINUTES == 1.5
+
+    def test_default_max_concurrent_jobs(self) -> None:
+        """Test TaskSettings defaults for MAX_CONCURRENT_JOBS."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = TaskSettings()
+            assert settings.MAX_CONCURRENT_JOBS == 4
+
 
 class TestSettingsIntegration:
     """Integration tests for settings container."""
@@ -169,6 +193,10 @@ class TestSettingsIntegration:
 
         assert "task" in config
         assert "default_execution_target" in config["task"]
+        assert "inprocess_worker" in config["task"]
+        assert "heartbeat_interval" in config["task"]
+        assert "stale_after_minutes" in config["task"]
+        assert "max_concurrent_jobs" in config["task"]
 
     def test_get_config_value_gcp(self) -> None:
         """Test get_config_value works for gcp settings."""
