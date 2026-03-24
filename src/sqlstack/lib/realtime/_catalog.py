@@ -40,4 +40,18 @@ def build_team_idempotency_key(transition: str, team_id: str, attempt: int | Non
     return f"{base}:{attempt}"
 
 
-__all__ = ("TASK_MUTATION_EVENT_MAP", "TaskEventType", "TeamEventType", "build_task_idempotency_key", "build_team_idempotency_key")
+def build_task_idempotency_key(transition: str, task_id: str, attempt: int | None = None) -> str:
+    """Build deterministic idempotency key for task transition events."""
+    base = f"{transition}:{task_id}"
+    if attempt is None:
+        return base
+    return f"{base}:{attempt}"
+
+
+__all__ = (
+    "TASK_MUTATION_EVENT_MAP",
+    "TaskEventType",
+    "TeamEventType",
+    "build_task_idempotency_key",
+    "build_team_idempotency_key",
+)
