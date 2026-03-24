@@ -28,6 +28,7 @@ __all__ = (
 )
 
 JobStatus = Literal["pending", "running", "completed", "failed", "cancelled", "scheduled"]
+JobLogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 class JobBase(CamelizedBaseStruct):
@@ -90,9 +91,9 @@ class JobLogBase(CamelizedBaseStruct):
     """Base job log schema."""
 
     job_id: UUID
+    message: str
     stage: str = "processing"
     level: JobLogLevel = "INFO"
-    message: str
     detail: dict[str, Any] = msgspec.field(default_factory=_make_dict)
     sequence: int = 0
     duration_ms: int | None = None

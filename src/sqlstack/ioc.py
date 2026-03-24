@@ -34,9 +34,9 @@ Container Factories
 from collections.abc import AsyncIterator
 from contextvars import ContextVar
 
-from typing import TYPE_CHECKING, Any
-
 from dishka import AsyncContainer, Provider, Scope, make_async_container, provide  # pyright: ignore
+from litestar import Litestar
+from litestar.channels import ChannelsBackend
 from sqlspec.driver import AsyncDriverAdapterBase
 
 from sqlstack.config import db, db_manager
@@ -44,10 +44,6 @@ from sqlstack.domain.accounts.services import PasswordService, RoleService, User
 from sqlstack.domain.system.services import TaskService
 from sqlstack.lib.di import LitestarProvider, QueryContext, query_id_var
 from sqlstack.lib.realtime import RealtimePublisher
-
-if TYPE_CHECKING:
-    from litestar import Litestar
-    from litestar.channels import ChannelsBackend
 
 _request_container: ContextVar[AsyncContainer | None] = ContextVar("_request_container", default=None)
 
