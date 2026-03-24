@@ -73,19 +73,22 @@ def test_public_exports_match_expected() -> None:
 async def test_with_websocket_request_creates_request_scope() -> None:
     """with_websocket_request should create a child REQUEST scope from the SESSION container."""
     mock_request_container = AsyncMock()
-    mock_session_container = AsyncMock()
 
+    # Dishka's AsyncContainer.__call__ returns an async context manager
+    # We simulate this by making the mock callable return an async CM
     @asynccontextmanager
-    async def fake_context(*args, **kwargs):
+    async def fake_enter_scope(*args, **kwargs):
         yield mock_request_container
 
-    mock_session_container.__call__ = fake_context
+    mock_session_container = MagicMock(side_effect=fake_enter_scope)
 
     mock_connection = MagicMock()
     mock_connection.state.dishka_container = mock_session_container
 
     async with di.with_websocket_request(mock_connection) as container:
         assert container is mock_request_container
+    # Verify it was called with scope=REQUEST
+    mock_session_container.assert_called_once()
 
 
 def test_websocket_scope_factory() -> None:
