@@ -23,7 +23,7 @@ from sqlstack.lib.jobs import get_job_registry
 from sqlstack.lib.log import JobLogBuffer, set_buffer
 from sqlstack.lib.realtime import RealtimeEntityRef
 from sqlstack.lib.settings import get_settings
-from sqlstack.utils.otel import get_tracer
+from sqlstack.utils.otel import create_job_span, end_job_span, get_tracer
 from sqlstack.utils.worker.heartbeat import HeartbeatManager
 
 if TYPE_CHECKING:
