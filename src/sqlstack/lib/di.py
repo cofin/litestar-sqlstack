@@ -19,6 +19,8 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -37,6 +39,7 @@ from dishka.integrations.litestar import FromDishka as Inject
 from dishka.integrations.litestar import LitestarProvider, inject, setup_dishka
 
 if TYPE_CHECKING:
+    from litestar import WebSocket
     from litestar.connection import ASGIConnection
 
 # Request context variables
@@ -82,6 +85,62 @@ async def get_from_connection(  # noqa: UP047
     return await container.get(dependency_type)
 
 
+@asynccontextmanager
+async def with_websocket_request(connection: "ASGIConnection[Any, Any, Any, Any]") -> AsyncIterator[AsyncContainer]:
+    """Enter a temporary REQUEST scope for brief database operations.
+
+    Dishka creates SESSION-scoped containers for WebSocket connections (long-lived),
+    but services requiring DB connections are registered with REQUEST scope (short-lived).
+    This creates a child REQUEST container to resolve these services.
+
+    Args:
+        connection: The ASGI connection (typically a WebSocket).
+
+    Yields:
+        A REQUEST-scoped container for resolving services.
+    """
+    session_container: AsyncContainer = connection.state.dishka_container
+    async with session_container({}, scope=Scope.REQUEST) as request_container:
+        yield request_container
+
+
+@asynccontextmanager
+async def worker_scope() -> AsyncIterator[AsyncContainer]:
+    """Enter a temporary REQUEST scope using the worker container.
+
+    Use this in background jobs to create short-lived database sessions
+    instead of holding a session open for the entire job duration.
+    """
+    container = worker_container_var.get()
+    if not container:
+        msg = "No worker container found in context. Are you running in a worker?"
+        raise RuntimeError(msg)
+
+    async with container(scope=Scope.REQUEST) as request_container:
+        yield request_container
+
+
+class WebSocketScope:
+    """Factory for creating short-lived REQUEST scopes in WebSocket handlers.
+
+    Use as a Litestar dependency to get a callable that creates
+    temporary REQUEST scopes for database operations.
+    """
+
+    def __init__(self, connection: "ASGIConnection[Any, Any, Any, Any]") -> None:
+        self._connection = connection
+
+    @asynccontextmanager
+    async def __call__(self) -> AsyncIterator[AsyncContainer]:
+        async with with_websocket_request(self._connection) as container:
+            yield container
+
+
+def provide_websocket_scope(socket: "WebSocket") -> WebSocketScope:
+    """Litestar dependency provider for WebSocketScope."""
+    return WebSocketScope(socket)
+
+
 __all__ = (
     "AsyncContainer",
     "Container",
@@ -91,13 +150,17 @@ __all__ = (
     "Provider",
     "QueryContext",
     "Scope",
+    "WebSocketScope",
     "get_from_connection",
     "inject",
     "make_async_container",
     "make_container",
     "provide",
+    "provide_websocket_scope",
     "query_id_var",
     "request_container_var",
     "setup_dishka",
+    "with_websocket_request",
     "worker_container_var",
+    "worker_scope",
 )
