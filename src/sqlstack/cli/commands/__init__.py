@@ -18,11 +18,4 @@ from sqlstack.cli.commands.server import server_group
 from sqlstack.cli.commands.users import user_management_group
 from sqlstack.cli.commands.version import version_cmd
 
-__all__ = [
-    "assets_group",
-    "database_commands",
-    "manage_group",
-    "server_group",
-    "user_management_group",
-    "version_cmd",
-]
+__all__ = ["assets_group", "database_commands", "manage_group", "server_group", "user_management_group", "version_cmd"]

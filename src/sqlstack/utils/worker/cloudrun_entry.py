@@ -44,7 +44,7 @@ async def _heartbeat_loop(task_id: UUID, shutdown_event: asyncio.Event) -> None:
                 await logger.aexception("failed to update heartbeat", job_id=str(task_id))
 
 
-async def execute_cloudrun_job() -> int:  # noqa: PLR0911
+async def execute_cloudrun_job() -> int:
     """Execute a single job from Cloud Run environment.
 
     Behavioral parity with local worker:

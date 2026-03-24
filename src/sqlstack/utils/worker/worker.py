@@ -9,7 +9,7 @@ import inspect
 import os
 import signal
 from collections.abc import Callable, Coroutine
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -21,7 +21,7 @@ from sqlstack.lib.di import Scope, request_container_var, worker_container_var
 from sqlstack.lib.exceptions import NonRetryableError
 from sqlstack.lib.jobs import get_job_registry
 from sqlstack.lib.log import JobLogBuffer, set_buffer
-from sqlstack.lib.realtime import RealtimeActor, RealtimeChannels, RealtimeEntityRef, RealtimeEvent
+from sqlstack.lib.realtime import RealtimeEntityRef
 from sqlstack.lib.settings import get_settings
 from sqlstack.utils.otel import get_tracer
 from sqlstack.utils.worker.heartbeat import HeartbeatManager
@@ -415,9 +415,7 @@ class Worker:
             )
         else:
             await publisher.publish_global_event(
-                event_type=event_type,
-                payload=payload,
-                entity=RealtimeEntityRef(type="task", id=str(task_id)),
+                event_type=event_type, payload=payload, entity=RealtimeEntityRef(type="task", id=str(task_id))
             )
 
     async def _flush_job_logs(self, task_id: UUID) -> None:

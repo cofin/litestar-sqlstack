@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 from sqlstack.lib.settings import GoogleCloudSettings, TaskSettings
 
 
@@ -49,11 +47,7 @@ class TestGoogleCloudSettings:
 
     def test_is_cloud_run_true_with_both(self) -> None:
         """Test is_cloud_run returns True when both service and job are set."""
-        with patch.dict(
-            os.environ,
-            {"K_SERVICE": "my-service", "CLOUD_RUN_JOB": "my-job"},
-            clear=True,
-        ):
+        with patch.dict(os.environ, {"K_SERVICE": "my-service", "CLOUD_RUN_JOB": "my-job"}, clear=True):
             settings = GoogleCloudSettings()
 
             assert settings.CLOUD_RUN_SERVICE == "my-service"

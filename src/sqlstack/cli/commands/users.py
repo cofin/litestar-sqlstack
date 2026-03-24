@@ -49,7 +49,8 @@ async def _ensure_role(
         return cast("UUID", existing["id"]), False
 
     result = await driver.select_one(
-        sql.insert("role")
+        sql
+        .insert("role")
         .values(
             id=uuid4(),
             name=name,

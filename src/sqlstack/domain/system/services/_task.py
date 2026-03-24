@@ -222,9 +222,7 @@ class TaskService(SQLSpecAsyncService):
             return
 
         if updated_task["status"] == "pending":
-            await log_info(
-                "task scheduled for retry", task_id=str(task_id), retry_count=updated_task["retry_count"]
-            )
+            await log_info("task scheduled for retry", task_id=str(task_id), retry_count=updated_task["retry_count"])
         else:
             await log_error("task failed permanently", task_id=str(task_id), error=error)
 
@@ -405,9 +403,7 @@ class TaskService(SQLSpecAsyncService):
         row["id"] = uuid7()
         return row
 
-    async def _publish_job_log_event(
-        self, log_entry: s.JobLog, team_id: UUID, publisher: RealtimePublisher
-    ) -> None:
+    async def _publish_job_log_event(self, log_entry: s.JobLog, team_id: UUID, publisher: RealtimePublisher) -> None:
         """Publish a single job log event to the team channel."""
         payload = {
             "log_id": str(log_entry.id),

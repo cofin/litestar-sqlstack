@@ -113,7 +113,8 @@ class WorkerPlugin(InitPluginProtocol):
 
             # Get existing scheduled tasks from database
             existing_schedules = await driver.select(
-                sql.select("key", "data", "id", "scheduled_at")
+                sql
+                .select("key", "data", "id", "scheduled_at")
                 .from_("job")
                 .where("key LIKE 'scheduled-%'")
                 .where("status IN ('pending', 'scheduled')")
@@ -143,7 +144,8 @@ class WorkerPlugin(InitPluginProtocol):
                     if schedule_changed:
                         # Cancel the old scheduled task
                         await driver.execute(
-                            sql.update("job")
+                            sql
+                            .update("job")
                             .set(status="cancelled", completed_at=datetime.now(UTC))
                             .where_eq("id", existing["id"])
                         )

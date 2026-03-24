@@ -281,7 +281,12 @@ def extract_trace_context(data: dict[str, Any] | None) -> Any:
 
 
 def create_job_span(
-    tracer: Tracer, job_id: str, function_name: str, data: dict[str, Any] | None = None, *, queue_name: str = "sqlstack.jobs"
+    tracer: Tracer,
+    job_id: str,
+    function_name: str,
+    data: dict[str, Any] | None = None,
+    *,
+    queue_name: str = "sqlstack.jobs",
 ) -> Span | None:
     """Create a span for job processing (CONSUMER).
 

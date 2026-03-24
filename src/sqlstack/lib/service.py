@@ -402,7 +402,9 @@ class SQLSpecSyncService:
         Returns:
             True if record exists, False otherwise.
         """
-        result = self.driver.select_one_or_none(statement.limit(1), *parameters, statement_config=statement_config, **kwargs)
+        result = self.driver.select_one_or_none(
+            statement.limit(1), *parameters, statement_config=statement_config, **kwargs
+        )
         return result is not None
 
     def begin(self) -> None:

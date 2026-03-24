@@ -15,6 +15,13 @@ problem_details = ProblemDetailsPlugin(config=config.problem_details)
 channels = config.channels
 worker = WorkerPlugin(start_worker=False, auto_discover=True)
 domain = DomainPlugin(
-    DomainPluginConfig(domain_packages=["sqlstack.domain"], discover_controllers=True, discover_jobs=True)
+    DomainPluginConfig(
+        domain_packages=["sqlstack.domain"],
+        discover_controllers=True,
+        discover_jobs=True,
+        discover_listeners=True,
+        use_dishka_router=True,
+        log_discovered=True,
+    )
 )
 vite = VitePlugin(config=config.vite)

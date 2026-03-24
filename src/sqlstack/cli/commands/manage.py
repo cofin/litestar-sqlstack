@@ -1,6 +1,5 @@
 """System management commands."""
 
-import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -46,8 +45,8 @@ def init_system() -> None:
 @async_inject
 async def show_status(verbose: bool) -> None:
     """Show system status and backend database connectivity."""
-    from sqlstack.config import db, db_manager
     from sqlstack.__metadata__ import __version__
+    from sqlstack.config import db, db_manager
 
     left_aligned_rule("[bold blue]SQLStack System Status", style="blue")
     console.print()

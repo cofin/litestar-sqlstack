@@ -4,15 +4,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from sqlstack.utils.otel import (
-    StubSpan,
-    StubTracer,
-    create_job_span,
-    create_span,
-    end_job_span,
-    get_tracer,
-    tracer,
-)
+from sqlstack.utils.otel import StubSpan, StubTracer, create_job_span, create_span, end_job_span, get_tracer, tracer
 
 
 class TestStubSpan:

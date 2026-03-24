@@ -485,21 +485,14 @@ class JobLogBuffer:
     """Thread-safe buffer that accumulates log entries and flushes to PostgreSQL."""
 
     def __init__(self, *, flush_interval: float = 1.0, flush_size: int = 20) -> None:
-        self._entries: list["JobLogCreate"] = []
+        self._entries: list[JobLogCreate] = []
         self._sequence_counters: dict[str, int] = {}
         self._lock = threading.Lock()
         self.flush_interval = flush_interval
         self.flush_size = flush_size
 
     def append(
-        self,
-        *,
-        job_id: str,
-        level: str,
-        message: str,
-        stage: str,
-        detail: dict[str, Any],
-        team_id: str | None = None,
+        self, *, job_id: str, level: str, message: str, stage: str, detail: dict[str, Any], team_id: str | None = None
     ) -> None:
         """Append a log entry (called from sync structlog processor context)."""
         from sqlstack.domain.system.schemas import JobLogCreate

@@ -4,12 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sqlstack.lib.export import (
-    AbstractExporter,
-    ExportFormat,
-    ExportRegistry,
-    ExportType,
-)
+from sqlstack.lib.export import AbstractExporter, ExportFormat, ExportRegistry, ExportType
 
 
 # Test fixtures - concrete exporter implementations for testing
