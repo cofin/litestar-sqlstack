@@ -95,6 +95,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
         app_config.stores = config.stores
         app_config.middleware.append(config.session_config.middleware)
         app_config.plugins.extend([
+            plugins.system_config,
             plugins.structlog,
             plugins.granian,
             plugins.sqlspec,
@@ -103,6 +104,7 @@ class ApplicationCore(InitPluginProtocol, CLIPluginProtocol):
             plugins.channels,
             plugins.domain,
             plugins.vite,
+            plugins.mcp,
         ])
         app_config.signature_namespace.update({
             "RequestEncodingType": RequestEncodingType,

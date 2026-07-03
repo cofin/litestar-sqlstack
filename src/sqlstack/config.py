@@ -47,8 +47,8 @@ log: StructlogConfig
 _initialized = False
 
 
-def _initialize() -> None:
-    if globals().get("_initialized", False):
+def _initialize(force: bool = False) -> None:
+    if not force and globals().get("_initialized", False):
         return
 
     _settings = get_settings()
@@ -98,7 +98,8 @@ def __getattr__(name: str) -> Any:
         "session_config",
         "log",
     }:
-        _initialize()
+        if name not in globals():
+            _initialize(force=True)
         return globals()[name]
     msg = f"module '{__name__}' has no attribute '{name}'"
     raise AttributeError(msg)
