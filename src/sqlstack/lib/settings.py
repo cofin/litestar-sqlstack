@@ -702,7 +702,7 @@ class Settings:
         """
         config: dict[str, dict[str, Any]] = {}
 
-        for section_name in ("app", "db", "etl", "channels", "gcp", "log", "task", "vite"):
+        for section_name in ("app", "auth", "db", "email", "etl", "channels", "gcp", "log", "storage", "task", "vite", "mcp"):
             section_obj = getattr(self, section_name)
             section_config: dict[str, Any] = {}
 
@@ -730,13 +730,17 @@ class Settings:
             load_dotenv(env_file, override=True)
         try:
             app = AppSettings()
+            auth = AuthSettings()
             db = DatabaseSettings()
+            email = EmailSettings()
             etl = ETLSettings()
             channels = ChannelSettings()
             gcp = GoogleCloudSettings()
             log = LogSettings()
+            storage = StorageSettings()
             task = TaskSettings()
             vite = ViteSettings()
+            mcp = MCPSettings()
         except Exception as e:  # noqa: BLE001
             logger.fatal("Could not load settings. %s", e)
             sys.exit(1)
@@ -744,7 +748,20 @@ class Settings:
             os.environ.clear()
             os.environ.update(original_env)
 
-        settings = Settings(app=app, db=db, etl=etl, channels=channels, gcp=gcp, log=log, task=task, vite=vite)
+        settings = Settings(
+            app=app,
+            auth=auth,
+            db=db,
+            email=email,
+            etl=etl,
+            channels=channels,
+            gcp=gcp,
+            log=log,
+            storage=storage,
+            task=task,
+            vite=vite,
+            mcp=mcp,
+        )
 
         # Setup Litestar environment variables early
         settings.setup_litestar_env()

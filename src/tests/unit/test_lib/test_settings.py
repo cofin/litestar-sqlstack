@@ -220,6 +220,50 @@ class TestSettingsIntegration:
         assert "region" in config["gcp"]
         assert "cloud_run_service" in config["gcp"]
 
+    def test_list_all_config_includes_auth(self) -> None:
+        """Test that list_all_config includes auth section."""
+        from sqlstack.lib.settings import Settings
+
+        settings = Settings()
+        config = settings.list_all_config()
+
+        assert "auth" in config
+        assert "local_login_enabled" in config["auth"]
+        assert "jwt_algorithm" in config["auth"]
+
+    def test_list_all_config_includes_email(self) -> None:
+        """Test that list_all_config includes email section."""
+        from sqlstack.lib.settings import Settings
+
+        settings = Settings()
+        config = settings.list_all_config()
+
+        assert "email" in config
+        assert "enabled" in config["email"]
+        assert "smtp_host" in config["email"]
+
+    def test_list_all_config_includes_storage(self) -> None:
+        """Test that list_all_config includes storage section."""
+        from sqlstack.lib.settings import Settings
+
+        settings = Settings()
+        config = settings.list_all_config()
+
+        assert "storage" in config
+        assert "backend" in config["storage"]
+        assert "gcs_bucket" in config["storage"]
+
+    def test_list_all_config_includes_mcp(self) -> None:
+        """Test that list_all_config includes mcp section."""
+        from sqlstack.lib.settings import Settings
+
+        settings = Settings()
+        config = settings.list_all_config()
+
+        assert "mcp" in config
+        assert "enabled" in config["mcp"]
+        assert "endpoints" in config["mcp"]
+
     def test_list_all_config_includes_task(self) -> None:
         """Test that list_all_config includes task section."""
         from sqlstack.lib.settings import Settings
