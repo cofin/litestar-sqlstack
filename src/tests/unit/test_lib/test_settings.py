@@ -163,6 +163,42 @@ class TestSettingsIntegration:
         assert hasattr(settings, "gcp")
         assert isinstance(settings.gcp, GoogleCloudSettings)
 
+    def test_settings_contains_auth(self) -> None:
+        """Test that Settings container includes AuthSettings."""
+        from sqlstack.lib.settings import AuthSettings, Settings
+
+        settings = Settings()
+
+        assert hasattr(settings, "auth")
+        assert isinstance(settings.auth, AuthSettings)
+
+    def test_settings_contains_email(self) -> None:
+        """Test that Settings container includes EmailSettings."""
+        from sqlstack.lib.settings import EmailSettings, Settings
+
+        settings = Settings()
+
+        assert hasattr(settings, "email")
+        assert isinstance(settings.email, EmailSettings)
+
+    def test_settings_contains_storage(self) -> None:
+        """Test that Settings container includes StorageSettings."""
+        from sqlstack.lib.settings import Settings, StorageSettings
+
+        settings = Settings()
+
+        assert hasattr(settings, "storage")
+        assert isinstance(settings.storage, StorageSettings)
+
+    def test_settings_contains_mcp(self) -> None:
+        """Test that Settings container includes MCPSettings."""
+        from sqlstack.lib.settings import MCPSettings, Settings
+
+        settings = Settings()
+
+        assert hasattr(settings, "mcp")
+        assert isinstance(settings.mcp, MCPSettings)
+
     def test_settings_contains_task(self) -> None:
         """Test that Settings container includes TaskSettings."""
         from sqlstack.lib.settings import Settings

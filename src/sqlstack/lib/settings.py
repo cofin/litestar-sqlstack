@@ -593,13 +593,17 @@ class Settings:
     """Application settings container."""
 
     app: AppSettings = field(default_factory=AppSettings)
+    auth: AuthSettings = field(default_factory=AuthSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
+    email: EmailSettings = field(default_factory=EmailSettings)
     etl: ETLSettings = field(default_factory=ETLSettings)
     channels: ChannelSettings = field(default_factory=ChannelSettings)
     gcp: GoogleCloudSettings = field(default_factory=GoogleCloudSettings)
     log: LogSettings = field(default_factory=LogSettings)
+    storage: StorageSettings = field(default_factory=StorageSettings)
     task: TaskSettings = field(default_factory=TaskSettings)
     vite: ViteSettings = field(default_factory=ViteSettings)
+    mcp: MCPSettings = field(default_factory=MCPSettings)
 
     def ensure_directories(self) -> None:  # pragma: nocover
         """Ensure required directories exist."""
