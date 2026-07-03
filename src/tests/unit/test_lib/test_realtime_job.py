@@ -1,8 +1,9 @@
 """Unit tests for realtime event-publishing sample job."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from sqlstack.domain.system.jobs._system import publish_heartbeat
 

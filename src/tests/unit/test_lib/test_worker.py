@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -37,7 +37,7 @@ def _make_mock_container(mock_task_service: AsyncMock, mock_publisher: AsyncMock
     mock_request_container.get = AsyncMock(side_effect=_get)
 
     @contextlib.asynccontextmanager
-    async def _scope(**kwargs: Any):  # noqa: ANN003, ARG001
+    async def _scope(**kwargs: Any):
         yield mock_request_container
 
     container = MagicMock()

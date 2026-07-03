@@ -1,10 +1,11 @@
 from tools.lib.db_url import make_postgres_url
 
-def test_make_postgres_url_defaults():
+
+def test_make_postgres_url_defaults() -> None:
     url = make_postgres_url()
     assert url == "postgresql://app:super-secret@localhost:5432/app"
 
-def test_make_postgres_url_custom():
+def test_make_postgres_url_custom() -> None:
     url = make_postgres_url(
         driver="postgresql+asyncpg",
         user="custom_user",

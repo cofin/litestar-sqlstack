@@ -1,14 +1,7 @@
 """Unit tests for OTEL utilities module."""
 from __future__ import annotations
 
-from sqlstack.utils.otel import (
-    SpanStub,
-    TracerStub,
-    create_enqueue_span,
-    create_job_span,
-    end_job_span,
-    get_tracer,
-)
+from sqlstack.utils.otel import SpanStub, TracerStub, create_enqueue_span, create_job_span, end_job_span, get_tracer
 
 
 class TestSpanStub:

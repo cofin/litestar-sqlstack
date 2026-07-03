@@ -1,14 +1,16 @@
 from unittest.mock import MagicMock, patch
-from click.testing import CliRunner
+
 import pytest
+from click.testing import CliRunner
+
 from tools.cli.infra import infra_group
 
-@pytest.fixture
-def mock_db():
-    db = MagicMock()
-    return db
 
-def test_infra_start(mock_db):
+@pytest.fixture
+def mock_db() -> MagicMock:
+    return MagicMock()
+
+def test_infra_start(mock_db: MagicMock) -> None:
     runner = CliRunner()
     with patch("tools.cli.infra.PostgreSQLDatabase", return_value=mock_db), \
          patch("tools.cli.infra.ContainerRuntime"):
@@ -16,7 +18,7 @@ def test_infra_start(mock_db):
         assert result.exit_code == 0
         assert mock_db.start.call_count == 1
 
-def test_infra_stop(mock_db):
+def test_infra_stop(mock_db: MagicMock) -> None:
     runner = CliRunner()
     with patch("tools.cli.infra.PostgreSQLDatabase", return_value=mock_db), \
          patch("tools.cli.infra.ContainerRuntime"):
@@ -24,7 +26,7 @@ def test_infra_stop(mock_db):
         assert result.exit_code == 0
         assert mock_db.stop.call_count == 1
 
-def test_infra_status(mock_db):
+def test_infra_status(mock_db: MagicMock) -> None:
     runner = CliRunner()
     mock_db.status.return_value = "running"
     with patch("tools.cli.infra.PostgreSQLDatabase", return_value=mock_db), \

@@ -1,15 +1,12 @@
 """Unit tests for WebSocket streaming utilities."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from sqlstack.lib.websockets import (
     RealtimeStreamMetrics,
-    get_realtime_stream_metrics,
-    reset_realtime_stream_metrics,
     _decode_message,
     _extract_idempotency_key,
+    get_realtime_stream_metrics,
+    reset_realtime_stream_metrics,
 )
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import fields
 from unittest.mock import AsyncMock, MagicMock
@@ -8,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from sqlstack.lib import di
-
 
 # --- Existing tests (preserved) ---
 

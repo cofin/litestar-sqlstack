@@ -1,10 +1,13 @@
-from unittest.mock import MagicMock
 import shutil
+
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
+
 from tools.lib.container import ContainerRuntime, ContainerRuntimeError
 
-def test_detect_docker(monkeypatch):
-    def mock_which(cmd):
+
+def test_detect_docker(monkeypatch: MonkeyPatch) -> None:
+    def mock_which(cmd: str) -> str | None:
         if cmd == "docker":
             return "/usr/bin/docker"
         return None
@@ -14,8 +17,8 @@ def test_detect_docker(monkeypatch):
     assert runtime.name == "docker"
     assert runtime.path == "/usr/bin/docker"
 
-def test_detect_podman(monkeypatch):
-    def mock_which(cmd):
+def test_detect_podman(monkeypatch: MonkeyPatch) -> None:
+    def mock_which(cmd: str) -> str | None:
         if cmd == "podman":
             return "/usr/bin/podman"
         return None
@@ -25,8 +28,8 @@ def test_detect_podman(monkeypatch):
     assert runtime.name == "podman"
     assert runtime.path == "/usr/bin/podman"
 
-def test_detect_none(monkeypatch):
-    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+def test_detect_none(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda _: None)
 
     with pytest.raises(ContainerRuntimeError):
         ContainerRuntime()

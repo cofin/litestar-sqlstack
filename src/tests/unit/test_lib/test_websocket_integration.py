@@ -8,10 +8,8 @@ since the ChannelsPlugin's internal asyncio.Queue doesn't cross threads.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 from litestar import Litestar
@@ -20,12 +18,8 @@ from litestar.channels.backends.memory import MemoryChannelsBackend
 from litestar.testing import AsyncTestClient
 
 from sqlstack.domain.system.controllers._stream import RealtimeStreamController
-from sqlstack.lib.realtime import RealtimeChannels, RealtimeEvent
-from sqlstack.lib.websockets import (
-    _STREAM_METRICS,
-    reset_realtime_stream_metrics,
-    stream_pubsub,
-)
+from sqlstack.lib.realtime import RealtimeEvent
+from sqlstack.lib.websockets import _STREAM_METRICS, reset_realtime_stream_metrics, stream_pubsub
 from sqlstack.utils.serialization import to_json
 
 
@@ -86,7 +80,8 @@ class TestWebSocketConnection:
 
 class TestStreamPubSubFlow:
     """Test the stream_pubsub function directly — verifies the full
-    subscribe → decode → dedup → send_json pipeline."""
+    subscribe → decode → dedup → send_json pipeline.
+    """
 
     @pytest.mark.anyio
     async def test_message_forwarded_to_websocket(self) -> None:
@@ -209,5 +204,5 @@ class _async_cm:
     async def __aenter__(self) -> Any:
         return self._value
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *args: object) -> None:
         pass

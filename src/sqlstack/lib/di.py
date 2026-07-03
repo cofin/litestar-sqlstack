@@ -69,7 +69,7 @@ class QueryContext:
 
 @asynccontextmanager
 async def get_from_connection(
-    connection: "ASGIConnection[Any, Any, Any, Any]", dependency_type: type[T]
+    connection: ASGIConnection[Any, Any, Any, Any], dependency_type: type[T]
 ) -> AsyncIterator[T]:
     """Get a dependency from the Dishka container via the connection.
 
@@ -98,7 +98,7 @@ async def get_from_connection(
 
 
 @asynccontextmanager
-async def with_websocket_request(connection: "ASGIConnection[Any, Any, Any, Any]") -> AsyncIterator[AsyncContainer]:
+async def with_websocket_request(connection: ASGIConnection[Any, Any, Any, Any]) -> AsyncIterator[AsyncContainer]:
     """Enter a temporary REQUEST scope for brief database operations.
 
     Dishka creates SESSION-scoped containers for WebSocket connections (long-lived),
@@ -139,7 +139,7 @@ class WebSocketScope:
     temporary REQUEST scopes for database operations.
     """
 
-    def __init__(self, connection: "ASGIConnection[Any, Any, Any, Any]") -> None:
+    def __init__(self, connection: ASGIConnection[Any, Any, Any, Any]) -> None:
         self._connection = connection
 
     @asynccontextmanager
@@ -148,7 +148,7 @@ class WebSocketScope:
             yield container
 
 
-def provide_websocket_scope(socket: "WebSocket") -> WebSocketScope:
+def provide_websocket_scope(socket: WebSocket) -> WebSocketScope:
     """Litestar dependency provider for WebSocketScope."""
     return WebSocketScope(socket)
 
