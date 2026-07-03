@@ -7,6 +7,12 @@ dependencies = [
     "litestar-vite",
     "dishka",
     "sqlspec[asyncpg,duckdb,performance,polars,mypyc]",
+    "litestar-autowire>=0.1.0",
+    "litestar-queues>=0.1.0",
+    "litestar-email[smtp]>=0.3.0",
+    "litestar-mcp>=0.10.0",
+    "python-dotenv",
+    "pyotp>=2.9.0",
 ]
 description = "A Reference Implementation of a Litestar and SQLSpec Application"
 name = "sqlstack"
