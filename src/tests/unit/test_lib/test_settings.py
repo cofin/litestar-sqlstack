@@ -302,18 +302,21 @@ class TestEnvPrefixFallback:
 
     def test_prefix_precedence(self) -> None:
         from sqlstack.utils.env import get_config_val
+
         with patch.dict(os.environ, {"SQLSTACK_TEST_VAR": "Prefixed", "TEST_VAR": "Unprefixed"}):
             val = get_config_val("TEST_VAR", "Default")
             assert val == "Prefixed"
 
     def test_prefix_fallback(self) -> None:
         from sqlstack.utils.env import get_config_val
+
         with patch.dict(os.environ, {"TEST_VAR": "Unprefixed"}):
             val = get_config_val("TEST_VAR", "Default")
             assert val == "Unprefixed"
 
     def test_prefix_default(self) -> None:
         from sqlstack.utils.env import get_config_val
+
         with patch.dict(os.environ, {}):
             val = get_config_val("TEST_VAR", "Default")
             assert val == "Default"
@@ -324,6 +327,7 @@ class TestNewSettingsClasses:
 
     def test_auth_settings_defaults(self) -> None:
         from sqlstack.lib.settings import AuthSettings
+
         with patch.dict(os.environ, {}, clear=True):
             settings = AuthSettings()
             assert settings.LOCAL_LOGIN_ENABLED is True
@@ -335,6 +339,7 @@ class TestNewSettingsClasses:
 
     def test_email_settings_defaults(self) -> None:
         from sqlstack.lib.settings import EmailSettings
+
         with patch.dict(os.environ, {}, clear=True):
             settings = EmailSettings()
             assert settings.ENABLED is False
@@ -350,6 +355,7 @@ class TestNewSettingsClasses:
 
     def test_storage_settings_defaults(self) -> None:
         from sqlstack.lib.settings import StorageSettings
+
         with patch.dict(os.environ, {}, clear=True):
             settings = StorageSettings()
             assert settings.BACKEND == "file"
@@ -359,11 +365,10 @@ class TestNewSettingsClasses:
 
     def test_mcp_settings_defaults(self) -> None:
         from sqlstack.lib.settings import MCPSettings
+
         with patch.dict(os.environ, {}, clear=True):
             settings = MCPSettings()
             assert settings.ENABLED is False
             assert settings.ENDPOINTS == {}
             assert settings.MAX_REQUESTS_PER_MINUTE == 60
             assert settings.MAX_CONCURRENT_CONNECTIONS == 10
-
-

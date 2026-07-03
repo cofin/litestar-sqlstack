@@ -702,7 +702,20 @@ class Settings:
         """
         config: dict[str, dict[str, Any]] = {}
 
-        for section_name in ("app", "auth", "db", "email", "etl", "channels", "gcp", "log", "storage", "task", "vite", "mcp"):
+        for section_name in (
+            "app",
+            "auth",
+            "db",
+            "email",
+            "etl",
+            "channels",
+            "gcp",
+            "log",
+            "storage",
+            "task",
+            "vite",
+            "mcp",
+        ):
             section_obj = getattr(self, section_name)
             section_config: dict[str, Any] = {}
 

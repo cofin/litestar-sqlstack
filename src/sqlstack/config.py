@@ -48,38 +48,38 @@ _initialized = False
 
 
 def _initialize() -> None:
-    global _initialized
-    if _initialized:
+    if globals().get("_initialized", False):
         return
 
     _settings = get_settings()
+    g = globals()
 
-    global compression, csrf, cors, problem_details, vite, db_manager, db, etl_db, channels, session_store, stores, session_config, log
-
-    compression = CompressionConfig(backend="gzip")
-    csrf = CSRFConfig(
+    g["compression"] = CompressionConfig(backend="gzip")
+    g["csrf"] = CSRFConfig(
         secret=_settings.app.SECRET_KEY,
         cookie_secure=_settings.app.CSRF_COOKIE_SECURE,
         cookie_name=_settings.app.CSRF_COOKIE_NAME,
         header_name=_settings.app.CSRF_HEADER_NAME,
     )
-    cors = CORSConfig(allow_origins=cast("list[str]", _settings.app.ALLOWED_CORS_ORIGINS))
-    problem_details = ProblemDetailsConfig(enable_for_all_http_exceptions=True)
-    vite = _settings.vite.get_config()
-    db_manager = SQLSpec()
-    db = db_manager.add_config(_settings.db.get_config())
-    etl_db = db_manager.add_config(_settings.etl.get_config(_settings.db))
-    channels = _settings.channels.get_config()
+    g["cors"] = CORSConfig(allow_origins=cast("list[str]", _settings.app.ALLOWED_CORS_ORIGINS))
+    g["problem_details"] = ProblemDetailsConfig(enable_for_all_http_exceptions=True)
+    g["vite"] = _settings.vite.get_config()
 
-    db_manager.load_sql_files(BASE_DIR / "sqlstack" / "db" / "sql")
+    db_manager_instance = SQLSpec()
+    g["db_manager"] = db_manager_instance
+    g["db"] = db_manager_instance.add_config(_settings.db.get_config())
+    g["etl_db"] = db_manager_instance.add_config(_settings.etl.get_config(_settings.db))
+    g["channels"] = _settings.channels.get_config()
 
-    session_store = AsyncpgStore(config=db)
-    stores = StoreRegistry(stores={"sessions": cast("Store", session_store)})
-    session_config = ServerSideSessionConfig(store="sessions")
+    db_manager_instance.load_sql_files(BASE_DIR / "sqlstack" / "db" / "sql")
 
-    log = _settings.log.create_structlog_config()
+    session_store_instance = AsyncpgStore(config=g["db"])
+    g["session_store"] = session_store_instance
+    g["stores"] = StoreRegistry(stores={"sessions": cast("Store", session_store_instance)})
+    g["session_config"] = ServerSideSessionConfig(store="sessions")
 
-    _initialized = True
+    g["log"] = _settings.log.create_structlog_config()
+    g["_initialized"] = True
 
 
 def __getattr__(name: str) -> Any:
@@ -100,15 +100,15 @@ def __getattr__(name: str) -> Any:
     }:
         _initialize()
         return globals()[name]
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    msg = f"module '{__name__}' has no attribute '{name}'"
+    raise AttributeError(msg)
 
 
 def _reset() -> None:
-    global _initialized
-    _initialized = False
+    globals()["_initialized"] = False
     from sqlstack.lib.settings import Settings
     Settings.from_env.cache_clear()
-    for name in {
+    for name in (
         "compression",
         "csrf",
         "cors",
@@ -122,7 +122,7 @@ def _reset() -> None:
         "stores",
         "session_config",
         "log",
-    }:
+    ):
         if name in globals():
             del globals()[name]
 
@@ -130,12 +130,13 @@ def _reset() -> None:
 def setup_logging() -> None:
     """Return a configured logger for the given name."""
     _initialize()
-    if log.structlog_logging_config.standard_lib_logging_config:
-        log.structlog_logging_config.standard_lib_logging_config.configure()
-    log.structlog_logging_config.configure()
+    log_config = globals()["log"]
+    if log_config.structlog_logging_config.standard_lib_logging_config:
+        log_config.structlog_logging_config.standard_lib_logging_config.configure()
+    log_config.structlog_logging_config.configure()
     structlog.configure(
         cache_logger_on_first_use=True,
-        logger_factory=log.structlog_logging_config.logger_factory,
-        processors=log.structlog_logging_config.processors,
+        logger_factory=log_config.structlog_logging_config.logger_factory,
+        processors=log_config.structlog_logging_config.processors,
         wrapper_class=structlog.make_filtering_bound_logger(get_settings().log.LEVEL),
     )

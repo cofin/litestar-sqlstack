@@ -199,3 +199,8 @@ tools/scripts/detect_mcp_tools.py
 # Flow specification files (local-only)
 .agents/
 .beads
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
