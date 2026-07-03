@@ -40,11 +40,13 @@ def database_url(postgres_service: PostgresService) -> Generator[str, None, None
         "EMAIL_ENABLED": os.environ.get("EMAIL_ENABLED"),
     }
 
-    Settings.from_env.cache_clear()  # type: ignore[attr-defined]
+    from sqlstack.config import _reset
+    _reset()
 
     os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
     os.environ["DATABASE_URL"] = url
     os.environ["EMAIL_ENABLED"] = "false"
+
 
     settings = get_settings()
     assert url == settings.db.URL
