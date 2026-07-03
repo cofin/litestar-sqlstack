@@ -215,3 +215,75 @@ class TestSettingsIntegration:
         target = settings.get_config_value("task.default_execution_target")
 
         assert target == "local"  # default value
+
+
+class TestEnvPrefixFallback:
+    """Tests that SQLSTACK_ prefix takes precedence, and falls back to un-prefixed."""
+
+    def test_prefix_precedence(self) -> None:
+        from sqlstack.utils.env import get_config_val
+        with patch.dict(os.environ, {"SQLSTACK_TEST_VAR": "Prefixed", "TEST_VAR": "Unprefixed"}):
+            val = get_config_val("TEST_VAR", "Default")
+            assert val == "Prefixed"
+
+    def test_prefix_fallback(self) -> None:
+        from sqlstack.utils.env import get_config_val
+        with patch.dict(os.environ, {"TEST_VAR": "Unprefixed"}):
+            val = get_config_val("TEST_VAR", "Default")
+            assert val == "Unprefixed"
+
+    def test_prefix_default(self) -> None:
+        from sqlstack.utils.env import get_config_val
+        with patch.dict(os.environ, {}):
+            val = get_config_val("TEST_VAR", "Default")
+            assert val == "Default"
+
+
+class TestNewSettingsClasses:
+    """Tests for the new settings dataclasses."""
+
+    def test_auth_settings_defaults(self) -> None:
+        from sqlstack.lib.settings import AuthSettings
+        with patch.dict(os.environ, {}, clear=True):
+            settings = AuthSettings()
+            assert settings.LOCAL_LOGIN_ENABLED is True
+            assert settings.GOOGLE_IAP_ENABLED is False
+            assert settings.GOOGLE_IAP_AUDIENCE is None
+            assert settings.JWT_ALGORITHM == "HS256"
+            assert settings.JWT_EXPIRATION_MINUTES == 60
+            assert settings.JWT_REFRESH_EXPIRATION_DAYS == 7
+
+    def test_email_settings_defaults(self) -> None:
+        from sqlstack.lib.settings import EmailSettings
+        with patch.dict(os.environ, {}, clear=True):
+            settings = EmailSettings()
+            assert settings.ENABLED is False
+            assert settings.SMTP_HOST == "localhost"
+            assert settings.SMTP_PORT == 587
+            assert settings.SMTP_USER == ""
+            assert settings.SMTP_PASSWORD == ""
+            assert settings.USE_TLS is True
+            assert settings.USE_SSL is False
+            assert settings.FROM_EMAIL == "noreply@localhost"
+            assert settings.FROM_NAME == "Litestar App"
+            assert settings.TIMEOUT == 30
+
+    def test_storage_settings_defaults(self) -> None:
+        from sqlstack.lib.settings import StorageSettings
+        with patch.dict(os.environ, {}, clear=True):
+            settings = StorageSettings()
+            assert settings.BACKEND == "file"
+            assert settings.GCS_BUCKET == ""
+            assert settings.GCS_PROJECT == ""
+            assert settings.S3_BUCKET == ""
+
+    def test_mcp_settings_defaults(self) -> None:
+        from sqlstack.lib.settings import MCPSettings
+        with patch.dict(os.environ, {}, clear=True):
+            settings = MCPSettings()
+            assert settings.ENABLED is False
+            assert settings.ENDPOINTS == {}
+            assert settings.MAX_REQUESTS_PER_MINUTE == 60
+            assert settings.MAX_CONCURRENT_CONNECTIONS == 10
+
+

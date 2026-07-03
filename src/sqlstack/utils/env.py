@@ -125,7 +125,9 @@ def get_config_val(  # noqa: UP047
         If the default is an empty list and no type hint is provided, the function will return list[str] (not list[Path]).
         To get list[Path] in this case, provide a type hint (e.g., type_hint=list[Path]).
     """
-    str_value = os.getenv(key)
+    str_value = os.getenv(f"SQLSTACK_{key}")
+    if str_value is None:
+        str_value = os.getenv(key)
     if str_value is None:
         return default
     value: str = str_value

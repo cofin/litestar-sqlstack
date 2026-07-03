@@ -505,6 +505,90 @@ class ChannelSettings:
 
 
 @dataclass
+class AuthSettings:
+    """Authentication and Security configurations."""
+
+    LOCAL_LOGIN_ENABLED: bool = field(default_factory=get_env("AUTH_LOCAL_LOGIN_ENABLED", True))
+    """Enable or disable username/password local login."""
+    GOOGLE_IAP_ENABLED: bool = field(default_factory=get_env("AUTH_GOOGLE_IAP_ENABLED", False))
+    """Enable Google Identity-Aware Proxy (IAP) authentication."""
+    GOOGLE_IAP_AUDIENCE: str | None = field(default_factory=get_env("AUTH_GOOGLE_IAP_AUDIENCE", None))
+    """Google IAP Target Audience for JWT verification."""
+    JWT_SECRET: str | None = field(default_factory=get_env("AUTH_JWT_SECRET", None))
+    """Secret key for signing and verifying JWT tokens."""
+    JWT_ALGORITHM: str = field(default_factory=get_env("AUTH_JWT_ALGORITHM", "HS256"))
+    """Algorithm to use for JWT signature."""
+    JWT_EXPIRATION_MINUTES: int = field(default_factory=get_env("AUTH_JWT_EXPIRATION_MINUTES", 60))
+    """Minutes before a JWT token expires."""
+    JWT_REFRESH_EXPIRATION_DAYS: int = field(default_factory=get_env("AUTH_JWT_REFRESH_EXPIRATION_DAYS", 7))
+    """Days before a JWT refresh token expires."""
+
+
+@dataclass
+class StorageSettings:
+    """File and Object Storage configurations."""
+
+    BACKEND: Literal["file", "gcs", "s3"] = cast(
+        'Literal["file", "gcs", "s3"]', field(default_factory=get_env("STORAGE_BACKEND", "file"))
+    )
+    """Storage backend to use (file, gcs, s3)."""
+    LOCAL_DIR: Path = field(default_factory=get_env("STORAGE_LOCAL_DIR", Path(BASE_DIR / "storage")))
+    """Local storage directory (used when BACKEND=file)."""
+    GCS_BUCKET: str = field(default_factory=get_env("STORAGE_GCS_BUCKET", ""))
+    """Google Cloud Storage bucket name."""
+    GCS_PROJECT: str = field(default_factory=get_env("STORAGE_GCS_PROJECT", ""))
+    """Google Cloud project ID for GCS."""
+    S3_BUCKET: str = field(default_factory=get_env("STORAGE_S3_BUCKET", ""))
+    """S3 bucket name."""
+    S3_ENDPOINT: str = field(default_factory=get_env("STORAGE_S3_ENDPOINT", ""))
+    """S3 endpoint URL."""
+    S3_ACCESS_KEY: str = field(default_factory=get_env("STORAGE_S3_ACCESS_KEY", ""))
+    """S3 access key."""
+    S3_SECRET_KEY: str = field(default_factory=get_env("STORAGE_S3_SECRET_KEY", ""))
+    """S3 secret key."""
+
+
+@dataclass
+class EmailSettings:
+    """SMTP Email sending configurations."""
+
+    ENABLED: bool = field(default_factory=get_env("EMAIL_ENABLED", False))
+    """Whether email sending is enabled."""
+    SMTP_HOST: str = field(default_factory=get_env("EMAIL_SMTP_HOST", "localhost"))
+    """SMTP server hostname."""
+    SMTP_PORT: int = field(default_factory=get_env("EMAIL_SMTP_PORT", 587))
+    """SMTP server port."""
+    SMTP_USER: str = field(default_factory=get_env("EMAIL_SMTP_USER", ""))
+    """SMTP username."""
+    SMTP_PASSWORD: str = field(default_factory=get_env("EMAIL_SMTP_PASSWORD", ""))
+    """SMTP password."""
+    USE_TLS: bool = field(default_factory=get_env("EMAIL_USE_TLS", True))
+    """Use TLS for SMTP connection."""
+    USE_SSL: bool = field(default_factory=get_env("EMAIL_USE_SSL", False))
+    """Use SSL for SMTP connection."""
+    FROM_EMAIL: str = field(default_factory=get_env("EMAIL_FROM_ADDRESS", "noreply@localhost"))
+    """Default from email address."""
+    FROM_NAME: str = field(default_factory=get_env("EMAIL_FROM_NAME", "Litestar App"))
+    """Default from name."""
+    TIMEOUT: int = field(default_factory=get_env("EMAIL_TIMEOUT", 30))
+    """SMTP connection timeout in seconds."""
+
+
+@dataclass
+class MCPSettings:
+    """Model Context Protocol (MCP) configurations."""
+
+    ENABLED: bool = field(default_factory=get_env("MCP_ENABLED", False))
+    """Whether MCP is enabled."""
+    ENDPOINTS: dict[str, Any] = field(default_factory=get_env("MCP_ENDPOINTS", {}))
+    """Map of MCP endpoint configurations."""
+    MAX_REQUESTS_PER_MINUTE: int = field(default_factory=get_env("MCP_MAX_REQUESTS_PER_MINUTE", 60))
+    """Max requests per minute per connection."""
+    MAX_CONCURRENT_CONNECTIONS: int = field(default_factory=get_env("MCP_MAX_CONCURRENT_CONNECTIONS", 10))
+    """Max concurrent MCP client connections."""
+
+
+@dataclass
 class Settings:
     """Application settings container."""
 
