@@ -16,7 +16,6 @@ from uuid import UUID
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from sqlstack.ioc import make_worker_container
 from sqlstack.lib.di import Scope, request_container_var, worker_container_var
 from sqlstack.lib.exceptions import NonRetryableError
 from sqlstack.lib.jobs import get_job_registry
@@ -113,6 +112,8 @@ class Worker:
         self._channels_backend = MemoryChannelsBackend(history=settings.channels.HISTORY_TTL)
 
         # Dependency Injection - pass worker_db so DI uses the same pool
+        from sqlstack.ioc import make_worker_container
+
         self.container = make_worker_container(self._worker_db, self._channels_backend)
 
     async def start(self) -> None:

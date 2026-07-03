@@ -114,3 +114,43 @@ async def test_worker_scope_raises_without_container() -> None:
                 pass
     finally:
         di.worker_container_var.reset(token)
+
+
+def test_ioc_namespace_and_providers() -> None:
+    """Verify that IoC namespace exists and contains nested Providers."""
+    from sqlstack.ioc import IoC
+    from dishka import Provider
+
+    assert issubclass(IoC.DB, Provider)
+    assert issubclass(IoC.Services, Provider)
+    assert issubclass(IoC.Email, Provider)
+
+
+@pytest.mark.anyio
+async def test_make_container_factory() -> None:
+    """Verify make_container creates valid container and supports flags."""
+    from sqlstack.ioc import make_container
+    from sqlspec.adapters.asyncpg import AsyncpgConfig
+
+    # 1. CLI / Default container
+    container = make_container()
+    try:
+        assert hasattr(container, "get")
+    finally:
+        await container.close()
+
+    # 2. Web container
+    container_web = make_container(litestar=True)
+    try:
+        assert hasattr(container_web, "get")
+    finally:
+        await container_web.close()
+
+    # 3. Worker container
+    mock_db = MagicMock(spec=AsyncpgConfig)
+    container_worker = make_container(worker_db=mock_db)
+    try:
+        assert hasattr(container_worker, "get")
+    finally:
+        await container_worker.close()
+
