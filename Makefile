@@ -36,15 +36,7 @@ install-uv:                                         ## Install latest version of
 
 .PHONY: install
 install: destroy clean                              ## Install the project, dependencies, and pre-commit for local development
-	@echo "${INFO} Starting fresh installation..."
-	@uv python pin 3.13 >/dev/null 2>&1
-	@uv venv >/dev/null 2>&1
-	@uv sync --all-extras --dev
-	@if ! command -v npm >/dev/null 2>&1; then \
-		echo "${INFO} Installing Node environment... 📦"; \
-		uvx nodeenv .venv --force --quiet; \
-	fi
-	@echo "${OK} Installation complete! 🎉"
+	@python manage.py install
 
 .PHONY: upgrade
 upgrade:                                            ## Upgrade all dependencies to the latest stable versions
@@ -56,23 +48,11 @@ upgrade:                                            ## Upgrade all dependencies 
 
 .PHONY: clean
 clean:                                              ## Cleanup temporary build artifacts
-	@echo "${INFO} Cleaning working directory..."
-	@rm -rf pytest_cache .ruff_cache .hypothesis build/ -rf dist/ .eggs/ .coverage coverage.xml coverage.json htmlcov/ .pytest_cache src/py/tests/.pytest_cache src/py/tests/**/.pytest_cache .mypy_cache .unasyncd_cache/ .auto_pytabs_cache node_modules src/js/node_modules >/dev/null 2>&1
-	@find . -name '*.egg-info' -exec rm -rf {} + >/dev/null 2>&1
-	@find . -type f -name '*.egg' -exec rm -f {} + >/dev/null 2>&1
-	@find . -name '*.pyc' -exec rm -f {} + >/dev/null 2>&1
-	@find . -name '*.pyo' -exec rm -f {} + >/dev/null 2>&1
-	@find . -name '*~' -exec rm -f {} + >/dev/null 2>&1
-	@find . -name '__pycache__' -exec rm -rf {} + >/dev/null 2>&1
-	@find . -name '.ipynb_checkpoints' -exec rm -rf {} + >/dev/null 2>&1
-	@echo "${OK} Working directory cleaned"
-	$(MAKE) docs-clean
+	@python manage.py clean
 
 .PHONY: destroy
 destroy:                                            ## Destroy the virtual environment
-	@echo "${INFO} Destroying virtual environment... 🗑️"
-	@rm -rf .venv
-	@echo "${OK} Virtual environment destroyed 🗑️"
+	@python manage.py destroy
 
 .PHONY: lock
 lock:                                              ## Rebuild lockfiles from scratch, updating all dependencies
@@ -191,21 +171,15 @@ docs-linkcheck-full:                               ## Run the full link check on
 
 .PHONY: start-infra
 start-infra:                                        ## Start local containers
-	@echo "${INFO} Starting local infrastructure... 🚀"
-	@docker compose -f tools/deploy/docker/docker-compose.infra.yml up -d --force-recreate
-	@echo "${OK} Infrastructure is ready"
+	@python manage.py infra start
 
 .PHONY: stop-infra
 stop-infra:                                         ## Stop local containers
-	@echo "${INFO} Stopping infrastructure... 🛑"
-	@docker compose -f tools/deploy/docker/docker-compose.infra.yml down
-	@echo "${OK} Infrastructure stopped"
+	@python manage.py infra stop
 
 .PHONY: wipe-infra
-wipe-infra:                                           ## Remove local container info
-	@echo "${INFO} Wiping infrastructure... 🧹"
-	@docker compose -f tools/deploy/docker/docker-compose.infra.yml down -v --remove-orphans
-	@echo "${OK} Infrastructure wiped clean"
+wipe-infra:                                         ## Remove local container info
+	@python manage.py infra remove
 
 .PHONY: infra-logs
 infra-logs:                                           ## Tail development infrastructure logs

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 import rich_click as click
-from sqlspec.cli import add_migration_commands
-
-from tools.cli.doctor import doctor_command
-from tools.cli.infra import infra_group
 from tools.cli.init import init_command
+from tools.cli.doctor import doctor_command
 from tools.cli.install import install_command
+from tools.cli.infra import infra_group
+from tools.cli.clean import clean_command
+from tools.cli.destroy import destroy_command
 from tools.postgres.cli.connection import test_connection_cmd
 from tools.postgres.cli.database import create_db_cmd, drop_db_cmd
 from tools.postgres.cli.health import health_cmd
-
+from sqlspec.cli import add_migration_commands
 
 @click.group(name="manage")
 def manage_cli() -> None:
@@ -34,6 +34,8 @@ manage_cli.add_command(init_command)
 manage_cli.add_command(doctor_command)
 manage_cli.add_command(install_command)
 manage_cli.add_command(infra_group)
+manage_cli.add_command(clean_command)
+manage_cli.add_command(destroy_command)
 manage_cli.add_command(database_group)
 
 if __name__ == "__main__":
