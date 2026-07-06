@@ -21,7 +21,8 @@ def test_install_command_success() -> None:
         calls = [args[0] for args, _ in mock_run.call_args_list]
         assert ["uv", "sync", "--all-extras", "--dev"] in calls
         assert ["uvx", "nodeenv", ".venv", "--force", "--quiet"] in calls
-        assert ["uv", "run", "pre-commit", "install"] in calls
+        assert ["uv", "run", "prek", "install"] in calls
+
 
 def test_install_command_has_npm() -> None:
     runner = CliRunner()
@@ -37,5 +38,5 @@ def test_install_command_has_npm() -> None:
         assert mock_run.call_count == 2
         calls = [args[0] for args, _ in mock_run.call_args_list]
         assert ["uv", "sync", "--all-extras", "--dev"] in calls
-        assert ["uv", "run", "pre-commit", "install"] in calls
+        assert ["uv", "run", "prek", "install"] in calls
         assert not any("nodeenv" in c for c in calls)

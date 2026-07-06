@@ -38,7 +38,7 @@ dev = [
     { include-group = "build" },
 ]
 docs = []
-linting = ["pre-commit", "mypy", "ruff", "slotscheck", "types-click", "types-pyyaml", "pyright"]
+linting = ["prek", "mypy", "ruff", "slotscheck", "types-click", "types-pyyaml", "pyright"]
 test = ["pytest", "anyio", "pytest-mock", "pytest-cov", "coverage[toml]", "pytest-sugar", "pytest-databases[postgres]"]
 
 [build-system]

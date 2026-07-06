@@ -43,8 +43,8 @@ upgrade:                                            ## Upgrade all dependencies 
 	@echo "${INFO} Updating all dependencies... 🔄"
 	@uv lock --upgrade
 	@echo "${OK} Dependencies updated 🔄"
-	@NODE_OPTIONS="--no-deprecation --disable-warning=ExperimentalWarning" uv run pre-commit autoupdate
-	@echo "${OK} Updated Pre-commit hooks 🔄"
+	@NODE_OPTIONS="--no-deprecation --disable-warning=ExperimentalWarning" uv run prek autoupdate
+	@echo "${OK} Updated Prek hooks 🔄"
 
 .PHONY: clean
 clean:                                              ## Cleanup temporary build artifacts
@@ -90,7 +90,7 @@ type-check: mypy pyright                           ## Run all type checking
 .PHONY: pre-commit
 pre-commit:                                        ## Runs pre-commit hooks; includes ruff formatting and linting, codespell
 	@echo "${INFO} Running pre-commit checks... 🔎"
-	@uv run pre-commit run --color=always --all-files
+	@uv run prek run --color=always --all-files
 	@echo "${OK} Pre-commit checks passed ✨"
 
 .PHONY: slotscheck

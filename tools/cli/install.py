@@ -24,10 +24,10 @@ def install_command() -> None:
     else:
         click.echo("Node already installed on this machine, skipping nodeenv setup.")
 
-    click.echo("Setting up pre-commit...")
+    click.echo("Setting up prek...")
     try:
-        subprocess.run(["uv", "run", "pre-commit", "install"], check=True)
+        subprocess.run(["uv", "run", "prek", "install"], check=True)
     except subprocess.CalledProcessError as e:
-        raise click.ClickException(f"Failed to setup pre-commit: {e}") from e
+        raise click.ClickException(f"Failed to setup prek: {e}") from e
 
     click.secho("Installation complete! 🎉", fg="green")
